@@ -21,6 +21,8 @@ Build a web-based, TypeScript-first math puzzle experience for kids in grades 1-
 - Manage local profiles (create/select/delete)
 - Serve generated puzzles by game type and grade band
 - Validate answers and provide hint ladders
+- Support an extensible game-type plugin model so new puzzle types can be added without changing core app logic
+- Run generation-time quality checks (solvable + well-formed) before any puzzle is eligible for delivery
 - Track attempts, time, hint use, and accuracy
 - Compute mastery per game/skill tag
 - Parent view of progress and assignments
@@ -30,6 +32,7 @@ Build a web-based, TypeScript-first math puzzle experience for kids in grades 1-
 - Simple deployment path (local first, cloud optional)
 - Accessibility for younger learners
 - Safe-by-design, no open chat or external community features
+- Never serve unchecked content: puzzle delivery must be gated on successful validation
 
 ## Scope
 In scope:

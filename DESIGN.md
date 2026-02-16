@@ -50,7 +50,7 @@ Recommended stack:
 
 High-level modules:
 - `Profile Service`: create/select kid profile by name.
-- `Game Engine`: puzzle generators + validators + hint generators.
+- `Game Engine`: plugin-based puzzle generators + validators + hint generators.
 - `Progress Service`: attempt logs, mastery calculation, streaks, badges.
 - `Recommendation Service`: picks next puzzle/game by mastery and grade band.
 - `Parent Dashboard`: analytics, progress charts, assignment controls.
@@ -143,6 +143,13 @@ For each game type, define:
 - Validator function (exact match, set match, or tolerance rules).
 - Hint ladder (3 levels: nudge -> strategy -> near-solution).
 - Worked solution builder (step-by-step JSON for UI rendering).
+
+Mandatory generation-time validation gate:
+- Structural/schema validation
+- Solvability check via solver
+- Uniqueness check for single-answer puzzle modes
+- Prompt/solution consistency check
+- If any check fails, regenerate with new seed; never serve unvalidated puzzles
 
 Use deterministic generation:
 - Puzzle reproducibility from `(gameType, difficulty, seed)`.

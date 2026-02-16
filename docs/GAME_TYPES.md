@@ -7,6 +7,7 @@ Each game type includes:
 - Validation rules
 - Hint ladder (nudge -> strategy -> near-solution)
 - Worked solution renderer
+- Plugin implementation conforming to the shared `GameTypePlugin` interface
 
 ## 12 Game Types
 1. Number Bonds Sprint (Grades 1-2)
@@ -55,3 +56,9 @@ Each game type includes:
 - Use seeded generation for reproducibility
 - Enforce one valid answer unless multi-answer mode is explicit
 - Version puzzle templates so old attempts remain interpretable
+- Run generator output through a mandatory validation gate before serving:
+  - Schema + bounds checks
+  - Solvability check via solver
+  - Uniqueness check when game requires one answer
+  - Prompt/solution consistency check
+- If validation fails, regenerate with a new seed; never present unvalidated puzzles to users

@@ -12,7 +12,9 @@
   - Create/select profile by name
   - Set active profile in lightweight session cookie
 - Puzzle Engine
+  - Plugin-based registry of game types (`GameTypePlugin`) for extensibility
   - Deterministic puzzle generation by `(gameType, difficulty, seed)`
+  - Generation-time verification gate to ensure puzzles are solvable and schema-valid
   - Answer validation and solution generation
 - Progress Service
   - Persist attempts and update mastery metrics
@@ -31,6 +33,7 @@
 
 `Puzzle`
 - `id`, `gameTypeId`, `seed`, `difficulty`, `gradeBand`, `promptJson`, `solutionJson`
+- `validationState`, `validationErrorsJson`, `validatedAt`
 
 `Attempt`
 - `id`, `profileId`, `puzzleId`, `startedAt`, `submittedAt`, `answerJson`
@@ -51,6 +54,32 @@
 - `POST /api/attempts` submit attempt
 - `GET /api/progress/:profileId` progress summary
 - `GET /api/parent/dashboard` aggregate analytics
+
+## Extensibility Contract (Draft)
+Each puzzle type implements a shared TypeScript interface:
+- `metadata`: name, grade range, skill tags
+- `generate(input)`: creates a candidate puzzle from seed + difficulty
+- `solve(puzzle)`: returns canonical solution(s) used for validation
+- `validateAnswer(puzzle, answer)`: grades user responses
+- `validatePuzzle(puzzle)`: checks schema and game-specific invariants
+- `buildHints(puzzle)`: provides hint ladder
+
+Core engine behavior:
+- Register plugins in a `GameTypeRegistry`.
+- Route generation/validation/grading through the selected plugin.
+- New puzzle types are added by registering a plugin, not by editing core flow.
+
+## Generation-Time Validation Gate
+No puzzle may be served until checks pass:
+- Structural validation: required fields, schema, bounds, rendering safety
+- Solvability validation: solver finds at least one valid solution
+- Uniqueness validation: enforce single-solution rules when required
+- Consistency validation: prompt, solution, and validator agree
+
+Failure policy:
+- Retry generation with a new seed up to a fixed cap.
+- If cap is exceeded, log and quarantine the candidate.
+- Return only previously validated content or a safe fallback puzzle.
 
 ## Difficulty Model
 Inputs:
