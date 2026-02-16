@@ -34,10 +34,15 @@ If any check fails, generation retries with a new seed. If retries exceed cap, p
 - `POST /api/profiles/login`
 - `GET /api/profiles`
 - `GET /api/games`
-- `POST /api/puzzles/next`
+- `POST /api/puzzles/next` (returns a puzzle set; accepts `setSize`)
 - `POST /api/puzzles/hints`
 - `POST /api/attempts`
 - `GET /api/progress?profileId=...`
 
 ## Current Game Coverage
-- `number-bonds-sprint` implemented as reference plugin.
+- `number-bonds-sprint`
+- `pattern-train`
+- `factor-ninja`
+
+## Server Port
+- The alpha server is fixed to `http://localhost:5678`.

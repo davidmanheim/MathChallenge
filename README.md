@@ -16,11 +16,16 @@ Web-accessible TypeScript math puzzle platform for kids (grades 1-10), with ligh
   - TypeScript Node server
   - Plugin-based puzzle engine with validation gate
   - Name-based profile login + persisted progress
-  - One playable game: `Number Bonds Sprint`
+  - Playable games:
+    - `Number Bonds Sprint` (set-based run, easy-level number line)
+    - `Pattern Train` (interactive multiple-choice pattern puzzles)
+    - `Factor Ninja` (interactive prime factors + GCF/LCM modes)
 
 ## Run (Alpha)
 1. `npm run dev`
-2. Open `http://localhost:3000`
+2. Open `http://localhost:5678`
+
+The server always runs on port **5678**.
 
 Data is stored in:
 - `data/profiles.json`

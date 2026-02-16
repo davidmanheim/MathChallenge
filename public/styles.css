@@ -1,9 +1,11 @@
 :root {
-  --bg: #f4f1ea;
-  --card: #fffdfa;
-  --ink: #1d2b34;
-  --accent: #15616d;
-  --accent-2: #ff7d00;
+  --bg: #fff8e8;
+  --card: #fffdf7;
+  --ink: #253238;
+  --accent: #0f766e;
+  --accent-2: #ff8a00;
+  --bubble: #d7f1ff;
+  --line: #6b7280;
 }
 
 * {
@@ -12,10 +14,12 @@
 
 body {
   margin: 0;
-  font-family: "Trebuchet MS", "Segoe UI", sans-serif;
+  font-family: "Comic Sans MS", "Trebuchet MS", "Segoe UI", sans-serif;
   color: var(--ink);
-  background: radial-gradient(circle at 20% 10%, #ffecd1, transparent 35%),
-    radial-gradient(circle at 90% 0%, #cde5ea, transparent 40%), var(--bg);
+  background:
+    radial-gradient(circle at 10% 10%, #ffd8a8, transparent 35%),
+    radial-gradient(circle at 90% 5%, #b7ebff, transparent 35%),
+    linear-gradient(180deg, #fff8e8 0%, #ffecc7 100%);
 }
 
 .app {
@@ -28,10 +32,17 @@ body {
 
 .card {
   background: var(--card);
-  border: 2px solid #eadcc8;
-  border-radius: 12px;
+  border: 2px solid #f0d7a5;
+  border-radius: 16px;
   padding: 16px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 8px 18px rgba(38, 30, 16, 0.12);
+}
+
+.hero {
+  background:
+    radial-gradient(circle at 100% 0%, #d7f1ff, transparent 40%),
+    radial-gradient(circle at 0% 100%, #ffe3b2, transparent 45%),
+    var(--card);
 }
 
 .row {
@@ -62,10 +73,403 @@ button:hover {
 
 .puzzle {
   margin: 12px 0;
-  font-size: 1.4rem;
+  font-size: 1.55rem;
   font-weight: bold;
+  background: var(--bubble);
+  border-radius: 12px;
+  padding: 12px;
 }
 
 .muted {
   color: #63717a;
+}
+
+.pill {
+  align-self: center;
+  background: #fef3c7;
+  border: 1px solid #f59e0b;
+  border-radius: 999px;
+  padding: 6px 10px;
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.choice-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.choice-grid button {
+  min-width: 68px;
+  background: #2563eb;
+}
+
+.number-line {
+  margin: 10px 0 14px;
+  padding: 8px 0 2px;
+}
+
+.line-track {
+  position: relative;
+  height: 2px;
+  background: var(--line);
+}
+
+.tick {
+  position: absolute;
+  transform: translateX(-50%);
+  text-align: center;
+  top: -10px;
+}
+
+.tick-mark {
+  width: 2px;
+  height: 10px;
+  background: var(--line);
+  margin: 0 auto 2px;
+}
+
+.tick-label {
+  font-size: 0.72rem;
+}
+
+/* ===== Factor Ninja Theme ===== */
+.fn-zone {
+  --fn-bg: #1a1040;
+  --fn-accent: #39ff14;
+  --fn-gold: #ffd700;
+  --fn-orb-glow: #7c3aed;
+  --fn-card-bg: #2d1b69;
+  --fn-text: #e8e0ff;
+  background: linear-gradient(135deg, #1a1040 0%, #2d1b69 50%, #1a1040 100%);
+  border-radius: 16px;
+  padding: 20px;
+  margin: 12px 0;
+  color: var(--fn-text);
+  position: relative;
+  overflow: hidden;
+  min-height: 280px;
+}
+
+.fn-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.fn-streak {
+  font-weight: 700;
+  color: var(--fn-gold);
+  font-size: 0.95rem;
+}
+
+.fn-sub-label {
+  font-size: 0.85rem;
+  opacity: 0.7;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.fn-arena {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+/* --- Orb (prime factors mode) --- */
+.fn-orb-area {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 120px;
+}
+
+.fn-orb {
+  width: 110px;
+  height: 110px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #a78bfa, var(--fn-orb-glow) 60%, #4c1d95);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2.2rem;
+  font-weight: 900;
+  color: #fff;
+  box-shadow: 0 0 30px rgba(124, 58, 237, 0.6), 0 0 60px rgba(124, 58, 237, 0.3);
+  animation: fn-pulse 2s ease-in-out infinite;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.fn-orb.fn-orb-split {
+  animation: fn-slash 0.4s ease-out;
+}
+
+.fn-orb.fn-orb-shake {
+  animation: fn-shake 0.4s ease-out;
+}
+
+.fn-orb.fn-orb-done {
+  background: radial-gradient(circle at 35% 35%, #86efac, #22c55e 60%, #15803d);
+  box-shadow: 0 0 30px rgba(34, 197, 94, 0.6), 0 0 60px rgba(34, 197, 94, 0.3);
+  animation: fn-pulse 1s ease-in-out infinite;
+}
+
+/* --- Collected factor tray --- */
+.fn-tray {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+  min-height: 36px;
+}
+
+.fn-factor-chip {
+  background: var(--fn-accent);
+  color: #111;
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-weight: 700;
+  font-size: 1.1rem;
+  animation: fn-chip-in 0.35s ease-out;
+}
+
+/* --- Prime buttons (throwing stars) --- */
+.fn-primes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: center;
+}
+
+.fn-prime-btn {
+  width: 56px;
+  height: 56px;
+  border: none;
+  border-radius: 50%;
+  background: radial-gradient(circle at 40% 30%, #fde68a, #f59e0b 70%, #b45309);
+  color: #1a1040;
+  font-size: 1.2rem;
+  font-weight: 900;
+  cursor: pointer;
+  position: relative;
+  box-shadow: 0 2px 8px rgba(245, 158, 11, 0.4);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.fn-prime-btn::before {
+  content: "";
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  background: conic-gradient(from 0deg, transparent 0%, #fbbf24 12.5%, transparent 25%,
+    #fbbf24 37.5%, transparent 50%, #fbbf24 62.5%, transparent 75%, #fbbf24 87.5%, transparent 100%);
+  opacity: 0.35;
+  z-index: -1;
+}
+
+.fn-prime-btn:hover {
+  transform: scale(1.15);
+  box-shadow: 0 4px 16px rgba(245, 158, 11, 0.7);
+}
+
+.fn-prime-btn:active {
+  transform: scale(0.95);
+}
+
+/* --- GCF/LCM cards --- */
+.fn-cards {
+  display: flex;
+  gap: 20px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.fn-num-card {
+  background: var(--fn-card-bg);
+  border: 2px solid rgba(139, 92, 246, 0.4);
+  border-radius: 14px;
+  padding: 16px 24px;
+  text-align: center;
+  min-width: 140px;
+}
+
+.fn-num-card .fn-big-num {
+  font-size: 2.4rem;
+  font-weight: 900;
+  color: #fff;
+}
+
+.fn-num-card .fn-factor-list {
+  margin-top: 8px;
+  display: flex;
+  gap: 4px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.fn-num-card .fn-mini-chip {
+  background: rgba(139, 92, 246, 0.3);
+  border: 1px solid rgba(139, 92, 246, 0.5);
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 0.85rem;
+}
+
+/* --- Keypad (GCF/LCM) --- */
+.fn-keypad {
+  display: grid;
+  grid-template-columns: repeat(3, 64px);
+  gap: 8px;
+  justify-content: center;
+}
+
+.fn-key {
+  width: 64px;
+  height: 52px;
+  border: 2px solid rgba(139, 92, 246, 0.4);
+  border-radius: 10px;
+  background: var(--fn-card-bg);
+  color: var(--fn-text);
+  font-size: 1.3rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.fn-key:hover {
+  background: #4c1d95;
+  border-color: var(--fn-accent);
+}
+
+.fn-key.fn-key-action {
+  background: #4c1d95;
+  font-size: 0.9rem;
+}
+
+.fn-key.fn-key-go {
+  background: #15803d;
+  border-color: var(--fn-accent);
+  color: var(--fn-accent);
+}
+
+.fn-keypad-display {
+  grid-column: 1 / -1;
+  background: rgba(0, 0, 0, 0.3);
+  border: 2px solid rgba(139, 92, 246, 0.3);
+  border-radius: 10px;
+  padding: 10px;
+  text-align: right;
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: #fff;
+  min-height: 46px;
+}
+
+/* --- Hint area --- */
+.fn-hint-area {
+  font-size: 0.9rem;
+  opacity: 0.7;
+  text-align: center;
+  min-height: 20px;
+}
+
+/* --- Victory banner --- */
+.fn-banner {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) scale(0);
+  font-size: 2rem;
+  font-weight: 900;
+  color: var(--fn-accent);
+  text-shadow: 0 0 20px rgba(57, 255, 20, 0.5);
+  pointer-events: none;
+  z-index: 10;
+  white-space: nowrap;
+}
+
+.fn-banner.fn-banner-show {
+  animation: fn-banner-pop 0.5s ease-out forwards;
+}
+
+/* --- Particles --- */
+.fn-particles {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 5;
+  overflow: hidden;
+}
+
+.fn-particle {
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  animation: fn-particle-fly 0.8s ease-out forwards;
+}
+
+/* ===== Keyframe Animations ===== */
+@keyframes fn-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+}
+
+@keyframes fn-slash {
+  0% { transform: scale(1); clip-path: inset(0); }
+  30% { transform: scale(1.1); clip-path: inset(0 50% 0 0); }
+  60% { transform: scale(0.9); opacity: 0.6; }
+  100% { transform: scale(1); opacity: 1; clip-path: inset(0); }
+}
+
+@keyframes fn-shake {
+  0%, 100% { transform: translateX(0); }
+  15% { transform: translateX(-8px); }
+  30% { transform: translateX(8px); }
+  45% { transform: translateX(-6px); }
+  60% { transform: translateX(6px); }
+  75% { transform: translateX(-3px); }
+  90% { transform: translateX(3px); }
+}
+
+@keyframes fn-chip-in {
+  0% { transform: scale(0) translateY(-20px); opacity: 0; }
+  60% { transform: scale(1.2) translateY(0); }
+  100% { transform: scale(1) translateY(0); opacity: 1; }
+}
+
+@keyframes fn-banner-pop {
+  0% { transform: translate(-50%, -50%) scale(0); opacity: 0; }
+  60% { transform: translate(-50%, -50%) scale(1.15); opacity: 1; }
+  100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+}
+
+@keyframes fn-particle-fly {
+  0% { transform: translate(0, 0) scale(1); opacity: 1; }
+  100% { opacity: 0; }
+}
+
+/* Smooth transition between puzzles */
+.fn-arena.fn-fade-out {
+  animation: fn-fade 0.25s ease-out forwards;
+}
+
+@keyframes fn-fade {
+  0% { opacity: 1; transform: translateY(0); }
+  100% { opacity: 0; transform: translateY(10px); }
+}
+
+/* Wrong answer flash for keypad */
+.fn-keypad-display.fn-wrong {
+  animation: fn-wrong-flash 0.4s ease-out;
+}
+
+@keyframes fn-wrong-flash {
+  0%, 100% { border-color: rgba(139, 92, 246, 0.3); }
+  25% { border-color: #ef4444; background: rgba(239, 68, 68, 0.2); }
+  75% { border-color: #ef4444; }
 }

@@ -6,6 +6,8 @@ import { GameTypeRegistry } from "./core/registry.ts";
 import { generateCheckedPuzzle } from "./core/validation-gate.ts";
 import type { GradeBand } from "./core/types.ts";
 import { numberBondsPlugin } from "./games/numberBonds/plugin.ts";
+import { factorNinjaPlugin } from "./games/factorNinja/plugin.ts";
+import { patternTrainPlugin } from "./games/patternTrain/plugin.ts";
 import { ProfileStore } from "./services/profile-store.ts";
 import { ProgressStore } from "./services/progress-store.ts";
 
@@ -17,6 +19,8 @@ const progressStore = new ProgressStore(join(projectRoot, "data", "progress.json
 
 const registry = new GameTypeRegistry();
 registry.register(numberBondsPlugin);
+registry.register(patternTrainPlugin);
+registry.register(factorNinjaPlugin);
 
 const gradeBands: GradeBand[] = ["1-2", "2-3", "3-4", "4-6", "6-8", "8-10"];
 
@@ -37,12 +41,15 @@ function serveStatic(pathname: string, res: ServerResponse): boolean {
   const filePath = join(publicDir, cleaned);
   if (!filePath.startsWith(publicDir) || !existsSync(filePath)) return false;
 
+  const ext = extname(filePath);
   const contentType =
-    extname(filePath) === ".html"
+    ext === ".html"
       ? "text/html; charset=utf-8"
-      : extname(filePath) === ".css"
+      : ext === ".css"
         ? "text/css; charset=utf-8"
-        : "application/javascript; charset=utf-8";
+        : ext === ".svg"
+          ? "image/svg+xml"
+          : "application/javascript; charset=utf-8";
 
   res.writeHead(200, { "Content-Type": contentType });
   res.end(readFileSync(filePath));
@@ -96,19 +103,47 @@ const server = createServer(async (req, res) => {
         const gameTypeId = String(body.gameTypeId ?? "");
         const profileId = String(body.profileId ?? "");
         const difficulty = Number(body.difficulty ?? 1);
+        const setSizeRaw = Number(body.setSize ?? 1);
+        const setSize = Number.isInteger(setSizeRaw)
+          ? Math.min(12, Math.max(1, setSizeRaw))
+          : 1;
         const profile = profileStore.get(profileId);
         if (!profile) return sendJson(res, 404, { error: "Profile not found." });
         const plugin = registry.get(gameTypeId);
+        const normalizedDifficulty =
+          Number.isFinite(difficulty) && difficulty > 0 ? difficulty : 1;
+        const puzzles = [];
+        const seenKeys = new Set<string>();
 
-        const { candidate, canonicalSolutions } = generateCheckedPuzzle(plugin, {
-          gradeBand: profile.gradeBand,
-          difficulty: Number.isFinite(difficulty) && difficulty > 0 ? difficulty : 1
-        });
+        for (let i = 0; i < setSize; i += 1) {
+          // Retry with different seeds until we get a unique puzzle
+          let attempts = 0;
+          while (attempts < 50) {
+            const { candidate, canonicalSolutions } = generateCheckedPuzzle(plugin, {
+              gradeBand: profile.gradeBand,
+              difficulty: normalizedDifficulty
+            });
+
+            // Build a dedup key from the puzzle's core data
+            const key = JSON.stringify(candidate.data);
+            if (!seenKeys.has(key)) {
+              seenKeys.add(key);
+              puzzles.push({
+                puzzle: candidate,
+                hintPreview: plugin.buildHints(candidate)[0],
+                canonicalSolutionsCount: canonicalSolutions.length
+              });
+              break;
+            }
+            attempts += 1;
+          }
+        }
 
         return sendJson(res, 200, {
-          puzzle: candidate,
-          hintPreview: plugin.buildHints(candidate)[0],
-          canonicalSolutionsCount: canonicalSolutions.length
+          puzzleSet: puzzles,
+          setSize,
+          difficulty: normalizedDifficulty,
+          gameTypeId
         });
       }
 
@@ -169,7 +204,7 @@ const server = createServer(async (req, res) => {
   }
 });
 
-const port = Number(process.env.PORT ?? 3000);
+const port = 5678;
 server.listen(port, () => {
   process.stdout.write(`MathChallenge running at http://localhost:${port}\n`);
 });

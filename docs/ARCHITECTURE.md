@@ -1,5 +1,7 @@
 # Architecture Design (v0.1)
 
+Current alpha runtime endpoint: `http://localhost:5678` (fixed port).
+
 ## Stack
 - Frontend: Next.js + React + TypeScript
 - Backend API: Next.js Route Handlers (`/api/*`)

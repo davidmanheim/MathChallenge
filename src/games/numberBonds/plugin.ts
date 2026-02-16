@@ -7,6 +7,12 @@ function targetRangeForDifficulty(difficulty: number): [number, number] {
   return [100, 500];
 }
 
+function difficultyLabel(difficulty: number): string {
+  if (difficulty <= 2) return "Easy";
+  if (difficulty <= 4) return "Medium";
+  return "Challenge";
+}
+
 export const numberBondsPlugin: GameTypePlugin = {
   id: "number-bonds-sprint",
   name: "Number Bonds Sprint",
@@ -34,7 +40,10 @@ export const numberBondsPlugin: GameTypePlugin = {
       },
       data: {
         target,
-        known
+        known,
+        showNumberLine: input.difficulty <= 2,
+        numberLineMax: input.difficulty <= 2 ? target : undefined,
+        difficultyLabel: difficultyLabel(input.difficulty)
       },
       metadata: {
         expectUniqueSolution: true,

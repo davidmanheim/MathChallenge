@@ -8,9 +8,10 @@
   </head>
   <body>
     <main class="app">
-      <section class="card">
-        <h1>MathChallenge Alpha</h1>
-        <p>Login by name and play the first puzzle game.</p>
+      <section class="card hero">
+        <h1>MathChallenge Clubhouse</h1>
+        <p>Play puzzle sets, collect streaks, and level up your math brain.</p>
+        <p class="muted" id="portNotice">Server: <strong>http://localhost:5678</strong></p>
       </section>
 
       <section class="card">
@@ -31,13 +32,42 @@
       </section>
 
       <section class="card">
-        <h2>2) Puzzle</h2>
+        <h2>2) Puzzle Run</h2>
         <div class="row">
           <select id="gameType"></select>
-          <input id="difficulty" type="number" min="1" max="5" value="1" />
-          <button id="newPuzzleBtn">New Puzzle</button>
+          <label for="difficulty">Difficulty</label>
+          <input id="difficulty" type="number" min="1" max="6" value="1" />
+          <span id="difficultyLabel" class="pill">Easy</span>
+          <label for="setSize">Set Size</label>
+          <input id="setSize" type="number" min="1" max="12" value="5" />
+          <button id="newPuzzleBtn">Start Set</button>
         </div>
+        <p id="setProgress" class="muted"></p>
         <div id="puzzleBox" class="puzzle"></div>
+        <div id="choiceButtons" class="choice-grid"></div>
+        <div id="numberLine" class="number-line"></div>
+
+        <div id="factorNinjaZone" class="fn-zone" style="display:none">
+          <div class="fn-header">
+            <span class="fn-streak" id="fnStreak"></span>
+            <span class="fn-sub-label" id="fnSubLabel"></span>
+          </div>
+          <div class="fn-arena" id="fnArena">
+            <!-- Prime Factors mode -->
+            <div class="fn-orb-area" id="fnOrbArea">
+              <div class="fn-orb" id="fnOrb"></div>
+            </div>
+            <div class="fn-tray" id="fnTray"></div>
+            <div class="fn-primes" id="fnPrimes"></div>
+            <!-- GCF / LCM mode -->
+            <div class="fn-cards" id="fnCards"></div>
+            <div class="fn-keypad" id="fnKeypad"></div>
+            <div class="fn-hint-area" id="fnHintArea"></div>
+          </div>
+          <div class="fn-banner" id="fnBanner"></div>
+          <div class="fn-particles" id="fnParticles"></div>
+        </div>
+
         <div class="row">
           <input id="answer" placeholder="Your answer" />
           <button id="submitBtn">Submit</button>
