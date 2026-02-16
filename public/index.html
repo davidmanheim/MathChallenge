@@ -68,10 +68,58 @@
           <div class="fn-particles" id="fnParticles"></div>
         </div>
 
-        <div class="row">
+        <!-- KenKen Zone -->
+        <div id="kenkenZone" class="kk-zone" style="display:none">
+          <div class="kk-grid" id="kkGrid"></div>
+          <div class="kk-controls">
+            <div class="kk-numpad" id="kkNumpad"></div>
+            <button class="kk-check-btn" id="kkCheckBtn">Check Solution</button>
+          </div>
+          <div class="kk-banner" id="kkBanner"></div>
+        </div>
+
+        <!-- Balance Scale Zone -->
+        <div id="balanceZone" class="bs-zone" style="display:none">
+          <div class="bs-scale" id="bsScale">
+            <div class="bs-pan bs-left" id="bsLeft"></div>
+            <div class="bs-fulcrum"></div>
+            <div class="bs-pan bs-right" id="bsRight"></div>
+          </div>
+          <div class="bs-equation" id="bsEquation"></div>
+          <div class="bs-input-area">
+            <span class="bs-label">x =</span>
+            <div class="bs-keypad" id="bsKeypad"></div>
+          </div>
+          <div class="bs-banner" id="bsBanner"></div>
+        </div>
+
+        <!-- Shikaku Zone -->
+        <div id="shikakuZone" class="sk-zone" style="display:none">
+          <div class="sk-grid-wrap" id="skGridWrap">
+            <canvas id="skCanvas"></canvas>
+          </div>
+          <div class="sk-controls">
+            <button class="sk-undo-btn" id="skUndoBtn">Undo</button>
+            <button class="sk-clear-btn" id="skClearBtn">Clear All</button>
+            <button class="sk-check-btn" id="skCheckBtn">Check Solution</button>
+          </div>
+          <div class="sk-banner" id="skBanner"></div>
+        </div>
+
+        <div class="row" id="answerRow">
           <input id="answer" placeholder="Your answer" />
           <button id="submitBtn">Submit</button>
           <button id="hintBtn">Hint</button>
+        </div>
+        <div id="mismoZone" class="mismo-zone" style="display:none">
+          <div class="mismo-head">
+            <span id="mismoProgress"></span>
+          </div>
+          <div id="mismoBoard" class="mismo-board"></div>
+        </div>
+        <div id="xOutsZone" class="xouts-zone" style="display:none">
+          <div id="xOutsStatus" class="xouts-status"></div>
+          <div id="xOutsBoard" class="xouts-board"></div>
         </div>
         <p id="result"></p>
       </section>

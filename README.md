@@ -20,6 +20,8 @@ Web-accessible TypeScript math puzzle platform for kids (grades 1-10), with ligh
     - `Number Bonds Sprint` (set-based run, easy-level number line)
     - `Pattern Train` (interactive multiple-choice pattern puzzles)
     - `Factor Ninja` (interactive prime factors + GCF/LCM modes)
+    - `Mismo` (interactive expression-equivalence card matching)
+    - `X-Outs` (interactive row/column target-sum cross-out logic grid)
 
 ## Run (Alpha)
 1. `npm run dev`

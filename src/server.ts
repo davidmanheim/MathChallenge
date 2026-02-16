@@ -8,6 +8,11 @@ import type { GradeBand } from "./core/types.ts";
 import { numberBondsPlugin } from "./games/numberBonds/plugin.ts";
 import { factorNinjaPlugin } from "./games/factorNinja/plugin.ts";
 import { patternTrainPlugin } from "./games/patternTrain/plugin.ts";
+import { mismoPlugin } from "./games/mismo/plugin.ts";
+import { xOutsPlugin } from "./games/xOuts/plugin.ts";
+import { kenkenPlugin } from "./games/kenken/plugin.ts";
+import { balanceScalePlugin } from "./games/balanceScale/plugin.ts";
+import { shikakuPlugin } from "./games/shikaku/plugin.ts";
 import { ProfileStore } from "./services/profile-store.ts";
 import { ProgressStore } from "./services/progress-store.ts";
 
@@ -21,6 +26,11 @@ const registry = new GameTypeRegistry();
 registry.register(numberBondsPlugin);
 registry.register(patternTrainPlugin);
 registry.register(factorNinjaPlugin);
+registry.register(mismoPlugin);
+registry.register(xOutsPlugin);
+registry.register(kenkenPlugin);
+registry.register(balanceScalePlugin);
+registry.register(shikakuPlugin);
 
 const gradeBands: GradeBand[] = ["1-2", "2-3", "3-4", "4-6", "6-8", "8-10"];
 

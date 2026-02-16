@@ -43,6 +43,8 @@ If any check fails, generation retries with a new seed. If retries exceed cap, p
 - `number-bonds-sprint`
 - `pattern-train`
 - `factor-ninja`
+- `mismo`
+- `x-outs`
 
 ## Server Port
 - The alpha server is fixed to `http://localhost:5678`.

@@ -1,4 +1,4 @@
-# Game Type Catalog (v0.1)
+# Game Type Catalog (v0.2)
 
 ## Design Rules
 Each game type includes:
@@ -6,51 +6,52 @@ Each game type includes:
 - Generator parameters
 - Validation rules
 - Hint ladder (nudge -> strategy -> near-solution)
-- Worked solution renderer
 - Plugin implementation conforming to the shared `GameTypePlugin` interface
 
-## 12 Game Types
-1. Number Bonds Sprint (Grades 1-2)
-- Compose/decompose numbers quickly.
+## Implemented Games
 
-2. Pattern Train (Grades 1-3)
-- Complete number/shape patterns with increasing rule depth.
+1. **Pattern Train** (Grades 1-3)
+   - Complete number patterns with increasing rule depth (additive, multiplicative).
+   - Multiple-choice with plausible distractors.
 
-3. Shape Builder (Grades 1-4)
-- Count edges/vertices and compose simple area/perimeter.
+2. **Factor Ninja** (Grades 4-8)
+   - Prime factorisation, GCF, and LCM challenges.
+   - Interactive splitting UI for prime factors; keypad for GCF/LCM.
 
-4. Word Problem Detective (Grades 2-5)
-- Story problems with relevant/irrelevant details.
+3. **Mismo** (Grades 1-6)
+   - Match pairs of expressions that evaluate to the same value.
+   - Interactive card-pairing with match/miss feedback.
 
-5. Fraction Kitchen (Grades 3-6)
-- Scaling recipes, equivalent fractions, mixed numbers.
+4. **X-Outs** (Grades 2-5)
+   - Cross out grid cells so remaining row/column sums match targets.
+   - Interactive sum-tracking board with auto-check when constraints are met.
 
-6. Balance Scale Algebra (Grades 4-7)
-- Equation balance puzzles with unknowns.
+5. **Number Bonds Sprint** (Grades 1-2)
+   - Missing-addend practice with easy-level number-line support.
+   - Set-based run flow for repeated practice.
 
-7. Factor Ninja (Grades 4-8)
-- Prime factors, divisibility, GCF/LCM challenges.
+## Games In Development
 
-8. Logic Grid Minis (Grades 5-9)
-- Small deduction grids with constrained clues.
+See `NEW_GAMES_DESIGN.md` for full specifications.
 
-9. Coordinate Quest (Grades 5-8)
-- Plotting, transformations, slope and line intuition.
+6. **Sum Blobs** (Grades 1-4)
+   - Draw contiguous blobs on a number grid, each summing to a target.
 
-10. Combinatorics Lab (Grades 6-10)
-- Counting, casework, and basic probability.
+7. **Honeycomb Paths** (Grades 1-4)
+   - Trace a path through a hex grid to hit a target sum or sequence.
 
-11. Competition Countdown (Grades 6-10)
-- Timed mixed challenge set in contest style.
+8. **Subtractiles** (Grades 2-5)
+   - Place number tiles so adjacent-cell differences match edge constraints.
 
-12. Proof Sketch Puzzles (Grades 8-10)
-- Sequence valid reasoning steps for concise proofs.
+9. **Measure Mazes** (Grades 2-5)
+    - Connect dots at exact distances across a grid.
 
-## MVP Launch Set
-- Number Bonds Sprint
-- Pattern Train
-- Word Problem Detective
-- Factor Ninja
+10. **Equation Paths** (Grades 3-7)
+    - Trace a path through a number/operator grid to build an expression hitting a target.
+
+## Retired Games
+
+- None in current codebase.
 
 ## Content Generation Notes
 - Use seeded generation for reproducibility
