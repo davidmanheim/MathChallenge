@@ -26,3 +26,6 @@ Thumbs.db
 # Prisma / local DB artifacts
 *.db
 *.db-journal
+
+# Runtime data
+data/*.json

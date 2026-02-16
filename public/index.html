@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MathChallenge Alpha</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="app">
+      <section class="card">
+        <h1>MathChallenge Alpha</h1>
+        <p>Login by name and play the first puzzle game.</p>
+      </section>
+
+      <section class="card">
+        <h2>1) Login</h2>
+        <div class="row">
+          <input id="name" placeholder="Kid name" />
+          <select id="gradeBand">
+            <option value="1-2">Grades 1-2</option>
+            <option value="2-3">Grades 2-3</option>
+            <option value="3-4">Grades 3-4</option>
+            <option value="4-6">Grades 4-6</option>
+            <option value="6-8">Grades 6-8</option>
+            <option value="8-10">Grades 8-10</option>
+          </select>
+          <button id="loginBtn">Login</button>
+        </div>
+        <p id="profileStatus" class="muted"></p>
+      </section>
+
+      <section class="card">
+        <h2>2) Puzzle</h2>
+        <div class="row">
+          <select id="gameType"></select>
+          <input id="difficulty" type="number" min="1" max="5" value="1" />
+          <button id="newPuzzleBtn">New Puzzle</button>
+        </div>
+        <div id="puzzleBox" class="puzzle"></div>
+        <div class="row">
+          <input id="answer" placeholder="Your answer" />
+          <button id="submitBtn">Submit</button>
+          <button id="hintBtn">Hint</button>
+        </div>
+        <p id="result"></p>
+      </section>
+
+      <section class="card">
+        <h2>3) Progress</h2>
+        <pre id="progress"></pre>
+      </section>
+    </main>
+    <script type="module" src="/app.js"></script>
+  </body>
+</html>

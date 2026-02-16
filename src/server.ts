@@ -1,0 +1,175 @@
+import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
+import { readFileSync, existsSync } from "node:fs";
+import { extname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+import { GameTypeRegistry } from "./core/registry.ts";
+import { generateCheckedPuzzle } from "./core/validation-gate.ts";
+import type { GradeBand } from "./core/types.ts";
+import { numberBondsPlugin } from "./games/numberBonds/plugin.ts";
+import { ProfileStore } from "./services/profile-store.ts";
+import { ProgressStore } from "./services/progress-store.ts";
+
+const __filename = fileURLToPath(import.meta.url);
+const projectRoot = join(__filename, "..", "..");
+const publicDir = join(projectRoot, "public");
+const profileStore = new ProfileStore(join(projectRoot, "data", "profiles.json"));
+const progressStore = new ProgressStore(join(projectRoot, "data", "progress.json"));
+
+const registry = new GameTypeRegistry();
+registry.register(numberBondsPlugin);
+
+const gradeBands: GradeBand[] = ["1-2", "2-3", "3-4", "4-6", "6-8", "8-10"];
+
+function sendJson(res: ServerResponse, status: number, payload: unknown): void {
+  res.writeHead(status, { "Content-Type": "application/json; charset=utf-8" });
+  res.end(JSON.stringify(payload));
+}
+
+async function readBody(req: IncomingMessage): Promise<Record<string, unknown>> {
+  const chunks: Buffer[] = [];
+  for await (const chunk of req) chunks.push(chunk as Buffer);
+  if (chunks.length === 0) return {};
+  return JSON.parse(Buffer.concat(chunks).toString("utf8")) as Record<string, unknown>;
+}
+
+function serveStatic(pathname: string, res: ServerResponse): boolean {
+  const cleaned = pathname === "/" ? "/index.html" : pathname;
+  const filePath = join(publicDir, cleaned);
+  if (!filePath.startsWith(publicDir) || !existsSync(filePath)) return false;
+
+  const contentType =
+    extname(filePath) === ".html"
+      ? "text/html; charset=utf-8"
+      : extname(filePath) === ".css"
+        ? "text/css; charset=utf-8"
+        : "application/javascript; charset=utf-8";
+
+  res.writeHead(200, { "Content-Type": contentType });
+  res.end(readFileSync(filePath));
+  return true;
+}
+
+const server = createServer(async (req, res) => {
+  try {
+    const method = req.method ?? "GET";
+    const url = new URL(req.url ?? "/", "http://localhost");
+    const pathname = url.pathname;
+
+    if (pathname.startsWith("/api/")) {
+      if (method === "GET" && pathname === "/api/games") {
+        return sendJson(
+          res,
+          200,
+          registry.list().map((g) => ({
+            id: g.id,
+            name: g.name,
+            minGrade: g.minGrade,
+            maxGrade: g.maxGrade,
+            description: g.description
+          }))
+        );
+      }
+
+      if (method === "POST" && pathname === "/api/profiles/login") {
+        const body = await readBody(req);
+        const name = String(body.name ?? "").trim();
+        const gradeBand = String(body.gradeBand ?? "1-2") as GradeBand;
+        if (!gradeBands.includes(gradeBand)) {
+          return sendJson(res, 400, { error: "Invalid gradeBand." });
+        }
+        const profile = profileStore.login(name, gradeBand);
+        return sendJson(res, 200, { profile });
+      }
+
+      if (method === "GET" && pathname === "/api/profiles") {
+        return sendJson(res, 200, { profiles: profileStore.list() });
+      }
+
+      if (method === "GET" && pathname === "/api/progress") {
+        const profileId = String(url.searchParams.get("profileId") ?? "");
+        if (!profileId) return sendJson(res, 400, { error: "profileId is required." });
+        return sendJson(res, 200, progressStore.getProfileSummary(profileId));
+      }
+
+      if (method === "POST" && pathname === "/api/puzzles/next") {
+        const body = await readBody(req);
+        const gameTypeId = String(body.gameTypeId ?? "");
+        const profileId = String(body.profileId ?? "");
+        const difficulty = Number(body.difficulty ?? 1);
+        const profile = profileStore.get(profileId);
+        if (!profile) return sendJson(res, 404, { error: "Profile not found." });
+        const plugin = registry.get(gameTypeId);
+
+        const { candidate, canonicalSolutions } = generateCheckedPuzzle(plugin, {
+          gradeBand: profile.gradeBand,
+          difficulty: Number.isFinite(difficulty) && difficulty > 0 ? difficulty : 1
+        });
+
+        return sendJson(res, 200, {
+          puzzle: candidate,
+          hintPreview: plugin.buildHints(candidate)[0],
+          canonicalSolutionsCount: canonicalSolutions.length
+        });
+      }
+
+      if (method === "POST" && pathname === "/api/puzzles/hints") {
+        const body = await readBody(req);
+        const puzzle = body.puzzle as Record<string, unknown>;
+        const gameTypeId = String(puzzle?.gameTypeId ?? "");
+        const plugin = registry.get(gameTypeId);
+        return sendJson(res, 200, { hints: plugin.buildHints(puzzle as any) });
+      }
+
+      if (method === "POST" && pathname === "/api/attempts") {
+        const body = await readBody(req);
+        const profileId = String(body.profileId ?? "");
+        const answer = String(body.answer ?? "");
+        const hintsUsed = Number(body.hintsUsed ?? 0);
+        const timeMs = Number(body.timeMs ?? 0);
+        const puzzle = body.puzzle as Record<string, unknown>;
+        const gameTypeId = String(puzzle?.gameTypeId ?? "");
+        const seed = Number(puzzle?.seed ?? 0);
+        const difficulty = Number(puzzle?.difficulty ?? 1);
+
+        const profile = profileStore.get(profileId);
+        if (!profile) return sendJson(res, 404, { error: "Profile not found." });
+
+        const plugin = registry.get(gameTypeId);
+        const isCorrect = plugin.gradeAnswer(puzzle as any, answer);
+        const saved = progressStore.recordAttempt({
+          profileId,
+          gameTypeId,
+          puzzleSeed: seed,
+          difficulty,
+          answer,
+          isCorrect,
+          hintsUsed: Number.isFinite(hintsUsed) ? hintsUsed : 0,
+          timeMs: Number.isFinite(timeMs) ? timeMs : 0
+        });
+
+        return sendJson(res, 200, {
+          result: {
+            isCorrect,
+            hints: plugin.buildHints(puzzle as any)
+          },
+          attempt: saved
+        });
+      }
+
+      return sendJson(res, 404, { error: "Not found" });
+    }
+
+    if (!serveStatic(pathname, res)) {
+      res.writeHead(404, { "Content-Type": "text/plain; charset=utf-8" });
+      res.end("Not found");
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unexpected error";
+    sendJson(res, 500, { error: message });
+  }
+});
+
+const port = Number(process.env.PORT ?? 3000);
+server.listen(port, () => {
+  process.stdout.write(`MathChallenge running at http://localhost:${port}\n`);
+});
