@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm:*)",
+      "WebSearch",
+      "Bash(timeout:*)",
+      "Bash(dir:*)",
+      "Bash(ping:*)",
+      "Bash(netstat:*)",
+      "Bash(findstr:*)",
+      "Bash(npx tsc:*)",
+      "Bash(git: *)",
+      "Bash(ls:*)",
+      "WebFetch(domain:docs.abcjs.net)",
+      "WebFetch(domain:github.com)",
+      "Bash(node:*)",
+      "Bash(git status:*)",
+      "Bash(npm test:*)",
+      "Bash(curl:*)"
+    ]
+  }
+}
