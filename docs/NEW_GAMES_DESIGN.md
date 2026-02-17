@@ -1,0 +1,486 @@
+# New Game Types — Design Document
+
+## Overview
+
+This document specifies 5 puzzle games yet to be implemented, plus preserves the
+design specs for 2 games (Mismo, X-Outs) that have already been built.
+
+### Games Not Yet Implemented
+
+| #  | Game             | Grades | Core Math                        | Interaction Model         |
+|----|------------------|--------|----------------------------------|---------------------------|
+| 1  | Sum Blobs        | 1-4    | Addition, decomposition          | Click cells to grow blobs |
+| 2  | Honeycomb Paths  | 1-4    | Addition, number sequences       | Click hexes to trace path |
+| 3  | Subtractiles     | 2-5    | Subtraction, negative numbers    | Place tiles on a grid     |
+| 4  | Measure Mazes    | 2-5    | Measurement, distance, fractions | Click dots at distance    |
+| 5  | Equation Paths   | 3-7    | Order of operations, algebra     | Trace path through grid   |
+
+### Already Implemented (specs preserved for reference)
+
+| #  | Game    | Grades | Status      |
+|----|---------|--------|-------------|
+| 6  | Mismo   | 1-6    | Implemented |
+| 7  | X-Outs  | 2-5    | Implemented |
+
+### Pending Removal
+
+**Number Bonds Sprint** — Superseded by Balance Scale (identical underlying math
+with better progression). Will be removed once the 5 games above are implemented,
+bringing the active catalog to 12.
+
+---
+
+## 1. Sum Blobs
+
+**Source inspiration:** Beast Academy Puzzles (Palmer Mebane)
+
+### Concept
+A grid of numbers. The player draws contiguous "blobs" (groups of edge-adjacent
+cells) so that every blob sums to a given target. Every cell must belong to
+exactly one blob. No overlaps, no leftovers.
+
+### Rules
+1. The grid is pre-filled with positive integers.
+2. A target sum is displayed (e.g., "Make blobs that each sum to 10").
+3. The player clicks/taps cells to assign them to blobs. Adjacent clicked cells
+   merge into one blob.
+4. Every blob must sum to exactly the target.
+5. Every cell must be in exactly one blob.
+6. Blobs must be contiguous (connected by shared edges, not diagonals).
+
+### Difficulty Scaling
+
+| Difficulty | Grid Size | Target Sum | Number Range | Notes                     |
+|------------|-----------|------------|--------------|---------------------------|
+| 1          | 3x3       | 6-10       | 1-5          | Few blobs, obvious splits |
+| 2          | 4x4       | 8-12       | 1-6          | More ambiguity            |
+| 3          | 4x5       | 10-15      | 1-8          | Larger grid               |
+| 4          | 5x5       | 12-18      | 1-9          | Multiple valid partitions |
+| 5          | 5x6       | 15-20      | 1-9          | Requires planning ahead   |
+| 6          | 6x6       | 15-25      | 1-9          | Expert                    |
+
+### Generation Algorithm
+1. Create an empty grid of the target size.
+2. Pick a target sum T.
+3. Partition the grid into random contiguous regions, each containing 2-5 cells.
+4. For each region, generate random positive integers that sum to T.
+5. Place those integers in the region's cells.
+6. Validate: run the solver to confirm the puzzle is solvable.
+7. If the puzzle has too many solutions or is trivial, regenerate.
+
+### Answer Format
+List of blobs, where each blob is a set of cell coordinates. Serialized as:
+`(r,c),(r,c);(r,c),(r,c),(r,c);...` with semicolons separating blobs.
+
+### Interactive UI
+- **Theme:** Warm orange/amber palette. Grid cells are rounded squares.
+- **Interaction:** Click a cell to start a new blob (highlighted in a color).
+  Click adjacent cells to grow it. Click a cell again to remove it from the blob.
+  Toolbar shows blob color swatches; click a swatch to switch active blob.
+- **Feedback:** Blob turns green when it hits the target sum. Turns red if it
+  exceeds the target. Running sum displayed on each blob.
+- **Auto-submit:** When all cells are assigned and every blob is green, auto-check.
+
+### Skill Tags
+`addition`, `decomposition`, `spatial_reasoning`, `constraint_satisfaction`
+
+### Hints
+1. "Look for cells with large numbers — they have fewer neighbors that can
+   complete the target."
+2. "The cell at (r, c) with value V needs a neighbor summing to T-V."
+3. Reveal one complete blob.
+
+---
+
+## 2. X-Outs
+
+**Source inspiration:** Beast Academy X-Out Puzzles
+
+### Concept
+A grid of numbers with target sums for each row and column. Cross out certain
+numbers so the remaining numbers in each row and column sum to the targets.
+
+### Rules
+1. Grid is pre-filled with positive integers.
+2. Each row has a target sum shown on the right.
+3. Each column has a target sum shown below.
+4. The player crosses out (eliminates) numbers so that:
+   - The non-crossed-out numbers in each row sum to that row's target.
+   - The non-crossed-out numbers in each column sum to that column's target.
+5. The number of cells to cross out is displayed.
+
+### Difficulty Scaling
+
+| Difficulty | Grid Size | Number Range | Cells to X | Notes                         |
+|------------|-----------|--------------|------------|-------------------------------|
+| 1          | 3x3       | 1-6          | 2-3        | Almost forced; one per row    |
+| 2          | 3x4       | 1-8          | 3-4        | Slightly more freedom         |
+| 3          | 4x4       | 1-9          | 4-5        | Dual row+col constraint bites |
+| 4          | 4x5       | 1-9          | 5-7        | Requires logic chains         |
+| 5          | 5x5       | 1-12         | 6-8        | Challenging                   |
+| 6          | 5x6       | 1-12         | 8-10       | Expert                        |
+
+### Generation Algorithm
+1. Create a grid of random positive integers.
+2. Randomly select a subset of cells to be "crossed out."
+3. Compute row and column sums of the remaining cells — these become the targets.
+4. Verify the solution is unique (run solver).
+5. If not unique, adjust numbers or cross-out pattern and retry.
+
+### Answer Format
+Set of crossed-out cell coordinates: `(r,c),(r,c),...`
+
+### Interactive UI
+- **Theme:** Clean blue/white theme with a ledger/notebook feel.
+- **Interaction:** Click a cell to cross it out (red X overlaid, number grayed).
+  Click again to un-cross. Row/column sums update live as the player crosses out
+  numbers, with color coding: green when sum matches target, red when impossible
+  (remaining sum already below target).
+- **Auto-submit:** When all row and column sums are green, auto-check.
+
+### Skill Tags
+`addition`, `subtraction`, `logic`, `constraint_satisfaction`
+
+### Hints
+1. "Find a row or column where only one combination of removals can hit the
+   target."
+2. "Row R needs to drop by X. Which numbers in that row sum to X?"
+3. Reveal one crossed-out cell.
+
+---
+
+## 3. Honeycomb Paths
+
+### Concept
+A hexagonal grid where some cells contain numbers and some are empty. The player
+traces a path from a start cell to an end cell, stepping through hexes. The
+numbers along the path must sum to a given target, or must form a valid counting
+sequence.
+
+### Rules
+1. A honeycomb (hexagonal) grid is displayed. Each hex either contains a number
+   or is empty.
+2. Start hex (green border) and end hex (red border) are marked.
+3. The player must trace a connected path from start to end, stepping through
+   adjacent hexes (each hex has up to 6 neighbors).
+4. **Sum mode (d1-3):** The numbers on the path cells must sum to a target value.
+5. **Sequence mode (d4-6):** The path must visit numbered cells in ascending
+   order (e.g., 1, 2, 3, ..., N), and the path between consecutive numbers
+   can pass through empty cells.
+6. Each hex may be visited at most once.
+
+### Difficulty Scaling
+
+| Difficulty | Grid Radius | Mode     | Numbers | Notes                       |
+|------------|-------------|----------|---------|-----------------------------|
+| 1          | 2 (7 hexes) | Sum      | 1-5     | Short paths, small sums     |
+| 2          | 2           | Sum      | 1-8     | Slightly harder targets     |
+| 3          | 3 (19 hexes)| Sum      | 1-9     | Longer paths, more choices  |
+| 4          | 3           | Sequence | 1-6     | Must visit in order         |
+| 5          | 4 (37 hexes)| Sequence | 1-8     | Larger grid, trickier paths |
+| 6          | 4           | Sequence | 1-10    | Expert navigation           |
+
+### Generation Algorithm
+1. Build a hexagonal grid of the given radius.
+2. Place a valid path from start to end.
+3. Assign numbers to cells along the path that satisfy the target sum or sequence
+   constraint.
+4. Fill remaining cells with decoy numbers (plausible but leading to dead ends).
+5. Validate via solver.
+
+### Answer Format
+Ordered list of hex coordinates along the path: `(q,r),(q,r),...` using axial
+hex coordinates.
+
+### Interactive UI
+- **Theme:** Honeycomb gold/amber on dark brown. Hexes drawn as SVG or canvas
+  hexagons with rounded edges.
+- **Interaction:** Click the start hex, then click adjacent hexes to extend the
+  path. The path draws as a highlighted chain. Click the last hex again to undo
+  the last step. Running sum or sequence position displayed.
+- **Feedback:** Path glows green when hitting the target. Wrong paths can be
+  backed out freely.
+- **Auto-submit:** When path reaches the end hex and constraints are met.
+
+### Skill Tags
+`addition`, `counting`, `sequences`, `spatial_reasoning`, `path_finding`
+
+### Hints
+1. "Try to find a path that avoids the largest numbers if you're over the target."
+2. "The shortest path has N steps. Can you hit the target in N steps?"
+3. Reveal the first 2-3 cells of the solution path.
+
+---
+
+## 4. Subtractiles
+
+### Concept
+A grid puzzle where the player places number tiles into cells so that specific
+subtraction relationships hold between adjacent cells. Think of it as a
+constraint-satisfaction puzzle built around subtraction and difference.
+
+### Rules
+1. A rectangular grid has some cells pre-filled and others empty.
+2. A set of number tiles (not yet placed) is shown in a tray.
+3. The player drags tiles into empty cells.
+4. **Constraint:** Between certain pairs of adjacent cells, a difference value is
+   shown on the shared edge. The absolute difference of the two cells must equal
+   that value.
+5. All tiles must be placed. Each tile is used exactly once.
+
+### Difficulty Scaling
+
+| Difficulty | Grid Size | Tile Range | Constraints | Notes                          |
+|------------|-----------|------------|-------------|--------------------------------|
+| 1          | 2x3       | 1-6        | 3-4 edges   | Few tiles, mostly forced       |
+| 2          | 2x4       | 1-8        | 4-5 edges   | Slightly more freedom          |
+| 3          | 3x3       | 1-9        | 5-7 edges   | 2D constraints start to bite   |
+| 4          | 3x4       | 1-12       | 7-9 edges   | Requires chains of reasoning   |
+| 5          | 4x4       | 1-12       | 8-11 edges  | Challenging                    |
+| 6          | 4x5       | 1-15       | 10-14 edges | Expert                         |
+
+### Generation Algorithm
+1. Create a grid and fill all cells with numbers from the tile set.
+2. Compute absolute differences on selected edges between adjacent cells.
+3. Remove some cell values to create the blanks (keeping enough pre-filled cells
+   to make the puzzle solvable but not trivial).
+4. The removed values become the tile tray.
+5. Validate uniqueness via backtracking solver.
+
+### Answer Format
+Grid values as comma-separated row-major: `v1,v2,...,vN`
+
+### Interactive UI
+- **Theme:** Cool teal/slate palette. Grid cells with visible edge annotations
+  showing the required differences.
+- **Interaction:** Tile tray at the bottom. Drag a tile into an empty cell (or
+  click tile then click cell). Edge differences shown as small numbers on the
+  borders between cells. Placed tiles can be dragged back to the tray.
+- **Feedback:** When a tile is placed, adjacent difference constraints are checked
+  immediately — green check or red X on the edge. All greens + all tiles placed
+  triggers auto-check.
+- **Auto-submit:** When all cells filled and all visible constraints satisfied.
+
+### Skill Tags
+`subtraction`, `absolute_value`, `logic`, `constraint_satisfaction`
+
+### Hints
+1. "Look for a cell with only one empty neighbor and a difference constraint —
+   that tile is forced."
+2. "The cell at (r, c) must differ from its neighbor by D. Only tile T works."
+3. Reveal one tile placement.
+
+---
+
+## 5. Mismo
+
+### Concept
+"Mismo" means "same" in Spanish. This is a matching/equivalence puzzle: the
+player is shown a set of mathematical expressions and must pair them up so that
+each pair evaluates to the same value. It's like a math memory/matching game
+but all cards are face-up — the challenge is recognizing equivalence across
+different representations.
+
+### Rules
+1. A set of cards is displayed, each showing a mathematical expression.
+2. Every card has exactly one match (another card with the same value).
+3. The player clicks two cards to pair them.
+4. Paired cards are removed (or grayed out).
+5. The game is complete when all cards are paired.
+6. No timer by default, but expressions get harder to evaluate mentally at higher
+   difficulties.
+
+### Expression Types by Difficulty
+
+| Difficulty | Expressions                                        | Example Pairs              |
+|------------|----------------------------------------------------|----------------------------|
+| 1          | Simple addition/subtraction within 20               | `3 + 4` = `9 - 2`         |
+| 2          | Multiplication facts, simple division               | `6 × 3` = `9 + 9`         |
+| 3          | Mixed operations, parentheses                       | `(4 + 1) × 3` = `20 - 5`  |
+| 4          | Fractions, decimals                                 | `1/2` = `0.5`, `3/4` = `0.75` |
+| 5          | Exponents, roots                                    | `2³` = `4 + 4`, `√16` = `8/2` |
+| 6          | Variables, expressions with x                        | `2x` when x=3 = `6`, algebraic equivalence |
+
+### Generation Algorithm
+1. Generate N target values (4-8 pairs depending on difficulty).
+2. For each target value, generate two different expressions that evaluate to it.
+3. Ensure no two target values are the same (each pair is unambiguous).
+4. Shuffle all cards randomly.
+
+### Answer Format
+List of paired card indices: `(i,j),(i,j),...`
+
+### Interactive UI
+- **Theme:** Vibrant purple/magenta with card-flip aesthetic. Cards are rounded
+  rectangles with math expressions in clean typography.
+- **Interaction:** Click first card (highlights with glow), click second card to
+  attempt a pair. If values match, both cards animate out with a satisfying pop.
+  If not, both cards shake and de-select.
+- **Progress:** Paired count shown (e.g., "3 of 6 pairs found").
+- **Auto-submit:** When all pairs are matched.
+
+### Skill Tags
+`equivalence`, `mental_math`, `arithmetic`, `fractions`, `expressions`
+
+### Hints
+1. "Try evaluating the smallest-looking expressions first to find easy pairs."
+2. "The expression [X] evaluates to [V]. Can you find its match?"
+3. Reveal one pair.
+
+---
+
+## 6. Measure Mazes
+
+**Source inspiration:** Beast Academy Measure Mazes
+
+### Concept
+A set of points (dots) scattered on a grid. The player must connect them in order,
+but each connection must be exactly a given distance. The player must figure out
+which dot is the correct distance away from the current position.
+
+### Rules
+1. A grid of dots is shown. Each dot is at a grid intersection.
+2. A starting dot is marked.
+3. A sequence of distances is given (e.g., "3, 4, 5, 3").
+4. The player must connect dots in sequence: from the start dot, find a dot that
+   is exactly the first distance away, then from there find a dot exactly the
+   second distance away, and so on.
+5. **Distance type by difficulty:**
+   - d1-2: Taxicab distance (count grid steps horizontally + vertically)
+   - d3-4: Euclidean distance on grid (e.g., distance 5 = a 3-4-5 right triangle)
+   - d5-6: Euclidean distance with decimals or square roots shown
+6. Each dot may be used at most once.
+7. Not all dots need to be used (some are decoys).
+
+### Difficulty Scaling
+
+| Difficulty | Grid Size | Dots | Steps | Distance Type | Notes              |
+|------------|-----------|------|-------|---------------|--------------------|
+| 1          | 6x6       | 6-8  | 3-4   | Taxicab       | Few dots, obvious  |
+| 2          | 8x8       | 8-10 | 4-5   | Taxicab       | More decoys        |
+| 3          | 8x8       | 8-10 | 4-5   | Euclidean     | 3-4-5 triangles    |
+| 4          | 10x10     | 10-12| 5-6   | Euclidean     | Multiple Pythagorean triples |
+| 5          | 10x10     | 12-14| 6-7   | Euclidean+    | Distances may repeat |
+| 6          | 12x12     | 14-16| 7-8   | Euclidean+    | Expert, many decoys |
+
+### Generation Algorithm
+1. Place the starting dot on the grid.
+2. For each step, compute the target distance and place a dot at that exact
+   distance (choosing a valid grid point).
+3. Place decoy dots at various positions that are NOT the correct distance for
+   any step in the sequence (or are correct distances but for the wrong step).
+4. Record the solution path.
+5. Validate via solver.
+
+### Answer Format
+Ordered list of dot indices or coordinates: `(x,y),(x,y),...`
+
+### Interactive UI
+- **Theme:** Parchment/map aesthetic with compass-rose decorations. Grid shown
+  as faint dotted lines. Active dots shown as solid circles.
+- **Interaction:** Click a dot to connect it to the current endpoint. A line draws
+  between them. The distance is shown on the line. If the distance matches the
+  current target, the line turns green and locks in. If not, the line turns red
+  and retracts. A "ruler" tooltip follows the mouse showing the distance to the
+  hovered dot.
+- **Distance list:** Shown as a sequence with the current target highlighted.
+  Completed distances are checked off.
+- **Auto-submit:** When the last distance in the sequence is matched.
+
+### Skill Tags
+`measurement`, `distance`, `pythagorean_theorem`, `coordinate_geometry`,
+`spatial_reasoning`
+
+### Hints
+1. "Count the grid steps: how many right and how many up/down to each nearby dot?"
+2. "From your current dot, the target distance is D. Look for dots that are D
+   steps away (taxicab) or use the Pythagorean theorem."
+3. Reveal the next dot in the path.
+
+---
+
+## 7. Equation Paths
+
+### Concept
+A rectangular grid where each cell contains either a number or an arithmetic
+operator. The player traces a path from the top-left to the bottom-right,
+collecting numbers and operators to build a mathematical expression. The
+expression must evaluate to a given target value.
+
+### Rules
+1. A grid of cells, each containing a number (integer) or an operator (+, -, ×).
+2. Start at the top-left cell (always a number).
+3. End at the bottom-right cell (always a number).
+4. The player may only move right or down (no backtracking).
+5. The path alternates: number, operator, number, operator, ..., number.
+6. The expression formed by the path must evaluate to the target value.
+7. **Evaluation:** Left-to-right by default at d1-3 (no order-of-operations
+   complexity). Standard order of operations at d4-6.
+
+### Difficulty Scaling
+
+| Difficulty | Grid Size | Numbers | Operators | Evaluation     | Notes               |
+|------------|-----------|---------|-----------|----------------|----------------------|
+| 1          | 3x3       | 1-9     | + only    | Left-to-right  | Simple addition path |
+| 2          | 3x5       | 1-9     | +, -      | Left-to-right  | Add subtraction      |
+| 3          | 4x5       | 1-12    | +, -, ×   | Left-to-right  | Multiplication added |
+| 4          | 4x5       | 1-12    | +, -, ×   | Standard PEMDAS| Order of operations  |
+| 5          | 5x7       | 1-15    | +, -, ×, ÷| Standard PEMDAS| Division added      |
+| 6          | 5x7       | 1-20    | +, -, ×, ÷| Standard PEMDAS| Expert targets      |
+
+### Generation Algorithm
+1. Generate a valid path from top-left to bottom-right (only right/down moves).
+2. Assign numbers and operators to cells along the path so the expression
+   evaluates to the target.
+3. Fill off-path cells with plausible numbers and operators (decoys that lead to
+   different totals).
+4. Validate: ensure exactly one path yields the target.
+
+### Answer Format
+Ordered list of cell coordinates forming the path: `(r,c),(r,c),...`
+
+### Interactive UI
+- **Theme:** Dark green "chalkboard" aesthetic with chalk-white text and colored
+  path highlighting.
+- **Interaction:** Click cells to extend the path (only right or down from
+  current position). The expression builds live at the top: `3 + 5 × 2 = ?`.
+  Running result shown. Click the last cell to undo.
+- **Constraints:** Only valid next cells (right or down, alternating number/op)
+  are clickable; others are dimmed.
+- **Auto-submit:** When path reaches the bottom-right cell and expression equals
+  the target.
+
+### Skill Tags
+`arithmetic`, `order_of_operations`, `expressions`, `path_finding`,
+`strategic_thinking`
+
+### Hints
+1. "The target is T. Try to find a path that uses multiplication to reach larger
+   numbers efficiently."
+2. "From your current position, going right gives [X], going down gives [Y]."
+3. Reveal the first 3 cells of the solution path.
+
+---
+
+## Implementation Priority
+
+Recommended implementation order based on complexity and impact:
+
+1. **Mismo** — Simplest generation, wide grade range, immediately engaging
+2. **X-Outs** — Well-defined constraints, clean generation algorithm
+3. **Sum Blobs** — Beast Academy flagship, very satisfying interaction
+4. **Equation Paths** — Novel interaction, teaches order of operations
+5. **Subtractiles** — Clean constraint puzzle, good subtraction practice
+6. **Honeycomb Paths** — Requires hex grid rendering (more UI work)
+7. **Measure Mazes** — Requires distance computation + ruler tool (most UI work)
+
+## Shared Implementation Notes
+
+- All games use the standard `GameTypePlugin` interface (generate, solve,
+  validatePuzzle, gradeAnswer, buildHints).
+- All use seeded RNG for reproducibility.
+- All pass through the validation gate before serving.
+- Each game gets a themed zone div in `index.html`, themed CSS, and a render
+  function dispatched from `renderPuzzle()` in `app.js`.
+- Auto-submit on completion is the standard pattern — minimize explicit "submit"
+  button clicks for a smoother play experience.

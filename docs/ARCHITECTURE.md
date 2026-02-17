@@ -1,87 +1,99 @@
-# Architecture Design (v0.1)
+# Architecture Design (v0.2)
 
 Current alpha runtime endpoint: `http://localhost:5678` (fixed port).
 
 ## Stack
-- Frontend: Next.js + React + TypeScript
-- Backend API: Next.js Route Handlers (`/api/*`)
-- ORM: Prisma
-- Data: SQLite initially, PostgreSQL-ready schema
-- Styling: Tailwind CSS
+- Runtime: Node.js with `--experimental-strip-types` (no build step)
+- Language: TypeScript (type-stripped at runtime, no separate compilation)
+- Frontend: Vanilla HTML + CSS + JS (`public/` directory, served statically)
+- Backend: Single-file HTTP server (`src/server.ts`) using `node:http`
+- Data: JSON files on disk (`data/profiles.json`, `data/progress.json`)
+- Styling: Hand-written CSS with per-game themed sections
+
+## Project Structure
+```
+public/
+  index.html         Single-page app shell
+  app.js             All client-side logic (game renderers, API calls, state)
+  styles.css         All styles including per-game themes
+src/
+  server.ts          HTTP server, API routes, static file serving
+  core/
+    game-plugin.ts   GameTypePlugin interface
+    registry.ts      Plugin registration and lookup
+    types.ts         Shared types (GradeBand, PuzzleCandidate, etc.)
+    validation-gate.ts  Generation-time validation pipeline
+  games/
+    <gameId>/plugin.ts  One plugin per game type
+  services/
+    profile-store.ts    JSON-backed profile persistence
+    progress-store.ts   JSON-backed attempt and progress persistence
+data/
+  profiles.json      Player profiles
+  progress.json      Attempt history and mastery data
+docs/
+  *.md               Design documents
+```
 
 ## Modules
-- Profile Service
-  - Create/select profile by name
-  - Set active profile in lightweight session cookie
-- Puzzle Engine
-  - Plugin-based registry of game types (`GameTypePlugin`) for extensibility
+- **Profile Service** (`ProfileStore`)
+  - Create/select profile by name + grade band
+  - JSON file persistence
+- **Puzzle Engine**
+  - Plugin-based registry of game types (`GameTypePlugin`)
   - Deterministic puzzle generation by `(gameType, difficulty, seed)`
-  - Generation-time verification gate to ensure puzzles are solvable and schema-valid
-  - Answer validation and solution generation
-- Progress Service
-  - Persist attempts and update mastery metrics
-  - Streak/badge awarding rules
-- Recommendation Service
-  - Select next puzzle based on grade band + mastery state
-- Parent Dashboard Service
-  - Aggregate analytics and assignment controls
+  - Generation-time validation gate ensures puzzles are solvable and well-formed
+  - Answer grading and solution generation
+- **Progress Service** (`ProgressStore`)
+  - Persist attempts and compute per-game, per-skill mastery metrics
+- **Static File Server**
+  - Serves `public/` with correct MIME types (HTML, CSS, JS, SVG)
 
-## Initial Data Model
-`Profile`
-- `id`, `displayName`, `gradeBand`, `avatarTheme`, `createdAt`
+## Plugin Contract
+Every game must implement:
+- `generate(input)`: create candidate puzzle from `(gradeBand, difficulty, seed)`
+- `solve(candidate)`: produce canonical solution(s)
+- `validatePuzzle(candidate)`: game-specific shape/invariant checks
+- `gradeAnswer(candidate, answer)`: deterministic grader
+- `buildHints(candidate)`: three-level hint ladder
 
-`GameType`
-- `id`, `slug`, `name`, `minGrade`, `maxGrade`, `description`
-
-`Puzzle`
-- `id`, `gameTypeId`, `seed`, `difficulty`, `gradeBand`, `promptJson`, `solutionJson`
-- `validationState`, `validationErrorsJson`, `validatedAt`
-
-`Attempt`
-- `id`, `profileId`, `puzzleId`, `startedAt`, `submittedAt`, `answerJson`
-- `isCorrect`, `hintsUsed`, `timeMs`, `scoreAwarded`
-
-`Mastery`
-- `id`, `profileId`, `gameTypeId`, `skillTag`, `masteryScore`, `lastUpdatedAt`
-
-`Badge`
-- `id`, `profileId`, `badgeType`, `earnedAt`
-
-## API Surface (Draft)
-- `POST /api/profiles` create profile
-- `GET /api/profiles` list profiles
-- `POST /api/session/select-profile` set active profile
-- `POST /api/puzzles/next` fetch recommended puzzle
-- `POST /api/puzzles/generate` fetch puzzle by type/difficulty
-- `POST /api/attempts` submit attempt
-- `GET /api/progress/:profileId` progress summary
-- `GET /api/parent/dashboard` aggregate analytics
-
-## Extensibility Contract (Draft)
-Each puzzle type implements a shared TypeScript interface:
-- `metadata`: name, grade range, skill tags
-- `generate(input)`: creates a candidate puzzle from seed + difficulty
-- `solve(puzzle)`: returns canonical solution(s) used for validation
-- `validateAnswer(puzzle, answer)`: grades user responses
-- `validatePuzzle(puzzle)`: checks schema and game-specific invariants
-- `buildHints(puzzle)`: provides hint ladder
-
-Core engine behavior:
-- Register plugins in a `GameTypeRegistry`.
-- Route generation/validation/grading through the selected plugin.
-- New puzzle types are added by registering a plugin, not by editing core flow.
+See `ADDING_GAME_TYPES.md` for the full guide.
 
 ## Generation-Time Validation Gate
-No puzzle may be served until checks pass:
-- Structural validation: required fields, schema, bounds, rendering safety
-- Solvability validation: solver finds at least one valid solution
-- Uniqueness validation: enforce single-solution rules when required
-- Consistency validation: prompt, solution, and validator agree
+`generateCheckedPuzzle()` enforces:
+- Base schema checks (non-empty prompt, valid seed, difficulty >= 1)
+- Game-specific validation via `validatePuzzle()`
+- Solvability (`solve()` must return at least one solution)
+- Uniqueness when `expectUniqueSolution === true`
+- Grader consistency (canonical solutions must pass `gradeAnswer()`)
 
-Failure policy:
-- Retry generation with a new seed up to a fixed cap.
-- If cap is exceeded, log and quarantine the candidate.
-- Return only previously validated content or a safe fallback puzzle.
+Failure policy: retry with incremented seed up to 25 attempts. Never serve
+unvalidated puzzles.
+
+Set-level deduplication: the `/api/puzzles/next` endpoint tracks seen puzzle
+data within a set and re-rolls duplicates.
+
+## API Surface
+- `POST /api/profiles/login` — create or retrieve profile by name + grade band
+- `GET  /api/profiles` — list all profiles
+- `GET  /api/games` — list registered game types
+- `POST /api/puzzles/next` — generate a puzzle set (accepts `gameTypeId`, `difficulty`, `setSize`)
+- `POST /api/puzzles/hints` — get hint ladder for a puzzle
+- `POST /api/attempts` — submit an answer, returns grading result
+- `GET  /api/progress?profileId=...` — progress summary for a profile
+
+## Current Game Coverage
+8 registered plugins:
+- `number-bonds-sprint` (pending removal)
+- `pattern-train`
+- `factor-ninja`
+- `mismo`
+- `x-outs`
+- `kenken`
+- `balance-scale`
+- `shikaku`
+
+5 additional games designed but not yet implemented (see `NEW_GAMES_DESIGN.md`).
 
 ## Difficulty Model
 Inputs:

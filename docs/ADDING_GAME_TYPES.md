@@ -18,7 +18,14 @@ import { yourPlugin } from "./games/yourGame/plugin.ts";
 registry.register(yourPlugin);
 ```
 
-No other core code changes should be required.
+No other core code changes are required for the backend.
+
+For an interactive UI, also add:
+- A themed `<div>` container in `public/index.html` (hidden by default)
+- CSS styles in `public/styles.css`
+- A render function in `public/app.js` dispatched from `renderPuzzle()`
+
+See existing games (e.g., `kenken`, `shikaku`, `mismo`) for reference patterns.
 
 ## 3) Validation requirements (mandatory)
 Your plugin must ensure:
