@@ -76,6 +76,13 @@ function hasNontrivialGcf(a: number, b: number): boolean {
   return gcd(a, b) > 1;
 }
 
+// Medium GCF puzzles should share multiple common factors, not just one prime.
+function hasMultipleCommonFactors(a: number, b: number): boolean {
+  const g = gcd(a, b);
+  if (g < 4) return false;
+  return primeFactors(g).length >= 2;
+}
+
 // --- generator helpers per sub-type ---
 
 function primeChoicesFor(target: number): number[] {
@@ -107,10 +114,18 @@ function generatePrimeFactors(seed: number, difficulty: number) {
 function generateGcf(seed: number, difficulty: number) {
   // difficulty 3: numbers 12-100, difficulty 4: 50-300
   const [lo, hi] = difficulty <= 3 ? [12, 100] : [50, 300];
-  const a = seededInt(seed, lo, hi);
-  const b = seededInt(seed * 7 + 13, lo, hi);
-  // ensure they are different
-  const bAdjusted = b === a ? a + seededInt(seed * 3, 1, 10) : b;
+  let a = seededInt(seed, lo, hi);
+  let bAdjusted = a;
+
+  // Reroll deterministically until we get a pair with rich shared factors.
+  for (let i = 0; i < 40; i += 1) {
+    const s = seed + i * 101;
+    a = seededInt(s, lo, hi);
+    const b = seededInt(s * 7 + 13, lo, hi);
+    bAdjusted = b === a ? a + seededInt(s * 3, 1, 10) : b;
+    if (hasMultipleCommonFactors(a, bAdjusted)) break;
+  }
+
   const answer = gcd(a, bAdjusted);
   return {
     promptText: `Find the Greatest Common Factor (GCF) of ${a} and ${bAdjusted}.`,
@@ -280,6 +295,18 @@ export const factorNinjaPlugin: GameTypePlugin = {
         issues.push({
           code: "trivial_gcf",
           message: "GCF is 1 — not an interesting problem."
+        });
+      }
+      if (
+        st === "gcf" &&
+        candidate.difficulty <= 4 &&
+        Number.isInteger(a) &&
+        Number.isInteger(b) &&
+        !hasMultipleCommonFactors(a, b)
+      ) {
+        issues.push({
+          code: "thin_common_factors",
+          message: "Medium GCF puzzles should include multiple common factors."
         });
       }
     }

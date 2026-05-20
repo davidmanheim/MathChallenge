@@ -8,6 +8,7 @@ export type GenerateInput = {
   gradeBand: GradeBand;
   difficulty: number;
   seed: number;
+  pairCount?: number;
 };
 
 export type PuzzleValidationContext = {

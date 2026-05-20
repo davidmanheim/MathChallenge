@@ -16,7 +16,15 @@
       "Bash(node:*)",
       "Bash(git status:*)",
       "Bash(npm test:*)",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "Bash(./node_modules/.bin/tsc:*)",
+      "WebFetch(domain:beastacademy.com)",
+      "WebFetch(domain:www.gamesforyoungminds.com)",
+      "WebFetch(domain:www.giftedpage.org)",
+      "WebFetch(domain:artofproblemsolving.com)",
+      "WebFetch(domain:www.cliffsnotes.com)",
+      "WebFetch(domain:www.enchantedlearning.com)",
+      "Bash(grep:*)"
     ]
   }
 }

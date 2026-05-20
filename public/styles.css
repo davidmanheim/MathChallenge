@@ -6,6 +6,7 @@
   --accent-2: #ff8a00;
   --bubble: #d7f1ff;
   --line: #6b7280;
+  --btn-shadow: 0 3px 0 rgba(16, 24, 40, 0.2);
 }
 
 * {
@@ -54,10 +55,10 @@ body {
 input,
 select,
 button {
-  padding: 10px;
-  border-radius: 8px;
+  padding: 10px 12px;
+  border-radius: 10px;
   border: 1px solid #c8c8c8;
-  font-size: 1rem;
+  font-size: 1.04rem;
 }
 
 button {
@@ -65,10 +66,74 @@ button {
   color: white;
   border: none;
   cursor: pointer;
+  font-weight: 700;
+  box-shadow: var(--btn-shadow);
+  transition: transform 0.08s ease, box-shadow 0.08s ease, background 0.16s ease;
 }
 
 button:hover {
   background: var(--accent-2);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 0 rgba(16, 24, 40, 0.24);
+}
+
+button:active {
+  transform: translateY(1px);
+  box-shadow: 0 1px 0 rgba(16, 24, 40, 0.18);
+}
+
+button:focus-visible,
+input:focus-visible,
+select:focus-visible {
+  outline: 3px solid rgba(37, 99, 235, 0.32);
+  outline-offset: 1px;
+}
+
+label[for="difficulty"] {
+  font-weight: 700;
+}
+
+#difficulty {
+  width: 88px;
+  min-height: 50px;
+  padding: 10px 8px;
+  border: 2px solid #0f766e;
+  border-radius: 12px;
+  text-align: center;
+  font-size: 1.04rem;
+  font-weight: 700;
+  background: #ffffff;
+}
+
+#difficulty::-webkit-outer-spin-button,
+#difficulty::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+#difficulty {
+  appearance: textfield;
+}
+
+#difficultyLabel {
+  font-size: 1rem;
+  padding: 8px 12px;
+}
+
+.difficulty-stepper {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.difficulty-stepper button {
+  width: 42px;
+  min-width: 42px;
+  height: 42px;
+  border-radius: 999px;
+  padding: 0;
+  font-size: 1.25rem;
+  line-height: 1;
 }
 
 .puzzle {
@@ -80,8 +145,28 @@ button:hover {
   padding: 12px;
 }
 
+.puzzle.nb-win-pop {
+  animation: nb-win-pop 0.55s ease;
+}
+
 .muted {
   color: #63717a;
+}
+
+#result {
+  min-height: 1.4em;
+  font-weight: 700;
+}
+
+#result.result-success {
+  color: #166534;
+  animation: result-pop 0.45s ease;
+}
+
+@keyframes result-pop {
+  0% { transform: scale(1); }
+  45% { transform: scale(1.04); }
+  100% { transform: scale(1); }
 }
 
 .pill {
@@ -102,13 +187,17 @@ button:hover {
 }
 
 .choice-grid button {
-  min-width: 68px;
+  min-width: 82px;
+  min-height: 46px;
+  font-size: 1.08rem;
+  border-radius: 12px;
   background: #2563eb;
 }
 
 .number-line {
   margin: 10px 0 14px;
   padding: 8px 0 2px;
+  position: relative;
 }
 
 .line-track {
@@ -133,6 +222,42 @@ button:hover {
 
 .tick-label {
   font-size: 0.72rem;
+}
+
+.nb-burst {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: visible;
+}
+
+.nb-dot {
+  position: absolute;
+  left: 50%;
+  top: 10px;
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  transform: translate(-50%, 0);
+  animation: nb-dot-burst 0.65s ease-out forwards;
+}
+
+@keyframes nb-win-pop {
+  0% { transform: scale(1); }
+  25% { transform: scale(1.05) rotate(-1deg); }
+  60% { transform: scale(1.08) rotate(1deg); }
+  100% { transform: scale(1); }
+}
+
+@keyframes nb-dot-burst {
+  0% {
+    transform: translate(-50%, 0) scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(calc(-50% + var(--dx)), var(--dy)) scale(0.2);
+    opacity: 0;
+  }
 }
 
 /* ===== Mismo ===== */
@@ -207,12 +332,88 @@ button:hover {
   padding: 14px;
   background:
     linear-gradient(180deg, #eff6ff 0%, #dbeafe 100%);
+  transition: border-color 0.22s ease, box-shadow 0.22s ease, transform 0.22s ease;
 }
 
 .xouts-status {
   font-weight: 700;
   color: #1e3a8a;
   margin-bottom: 8px;
+}
+
+.xouts-zone.xouts-solved {
+  border-color: #22c55e;
+  box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.2);
+  transform: translateY(-1px);
+}
+
+.xouts-status.xouts-win {
+  color: #166534;
+  font-size: 1.08rem;
+}
+
+/* ===== Number Paths ===== */
+.np-zone {
+  margin: 12px 0;
+  border-radius: 16px;
+  border: 2px solid #22c55e;
+  padding: 14px;
+  background:
+    radial-gradient(circle at 0% 0%, #bbf7d0, transparent 30%),
+    radial-gradient(circle at 100% 100%, #bfdbfe, transparent 35%),
+    linear-gradient(180deg, #f0fdf4 0%, #dcfce7 100%);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.np-zone.np-solved {
+  border-color: #16a34a;
+  box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.18);
+}
+
+.np-status {
+  font-weight: 700;
+  color: #166534;
+  margin-bottom: 10px;
+}
+
+.np-board {
+  display: inline-block;
+}
+
+.np-table {
+  border-collapse: separate;
+  border-spacing: 8px;
+}
+
+.np-cell {
+  width: 58px;
+  height: 58px;
+  border-radius: 14px;
+  border: 2px solid #86efac;
+  background: #ffffff;
+  color: #14532d;
+  font-size: 1.08rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.np-cell:hover {
+  transform: translateY(-1px);
+  border-color: #22c55e;
+}
+
+.np-cell.np-selected {
+  background: linear-gradient(180deg, #4ade80 0%, #22c55e 100%);
+  color: #052e16;
+  border-color: #16a34a;
+}
+
+.np-cell.np-start {
+  box-shadow: inset 0 0 0 3px #facc15;
+}
+
+.np-cell.np-end {
+  box-shadow: inset 0 0 0 3px #2563eb;
 }
 
 .xouts-board {
@@ -319,6 +520,21 @@ button:hover {
   opacity: 0.7;
   text-transform: uppercase;
   letter-spacing: 1px;
+}
+
+.fn-hint-btn {
+  background: rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(167, 139, 250, 0.5);
+  color: #f5f3ff;
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.fn-hint-btn:hover {
+  background: rgba(167, 139, 250, 0.28);
 }
 
 .fn-arena {
@@ -764,6 +980,8 @@ button:hover {
   max-width: 500px;
   height: 140px;
   position: relative;
+  transform-origin: 50% 92%;
+  transition: transform 0.22s ease;
 }
 
 .bs-pan {
@@ -777,6 +995,7 @@ button:hover {
   min-height: 80px;
   border-bottom: 4px solid #a78bfa;
   position: relative;
+  transition: transform 0.22s ease, border-bottom-color 0.22s ease;
 }
 
 .bs-fulcrum {
@@ -897,6 +1116,12 @@ button:hover {
 
 .bs-scale.bs-balanced .bs-pan { border-bottom-color: #22c55e; }
 .bs-scale.bs-balanced .bs-fulcrum { border-bottom-color: #22c55e; }
+.bs-scale.bs-tip-left { transform: rotate(-6deg); }
+.bs-scale.bs-tip-right { transform: rotate(6deg); }
+.bs-scale.bs-tip-left .bs-left { transform: translateY(10px); }
+.bs-scale.bs-tip-left .bs-right { transform: translateY(-6px); }
+.bs-scale.bs-tip-right .bs-right { transform: translateY(10px); }
+.bs-scale.bs-tip-right .bs-left { transform: translateY(-6px); }
 
 /* ===== Shikaku Theme ===== */
 .sk-zone {

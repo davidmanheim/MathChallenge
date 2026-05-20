@@ -13,6 +13,7 @@ import { xOutsPlugin } from "./games/xOuts/plugin.ts";
 import { kenkenPlugin } from "./games/kenken/plugin.ts";
 import { balanceScalePlugin } from "./games/balanceScale/plugin.ts";
 import { shikakuPlugin } from "./games/shikaku/plugin.ts";
+import { numberPathsPlugin } from "./games/numberPaths/plugin.ts";
 import { ProfileStore } from "./services/profile-store.ts";
 import { ProgressStore } from "./services/progress-store.ts";
 
@@ -31,8 +32,24 @@ registry.register(xOutsPlugin);
 registry.register(kenkenPlugin);
 registry.register(balanceScalePlugin);
 registry.register(shikakuPlugin);
+registry.register(numberPathsPlugin);
 
 const gradeBands: GradeBand[] = ["1-2", "2-3", "3-4", "4-6", "6-8", "8-10"];
+
+function latencyBandForTimeMs(timeMs: number): "fast" | "on_time" | "slow" | "unknown" {
+  if (!Number.isFinite(timeMs) || timeMs <= 0) return "unknown";
+  if (timeMs <= 15_000) return "fast";
+  if (timeMs <= 45_000) return "on_time";
+  return "slow";
+}
+
+function successScoreForAttempt(isCorrect: boolean, hintsUsed: number, latencyBand: string): number {
+  let score = isCorrect ? 1 : 0;
+  if (hintsUsed > 0) score -= Math.min(0.3, hintsUsed * 0.08);
+  if (isCorrect && latencyBand === "fast") score += 0.05;
+  if (isCorrect && latencyBand === "slow") score -= 0.05;
+  return Math.max(0, Math.min(1, Number(score.toFixed(3))));
+}
 
 function sendJson(res: ServerResponse, status: number, payload: unknown): void {
   res.writeHead(status, { "Content-Type": "application/json; charset=utf-8" });
@@ -122,16 +139,23 @@ const server = createServer(async (req, res) => {
         const plugin = registry.get(gameTypeId);
         const normalizedDifficulty =
           Number.isFinite(difficulty) && difficulty > 0 ? difficulty : 1;
+        const isMismo = gameTypeId === "mismo";
+        const isXOuts = gameTypeId === "x-outs";
+        const pairCount = isMismo
+          ? (Number.isInteger(setSizeRaw) ? Math.min(12, Math.max(4, setSizeRaw)) : 5)
+          : undefined;
+        const boardCount = (isMismo || isXOuts) ? 1 : setSize;
         const puzzles = [];
         const seenKeys = new Set<string>();
 
-        for (let i = 0; i < setSize; i += 1) {
+        for (let i = 0; i < boardCount; i += 1) {
           // Retry with different seeds until we get a unique puzzle
           let attempts = 0;
           while (attempts < 50) {
             const { candidate, canonicalSolutions } = generateCheckedPuzzle(plugin, {
               gradeBand: profile.gradeBand,
-              difficulty: normalizedDifficulty
+              difficulty: normalizedDifficulty,
+              pairCount
             });
 
             // Build a dedup key from the puzzle's core data
@@ -151,7 +175,8 @@ const server = createServer(async (req, res) => {
 
         return sendJson(res, 200, {
           puzzleSet: puzzles,
-          setSize,
+          setSize: boardCount,
+          pairCount,
           difficulty: normalizedDifficulty,
           gameTypeId
         });
@@ -181,6 +206,13 @@ const server = createServer(async (req, res) => {
 
         const plugin = registry.get(gameTypeId);
         const isCorrect = plugin.gradeAnswer(puzzle as any, answer);
+        const skillTags = Array.isArray((puzzle as any)?.metadata?.skillTags)
+          ? (puzzle as any).metadata.skillTags.filter((s: unknown) => typeof s === "string")
+          : [];
+        const latencyBand = latencyBandForTimeMs(timeMs);
+        const normalizedHints = Number.isFinite(hintsUsed) ? Math.max(0, hintsUsed) : 0;
+        const successScore = successScoreForAttempt(isCorrect, normalizedHints, latencyBand);
+        const beforeSummary = progressStore.getProfileSummary(profileId);
         const saved = progressStore.recordAttempt({
           profileId,
           gameTypeId,
@@ -188,16 +220,47 @@ const server = createServer(async (req, res) => {
           difficulty,
           answer,
           isCorrect,
-          hintsUsed: Number.isFinite(hintsUsed) ? hintsUsed : 0,
-          timeMs: Number.isFinite(timeMs) ? timeMs : 0
+          hintsUsed: normalizedHints,
+          timeMs: Number.isFinite(timeMs) ? Math.max(0, timeMs) : 0,
+          usedHint: normalizedHints > 0,
+          latencyBand,
+          successScore,
+          skillTags
         });
+        const afterSummary = progressStore.getProfileSummary(profileId);
+        const beforeSkills = beforeSummary.bySkill || {};
+        const afterSkills = afterSummary.bySkill || {};
+        const gainedSkills = Object.keys(afterSkills)
+          .map((tag) => {
+            const prev = beforeSkills[tag]?.mastery ?? 0;
+            const next = afterSkills[tag]?.mastery ?? 0;
+            return { tag, gain: next - prev };
+          })
+          .filter((x) => x.gain > 0.01)
+          .sort((a, b) => b.gain - a.gain)
+          .slice(0, 3)
+          .map((x) => `${x.tag} +${x.gain.toFixed(1)}`);
+
+        const levelStats =
+          afterSummary.byGameLevel?.[gameTypeId]?.[String(difficulty)];
+        const reinforcement = {
+          gainedSkills,
+          levelProgress: levelStats
+            ? `Level ${difficulty} mastery ${Math.round(levelStats.mastery)}%`
+            : `Level ${difficulty} tracked`,
+          streak:
+            afterSummary.byGame?.[gameTypeId]?.streak ??
+            0
+        };
 
         return sendJson(res, 200, {
           result: {
             isCorrect,
-            hints: plugin.buildHints(puzzle as any)
+            hints: plugin.buildHints(puzzle as any),
+            reinforcement
           },
-          attempt: saved
+          attempt: saved,
+          progress: afterSummary
         });
       }
 

@@ -36,9 +36,13 @@
         <div class="row">
           <select id="gameType"></select>
           <label for="difficulty">Difficulty</label>
-          <input id="difficulty" type="number" min="1" max="6" value="1" />
+          <div class="difficulty-stepper">
+            <button id="difficultyDown" type="button" aria-label="Decrease difficulty">-</button>
+            <input id="difficulty" type="number" min="1" max="6" value="1" />
+            <button id="difficultyUp" type="button" aria-label="Increase difficulty">+</button>
+          </div>
           <span id="difficultyLabel" class="pill">Easy</span>
-          <label for="setSize">Set Size</label>
+          <label id="setSizeLabel" for="setSize">Set Size</label>
           <input id="setSize" type="number" min="1" max="12" value="5" />
           <button id="newPuzzleBtn">Start Set</button>
         </div>
@@ -51,6 +55,7 @@
           <div class="fn-header">
             <span class="fn-streak" id="fnStreak"></span>
             <span class="fn-sub-label" id="fnSubLabel"></span>
+            <button id="fnHintBtn" class="fn-hint-btn" type="button">Hint</button>
           </div>
           <div class="fn-arena" id="fnArena">
             <!-- Prime Factors mode -->
@@ -120,6 +125,10 @@
         <div id="xOutsZone" class="xouts-zone" style="display:none">
           <div id="xOutsStatus" class="xouts-status"></div>
           <div id="xOutsBoard" class="xouts-board"></div>
+        </div>
+        <div id="numberPathsZone" class="np-zone" style="display:none">
+          <div id="numberPathsStatus" class="np-status"></div>
+          <div id="numberPathsBoard" class="np-board"></div>
         </div>
         <p id="result"></p>
       </section>

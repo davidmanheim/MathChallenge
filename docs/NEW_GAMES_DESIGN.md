@@ -474,6 +474,39 @@ Recommended implementation order based on complexity and impact:
 6. **Honeycomb Paths** — Requires hex grid rendering (more UI work)
 7. **Measure Mazes** — Requires distance computation + ruler tool (most UI work)
 
+## Extension Path for Existing/Planned Games
+
+Use these upgrades before creating entirely new engines when possible:
+
+- `Equation Paths`: add coordinate-grid and function-machine variants.
+- `Balance Scale`: add inequality chains and two-variable system boards.
+- `Mismo` / `Expression Search`: require strategy tags and short method explanations.
+- `KenKen` / `Sumdoku` family: add combinatorics modes ("count possible completions").
+- `Measure Mazes`: add angle-target and coordinate-transformation variants.
+- `Shikaku` / `Polyominoes`: add perimeter-min/max and transformation constraints.
+- Factor titles (`Factor Ninja`, `Factor Cave`, `F&M Grids`): add modular arithmetic.
+- Ratio/percent titles (`Ratio Rooms`, `Percent Squares`, `Equivalink`): add data table and graph interpretation overlays.
+
+## Gap-Driven New Game Types (Needed Beyond Extensions)
+
+Current/planned catalog still under-covers:
+- Euclidean geometry proof topics
+- Combinatorics/probability
+- Formal proof construction
+- Coordinate geometry
+- Graph theory/discrete math
+- Function thinking
+- Statistics/data literacy
+
+## Next-Step Design TODO (Highest Leverage)
+
+1. **Angle Chase Studio** (geometry + proof reasoning anchor)
+2. **Counting Lab** (counting principles/combinatorics anchor)
+3. **Proof Blocks** (argument structure and proof-writing anchor)
+4. **Chance Builder** (probability and expected value)
+5. **Coordinate Quest 2D** (slope/distance/transformations)
+6. **Graph Trails** (paths, cycles, parity, coloring)
+
 ## Shared Implementation Notes
 
 - All games use the standard `GameTypePlugin` interface (generate, solve,

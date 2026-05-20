@@ -16,3 +16,4 @@ See `docs/ADDING_GAME_TYPES.md` for the full guide on creating new plugins.
 | `factorNinja`   | `factor-ninja`         | 4-8    | Prime factors, GCF, LCM               |
 | `balanceScale`  | `balance-scale`        | 4-8    | Equation solving (find x)              |
 | `numberBonds`   | `number-bonds-sprint`  | 1-2    | Missing addend (pending removal)       |
+| `numberPaths`   | `number-paths`         | 1-2    | Trace consecutive number paths          |

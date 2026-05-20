@@ -51,4 +51,8 @@ export type Attempt = {
   isCorrect: boolean;
   hintsUsed: number;
   timeMs: number;
+  usedHint: boolean;
+  latencyBand: "fast" | "on_time" | "slow" | "unknown";
+  successScore: number;
+  skillTags: string[];
 };

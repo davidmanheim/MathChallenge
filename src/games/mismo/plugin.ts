@@ -30,6 +30,66 @@ function randInt(rng: () => number, min: number, max: number): number {
   return min + Math.floor(rng() * (max - min + 1));
 }
 
+function pickOne<T>(rng: () => number, options: T[]): T {
+  return options[randInt(rng, 0, options.length - 1)];
+}
+
+function additionExpr(value: number, rng: () => number, maxTerm = 30): string {
+  const minA = Math.max(1, value - maxTerm);
+  const maxA = Math.min(maxTerm, value - 1);
+  if (minA > maxA) return `${value}`;
+  const a = randInt(rng, minA, maxA);
+  return `${a} + ${value - a}`;
+}
+
+function subtractionExpr(value: number, rng: () => number, maxSub = 20): string {
+  const sub = randInt(rng, 1, maxSub);
+  return `${value + sub} - ${sub}`;
+}
+
+function multiplicationExpr(
+  value: number,
+  rng: () => number,
+  maxFactor: number
+): string | null {
+  const factors: number[] = [];
+  for (let f = 2; f <= maxFactor; f += 1) {
+    if (value % f === 0 && value / f > 1) factors.push(f);
+  }
+  if (factors.length === 0) return null;
+  const f = pickOne(rng, factors);
+  return `${f} x ${value / f}`;
+}
+
+function sqrtExpr(value: number): string {
+  return `√(${value * value})`;
+}
+
+function mixedMulAddExpr(value: number, rng: () => number, maxMul: number): string | null {
+  const mulChoices: number[] = [];
+  for (let m = 2; m <= maxMul; m += 1) {
+    if (value % m === 0) mulChoices.push(m);
+  }
+  if (mulChoices.length === 0) return null;
+  const mul = pickOne(rng, mulChoices);
+  const quotient = value / mul;
+  const add = randInt(rng, 1, Math.min(6, Math.max(1, quotient - 1)));
+  const base = quotient - add;
+  if (base <= 0) return null;
+  return `(${base} + ${add}) x ${mul}`;
+}
+
+function mixedMulSubExpr(value: number, rng: () => number): string {
+  const a = randInt(rng, 2, 9);
+  const b = randInt(rng, 2, 12);
+  const prod = a * b;
+  if (prod <= value) {
+    const extra = value - prod;
+    return `(${a} x ${b}) + ${extra}`;
+  }
+  return `(${a} x ${b}) - ${prod - value}`;
+}
+
 function shuffleInPlace<T>(rng: () => number, arr: T[]): void {
   for (let i = arr.length - 1; i > 0; i -= 1) {
     const j = Math.floor(rng() * (i + 1));
@@ -50,52 +110,88 @@ function buildExpressionsForValue(
   rng: () => number
 ): [string, string] {
   if (difficulty <= 1) {
-    const a = randInt(rng, 1, Math.max(2, value - 1));
-    const b = value - a;
-    const c = value + randInt(rng, 1, 8);
-    const d = c - value;
-    return [`${a} + ${b}`, `${c} - ${d}`];
+    // Mix of plain numbers with single-digit addition/subtraction.
+    const options = [
+      `${value}`,
+      additionExpr(value, rng, 9),
+      subtractionExpr(value, rng, 9)
+    ];
+    const exprA = pickOne(rng, options);
+    let exprB = pickOne(rng, options);
+    if (exprA === exprB) exprB = exprA === `${value}` ? additionExpr(value, rng, 9) : `${value}`;
+    return [exprA, exprB];
   }
 
   if (difficulty <= 2) {
-    const a = randInt(rng, 2, 9);
-    const b = Math.max(1, Math.floor(value / a));
-    const prod = a * b;
-    const exprA = `${a} x ${b}`;
-    const exprB = prod === value ? `${value * 2} / 2` : `${value + 9} - 9`;
+    // Mostly single-digit and small 2-digit arithmetic; multiplication capped at 3.
+    const mult = multiplicationExpr(value, rng, 3);
+    const options = [
+      `${value}`,
+      additionExpr(value, rng, 15),
+      subtractionExpr(value, rng, 12),
+      mult
+    ].filter((x): x is string => typeof x === "string");
+    const exprA = pickOne(rng, options);
+    let exprB = pickOne(rng, options);
+    if (exprA === exprB) exprB = exprA === `${value}` ? additionExpr(value, rng, 15) : `${value}`;
     return [exprA, exprB];
   }
 
   if (difficulty <= 3) {
-    const add = randInt(rng, 1, 6);
-    const mul = randInt(rng, 2, 4);
-    const left = Math.max(1, Math.floor(value / mul) - add);
-    const exprA = `(${left} + ${add}) x ${mul}`;
-    const exprB = `${value + 12} - 12`;
+    // Add simple multiplication and small mixed-operation forms.
+    const options = [
+      multiplicationExpr(value, rng, 6),
+      mixedMulAddExpr(value, rng, 4),
+      mixedMulSubExpr(value, rng),
+      additionExpr(value, rng, 20),
+      subtractionExpr(value, rng, 15)
+    ].filter((x): x is string => typeof x === "string");
+    const exprA = pickOne(rng, options);
+    let exprB = pickOne(rng, options);
+    if (exprA === exprB) exprB = additionExpr(value, rng, 20);
     return [exprA, exprB];
   }
 
   if (difficulty <= 4) {
-    const denom = randInt(rng, 2, 8);
-    const num = value * denom;
-    const decimal = (value + 0.25).toFixed(2);
-    const exprA = `${num}/${denom}`;
-    const exprB = `${decimal} - 0.25`;
+    const options = [
+      multiplicationExpr(value, rng, 8),
+      mixedMulAddExpr(value, rng, 6),
+      mixedMulSubExpr(value, rng),
+      `${value * 2} / 2`,
+      `${value * 3} / 3`
+    ].filter((x): x is string => typeof x === "string");
+    const exprA = pickOne(rng, options);
+    let exprB = pickOne(rng, options);
+    if (exprA === exprB) exprB = subtractionExpr(value, rng, 20);
     return [exprA, exprB];
   }
 
   if (difficulty <= 5) {
-    const square = value * value;
-    const exprA = `sqrt(${square})`;
-    const exprB = `${value + 2} x 1 - 2`;
+    const options = [
+      sqrtExpr(value),
+      multiplicationExpr(value, rng, 10),
+      mixedMulAddExpr(value, rng, 8),
+      mixedMulSubExpr(value, rng),
+      `${value + 12} - 12`,
+      `${value * 4} / 4`
+    ].filter((x): x is string => typeof x === "string");
+    const exprA = pickOne(rng, options);
+    let exprB = pickOne(rng, options);
+    if (exprA === exprB) exprB = additionExpr(value, rng, 30);
     return [exprA, exprB];
   }
 
-  const x = randInt(rng, 2, 9);
-  const coeff = randInt(rng, 2, 5);
-  const v = coeff * x;
-  const exprA = `${coeff}x when x=${x}`;
-  const exprB = `${v - 3} + 3`;
+  const options = [
+    sqrtExpr(value),
+    multiplicationExpr(value, rng, 12),
+    mixedMulAddExpr(value, rng, 10),
+    mixedMulSubExpr(value, rng),
+    `${value * 5} / 5`,
+    `(${value + 18}) - 18`
+  ].filter((x): x is string => typeof x === "string");
+  const exprA = pickOne(rng, options);
+  let exprB = pickOne(rng, options);
+  if (exprA === exprB) exprB = additionExpr(value, rng, 40);
   return [exprA, exprB];
 }
 
@@ -144,22 +240,29 @@ function normalizePairs(raw: string): string | null {
   return pairs.join(",");
 }
 
-function buildCandidate(seed: number, difficulty: number): {
+function buildCandidate(seed: number, difficulty: number, pairCountOverride?: number): {
   cards: Card[];
   answer: string;
   pairCount: number;
 } {
   const rng = makeRng(seed + difficulty * 97);
-  const pairCount = pairsForDifficulty(difficulty);
+  const pairCount = Number.isInteger(pairCountOverride)
+    ? Math.max(4, Math.min(12, Number(pairCountOverride)))
+    : pairsForDifficulty(difficulty);
   const values = new Set<number>();
 
   while (values.size < pairCount) {
-    const v =
-      difficulty <= 3
-        ? randInt(rng, 5, 40)
-        : difficulty <= 5
-          ? randInt(rng, 6, 30)
-          : randInt(rng, 8, 45);
+    const v = difficulty <= 1
+      ? randInt(rng, 2, 9)
+      : difficulty <= 2
+        ? randInt(rng, 4, 24)
+        : difficulty <= 3
+          ? randInt(rng, 6, 40)
+          : difficulty <= 4
+            ? randInt(rng, 8, 72)
+            : difficulty <= 5
+              ? randInt(rng, 12, 120)
+              : randInt(rng, 18, 180);
     values.add(v);
   }
 
@@ -205,7 +308,7 @@ export const mismoPlugin: GameTypePlugin = {
   description: "Match expression cards that evaluate to the same value.",
 
   generate(input) {
-    const built = buildCandidate(input.seed, input.difficulty);
+    const built = buildCandidate(input.seed, input.difficulty, input.pairCount);
     const difficultyLabel =
       input.difficulty <= 2
         ? "Easy"

@@ -27,6 +27,34 @@ Exit criteria:
 - Adaptive recommendation tuning
 - Better hint quality and worked solutions
 
+### Coverage Expansion Strategy (From Current/Planned Types)
+- Extend `Equation Paths` with coordinate/graph variants and function-machine mode.
+- Extend `Balance Scale` with inequalities and 2-variable systems.
+- Extend `Mismo` / `Expression Search` with explain-your-method checkpoints.
+- Extend `KenKen` / `Sumdoku` family with counting/combinatorics overlays.
+- Extend `Measure Mazes` with angle and coordinate geometry variants.
+- Extend `Shikaku` / `Polyominoes` with perimeter optimization and transformations.
+- Extend factor titles (`Factor Ninja`, `Factor Cave`, `F&M Grids`) with modular arithmetic strands.
+- Extend ratio/percent titles (`Ratio Rooms`, `Percent Squares`, `Equivalink`) with tables/graphs/data interpretation.
+
+### Gap Areas Requiring New Anchors
+- Euclidean geometry proof fluency (angles, similarity, circles)
+- Combinatorics and counting principles
+- Probability and expected value
+- Formal proof-writing and argument structure
+- Coordinate geometry and transformation fluency
+- Graph theory / discrete structures
+- Function thinking (composition, inverse, recursion)
+- Data/statistics interpretation and critique
+
+### Next Steps TODO (Highest Leverage First)
+1. Build **Angle Chase Studio** (geometry/proof anchor).
+2. Build **Counting Lab** (combinatorics/counting anchor).
+3. Build **Proof Blocks** (formal reasoning/proof anchor).
+4. Design specs for `Chance Builder`, `Coordinate Quest 2D`, and `Graph Trails`.
+5. Add "two-method solve" and brief proof prompts to existing algebra/logic games.
+6. Define rubric-based scoring for explanation quality (not answer-only).
+
 Exit criteria:
 - Full 12-type active catalog usable across grades 1-10
 

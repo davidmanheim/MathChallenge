@@ -38,6 +38,8 @@ Out of scope (initially):
 - Reliable save state: no lost progress on refresh.
 - Simple local deployment + optional cloud deploy.
 - Accessibility: keyboard-friendly, dyslexia-friendly font option, high contrast mode.
+- Success feedback clarity: every correct solve must trigger a clear visual success state.
+- Success feedback timing: visual success states must persist long enough (around 1.5+ seconds) for kids to notice, process, and feel proud before auto-advancing.
 
 ## 5) Proposed Technical Architecture (TypeScript)
 Recommended stack:
@@ -86,6 +88,20 @@ Adaptive loop:
 2. Increase difficulty after 3 strong attempts (high accuracy, low hint use).
 3. Decrease temporarily after repeated misses to rebuild confidence.
 4. Interleave review puzzles to prevent forgetting.
+
+Tracking model (required):
+- Track progress per game, per game level, and per skill tag across games.
+- Every attempt stores correctness, hint use, timing band, and normalized success score.
+- Mastery is updated continuously (EMA-style) for:
+  - game mastery
+  - game-level mastery
+  - cross-game skill mastery
+- Progress API must expose:
+  - `byGame`
+  - `byGameLevel`
+  - `bySkill`
+  - reinforcement highlights (`topGains`, `needsWork`, `readyToLevel`)
+  - recommendation buckets (`focus`, `confidence`, `stretch`)
 
 ## 8) Twelve Game Types to Generate
 1. **Number Bonds Sprint** (Grades 1-2)
@@ -163,6 +179,7 @@ Kid Home:
 Game Screen:
 - Prompt area, scratchpad, hint button, submit, feedback.
 - Timer optional per game.
+- Correct answers should show an obvious "you did it" state before moving on; avoid instant transitions that erase the success moment.
 
 Progress Screen:
 - Stars/badges, mastery bars by game type.

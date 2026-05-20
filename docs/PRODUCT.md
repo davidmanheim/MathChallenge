@@ -40,6 +40,9 @@ In scope:
 - 12 active game types (8 implemented, 5 designed, 1 pending removal)
 - Adaptive difficulty
 - Metagame incentives and cosmetic rewards (designed, not yet implemented)
+- Coverage expansion plan for advanced strands:
+  - Extend existing/planned games first (algebra/ratio/logic/measurement variants)
+  - Add new anchors for gaps (geometry proof, combinatorics, proof-writing)
 
 Out of scope (phase 1):
 - Secure authentication

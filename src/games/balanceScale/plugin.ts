@@ -88,7 +88,7 @@ function generateEquation(rng: Rng, difficulty: number): Equation {
     const c = a * x;
     return {
       subType: st,
-      display: `${a}x = ${c}`,
+      display: `(${a}x) = ${c}`,
       left: [{ type: "variable", coefficient: a }],
       right: [{ type: "constant", value: c }],
       answer: x
@@ -103,7 +103,7 @@ function generateEquation(rng: Rng, difficulty: number): Equation {
     const c = a * x + b;
     return {
       subType: st,
-      display: `${a}x + ${b} = ${c}`,
+      display: `(${a}x) + ${b} = ${c}`,
       left: [
         { type: "variable", coefficient: a },
         { type: "constant", value: b }
@@ -121,7 +121,7 @@ function generateEquation(rng: Rng, difficulty: number): Equation {
     const c = a * x - b;
     return {
       subType: st,
-      display: `${a}x \u2212 ${b} = ${c}`,
+      display: `(${a}x) \u2212 ${b} = ${c}`,
       left: [
         { type: "variable", coefficient: a },
         { type: "constant", value: -b }
@@ -141,7 +141,7 @@ function generateEquation(rng: Rng, difficulty: number): Equation {
     const e = (a - d) * x + b;
     return {
       subType: st,
-      display: `${a}x + ${b} = ${d}x + ${e}`,
+      display: `(${a}x) + ${b} = (${d}x) + ${e}`,
       left: [
         { type: "variable", coefficient: a },
         { type: "constant", value: b }
