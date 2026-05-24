@@ -50,6 +50,7 @@ body {
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
+  align-items: center;
 }
 
 input,
@@ -378,6 +379,8 @@ label[for="difficulty"] {
 
 .np-board {
   display: inline-block;
+  overflow-x: auto;
+  max-width: 100%;
 }
 
 .np-table {
@@ -860,8 +863,8 @@ label[for="difficulty"] {
 }
 
 .kk-cell {
-  width: 52px;
-  height: 52px;
+  width: var(--kk-cell, 52px);
+  height: var(--kk-cell, 52px);
   position: relative;
   display: flex;
   align-items: center;
@@ -917,6 +920,9 @@ label[for="difficulty"] {
 .kk-numpad {
   display: flex;
   gap: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+  max-width: 100%;
 }
 
 .kk-numpad button {
@@ -1145,6 +1151,7 @@ label[for="difficulty"] {
   border: 3px solid #34d399;
   border-radius: 4px;
   display: block;
+  touch-action: none;
 }
 
 .sk-controls {
@@ -1177,4 +1184,54 @@ label[for="difficulty"] {
   color: #34d399;
   min-height: 32px;
   text-align: center;
+}
+
+/* ===== Progress display ===== */
+#progress {
+  font-size: 0.85rem;
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-x: auto;
+  max-height: 360px;
+  overflow-y: auto;
+}
+
+/* ===== Mobile responsive ===== */
+@media (max-width: 520px) {
+  .card {
+    padding: 12px;
+  }
+
+  /* Login row: name input and grade select fill available space */
+  #name {
+    flex: 1 1 120px;
+    min-width: 0;
+  }
+  #gradeBand {
+    flex: 1 1 100px;
+    min-width: 0;
+  }
+
+  /* Puzzle controls: game selector and Start button go full width */
+  #puzzleControlsRow > select,
+  #puzzleControlsRow > #newPuzzleBtn {
+    width: 100%;
+    flex: 0 0 100%;
+  }
+
+  /* Difficulty stepper stays compact, pill floats right */
+  #puzzleControlsRow > #difficultyLabel {
+    margin-left: auto;
+  }
+
+  /* Answer input stretches */
+  #answer {
+    flex: 1 1 120px;
+    min-width: 0;
+  }
+
+  /* Progress font slightly smaller */
+  #progress {
+    font-size: 0.78rem;
+  }
 }

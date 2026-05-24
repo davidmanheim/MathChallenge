@@ -1,48 +1,38 @@
 import { randomUUID } from "node:crypto";
+import { Firestore } from "@google-cloud/firestore";
 import type { GradeBand, Profile } from "../core/types.ts";
-import { readJsonFile, writeJsonFile } from "./json-store.ts";
 
-type ProfileDb = {
-  profiles: Profile[];
-};
-
-const DEFAULT_DB: ProfileDb = { profiles: [] };
+const db = new Firestore();
+const col = db.collection("profiles");
 
 export class ProfileStore {
-  private readonly filePath: string;
-
-  constructor(filePath: string) {
-    this.filePath = filePath;
+  async list(): Promise<Profile[]> {
+    const snap = await col.get();
+    return snap.docs.map((d) => d.data() as Profile);
   }
 
-  list(): Profile[] {
-    return readJsonFile<ProfileDb>(this.filePath, DEFAULT_DB).profiles;
-  }
-
-  login(displayName: string, gradeBand: GradeBand): Profile {
+  async login(displayName: string, gradeBand: GradeBand): Promise<Profile> {
     const normalized = displayName.trim();
-    if (!normalized) {
-      throw new Error("Display name is required.");
-    }
+    if (!normalized) throw new Error("Display name is required.");
 
-    const db = readJsonFile<ProfileDb>(this.filePath, DEFAULT_DB);
-    const existing = db.profiles.find(
-      (p) => p.displayName.toLowerCase() === normalized.toLowerCase()
-    );
-    if (existing) return existing;
+    const snap = await col
+      .where("displayNameLower", "==", normalized.toLowerCase())
+      .limit(1)
+      .get();
+    if (!snap.empty) return snap.docs[0].data() as Profile;
 
     const profile: Profile = {
       id: randomUUID(),
       displayName: normalized,
       gradeBand,
-      createdAt: new Date().toISOString()
+      createdAt: new Date().toISOString(),
     };
-    db.profiles.push(profile);
-    writeJsonFile(this.filePath, db);
+    await col.doc(profile.id).set({ ...profile, displayNameLower: normalized.toLowerCase() });
     return profile;
   }
 
-  get(profileId: string): Profile | undefined {
-    return this.list().find((p) => p.id === profileId);
+  async get(profileId: string): Promise<Profile | undefined> {
+    const doc = await col.doc(profileId).get();
+    return doc.exists ? (doc.data() as Profile) : undefined;
   }
 }

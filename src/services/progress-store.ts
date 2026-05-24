@@ -1,12 +1,9 @@
 import { randomUUID } from "node:crypto";
+import { Firestore } from "@google-cloud/firestore";
 import type { Attempt } from "../core/types.ts";
-import { readJsonFile, writeJsonFile } from "./json-store.ts";
 
-type ProgressDb = {
-  attempts: Attempt[];
-};
-
-const DEFAULT_DB: ProgressDb = { attempts: [] };
+const db = new Firestore();
+const col = db.collection("attempts");
 
 type Trend = "up" | "stable" | "down";
 
@@ -50,23 +47,11 @@ function clamp01(n: number): number {
 }
 
 function emptyAggregate(): MutableAggregate {
-  return {
-    attempts: 0,
-    correct: 0,
-    successSum: 0,
-    mastery: 0,
-    streak: 0,
-    bestStreak: 0,
-    history: [],
-    correctnessHistory: []
-  };
+  return { attempts: 0, correct: 0, successSum: 0, mastery: 0, streak: 0, bestStreak: 0, history: [], correctnessHistory: [] };
 }
 
 function emptySkillAggregate(): MutableSkillAggregate {
-  return {
-    ...emptyAggregate(),
-    games: new Set<string>()
-  };
+  return { ...emptyAggregate(), games: new Set<string>() };
 }
 
 function scoreFromAttempt(a: Attempt): number {
@@ -114,72 +99,45 @@ function trendFromHistory(history: number[]): Trend {
 }
 
 function finalizeAggregate(acc: MutableAggregate): AggregateStats {
-  const attempts = acc.attempts;
-  const correct = acc.correct;
-  const accuracy = attempts > 0 ? correct / attempts : 0;
-  const recentAccuracy = recentAvg(acc.correctnessHistory, 10);
+  const { attempts, correct } = acc;
   return {
     attempts,
     correct,
-    accuracy,
-    recentAccuracy,
+    accuracy: attempts > 0 ? correct / attempts : 0,
+    recentAccuracy: recentAvg(acc.correctnessHistory, 10),
     mastery: Number(acc.mastery.toFixed(2)),
     trend: trendFromHistory(acc.history),
     streak: acc.streak,
     bestStreak: acc.bestStreak,
-    avgSuccessScore: attempts > 0 ? Number((acc.successSum / attempts).toFixed(3)) : 0
+    avgSuccessScore: attempts > 0 ? Number((acc.successSum / attempts).toFixed(3)) : 0,
   };
 }
 
 export class ProgressStore {
-  private readonly filePath: string;
-
-  constructor(filePath: string) {
-    this.filePath = filePath;
-  }
-
-  recordAttempt(
-    attempt: Omit<Attempt, "id" | "submittedAt">
-  ): Attempt {
-    const db = readJsonFile<ProgressDb>(this.filePath, DEFAULT_DB);
+  async recordAttempt(attempt: Omit<Attempt, "id" | "submittedAt">): Promise<Attempt> {
     const saved: Attempt = {
       ...attempt,
       id: randomUUID(),
-      submittedAt: new Date().toISOString()
+      submittedAt: new Date().toISOString(),
     };
-    db.attempts.push(saved);
-    writeJsonFile(this.filePath, db);
+    await col.doc(saved.id).set(saved);
     return saved;
   }
 
-  getProfileSummary(profileId: string): {
-    overview: {
-      totalAttempts: number;
-      correctAttempts: number;
-      accuracy: number;
-      avgSuccessScore: number;
-      bestStreak: number;
-    };
+  async getProfileSummary(profileId: string): Promise<{
+    overview: { totalAttempts: number; correctAttempts: number; accuracy: number; avgSuccessScore: number; bestStreak: number };
     byGame: Record<string, AggregateStats>;
     byGameLevel: Record<string, Record<string, AggregateStats>>;
     bySkill: Record<string, SkillStats>;
     skillByGame: Record<string, Record<string, AggregateStats>>;
-    skillHighlights: {
-      topGains: string[];
-      needsWork: string[];
-      readyToLevel: string[];
-    };
-    recommendations: {
-      focusSkills: string[];
-      confidenceSkills: string[];
-      stretchSkills: string[];
-      message: string;
-    };
-  } {
-    const db = readJsonFile<ProgressDb>(this.filePath, DEFAULT_DB);
-    const attempts = db.attempts
-      .filter((a) => a.profileId === profileId)
-      .sort((a, b) => String(a.submittedAt).localeCompare(String(b.submittedAt)));
+    skillHighlights: { topGains: string[]; needsWork: string[]; readyToLevel: string[] };
+    recommendations: { focusSkills: string[]; confidenceSkills: string[]; stretchSkills: string[]; message: string };
+  }> {
+    const snap = await col
+      .where("profileId", "==", profileId)
+      .orderBy("submittedAt")
+      .get();
+    const attempts = snap.docs.map((d) => d.data() as Attempt);
 
     const byGameRaw: Record<string, MutableAggregate> = {};
     const byGameLevelRaw: Record<string, Record<string, MutableAggregate>> = {};
@@ -211,12 +169,9 @@ export class ProgressStore {
 
     const correctAttempts = attempts.reduce((sum, a) => sum + (a.isCorrect ? 1 : 0), 0);
     const totalAttempts = attempts.length;
-    const accuracy = totalAttempts === 0 ? 0 : correctAttempts / totalAttempts;
 
     const byGame: Record<string, AggregateStats> = {};
-    for (const game of Object.keys(byGameRaw)) {
-      byGame[game] = finalizeAggregate(byGameRaw[game]);
-    }
+    for (const game of Object.keys(byGameRaw)) byGame[game] = finalizeAggregate(byGameRaw[game]);
 
     const byGameLevel: Record<string, Record<string, AggregateStats>> = {};
     for (const game of Object.keys(byGameLevelRaw)) {
@@ -228,11 +183,7 @@ export class ProgressStore {
 
     const bySkill: Record<string, SkillStats> = {};
     for (const tag of Object.keys(bySkillRaw)) {
-      const finalized = finalizeAggregate(bySkillRaw[tag]);
-      bySkill[tag] = {
-        ...finalized,
-        games: [...bySkillRaw[tag].games].sort()
-      };
+      bySkill[tag] = { ...finalizeAggregate(bySkillRaw[tag]), games: [...bySkillRaw[tag].games].sort() };
     }
 
     const skillByGame: Record<string, Record<string, AggregateStats>> = {};
@@ -244,82 +195,35 @@ export class ProgressStore {
     }
 
     const skillEntries = Object.entries(bySkill);
-    const topGains = skillEntries
-      .filter(([, s]) => s.trend === "up")
-      .sort((a, b) => b[1].mastery - a[1].mastery)
-      .slice(0, 3)
+    const topGains = skillEntries.filter(([, s]) => s.trend === "up").sort((a, b) => b[1].mastery - a[1].mastery).slice(0, 3)
       .map(([tag, s]) => `${tag} trending up (${Math.round(s.mastery)} mastery)`);
-
-    const needsWork = skillEntries
-      .filter(([, s]) => s.attempts >= 3)
-      .sort((a, b) => a[1].mastery - b[1].mastery)
-      .slice(0, 3)
+    const needsWork = skillEntries.filter(([, s]) => s.attempts >= 3).sort((a, b) => a[1].mastery - b[1].mastery).slice(0, 3)
       .map(([tag, s]) => `${tag} needs reinforcement (${Math.round(s.mastery)} mastery)`);
+    const readyToLevel = skillEntries.filter(([, s]) => s.attempts >= 5 && s.mastery >= 75 && s.recentAccuracy >= 0.8)
+      .sort((a, b) => b[1].mastery - a[1].mastery).slice(0, 3).map(([tag]) => tag);
+    const focusSkills = skillEntries.filter(([, s]) => s.attempts >= 3 && s.mastery >= 55 && s.mastery < 75)
+      .sort((a, b) => b[1].mastery - a[1].mastery).slice(0, 3).map(([tag]) => tag);
+    const confidenceSkills = skillEntries.filter(([, s]) => s.mastery >= 75)
+      .sort((a, b) => b[1].mastery - a[1].mastery).slice(0, 3).map(([tag]) => tag);
+    const stretchSkills = skillEntries.filter(([, s]) => s.attempts >= 3 && s.mastery < 55)
+      .sort((a, b) => a[1].mastery - b[1].mastery).slice(0, 3).map(([tag]) => tag);
 
-    const readyToLevel = skillEntries
-      .filter(([, s]) => s.attempts >= 5 && s.mastery >= 75 && s.recentAccuracy >= 0.8)
-      .sort((a, b) => b[1].mastery - a[1].mastery)
-      .slice(0, 3)
-      .map(([tag]) => tag);
+    const bestStreak = Object.values(byGame).reduce((best, s) => Math.max(best, s.bestStreak), 0);
+    const avgSuccessScore = totalAttempts === 0 ? 0
+      : Number((attempts.reduce((sum, a) => sum + scoreFromAttempt(a), 0) / totalAttempts).toFixed(3));
 
-    const focusSkills = skillEntries
-      .filter(([, s]) => s.attempts >= 3 && s.mastery >= 55 && s.mastery < 75)
-      .sort((a, b) => b[1].mastery - a[1].mastery)
-      .slice(0, 3)
-      .map(([tag]) => tag);
-
-    const confidenceSkills = skillEntries
-      .filter(([, s]) => s.mastery >= 75)
-      .sort((a, b) => b[1].mastery - a[1].mastery)
-      .slice(0, 3)
-      .map(([tag]) => tag);
-
-    const stretchSkills = skillEntries
-      .filter(([, s]) => s.attempts >= 3 && s.mastery < 55)
-      .sort((a, b) => a[1].mastery - b[1].mastery)
-      .slice(0, 3)
-      .map(([tag]) => tag);
-
-    const recommendations = {
-      focusSkills,
-      confidenceSkills,
-      stretchSkills,
-      message:
-        focusSkills.length > 0
+    return {
+      overview: { totalAttempts, correctAttempts, accuracy: ensureFinite(totalAttempts > 0 ? correctAttempts / totalAttempts : 0), avgSuccessScore, bestStreak },
+      byGame, byGameLevel, bySkill, skillByGame,
+      skillHighlights: { topGains, needsWork, readyToLevel },
+      recommendations: {
+        focusSkills, confidenceSkills, stretchSkills,
+        message: focusSkills.length > 0
           ? `Focus next on: ${focusSkills.join(", ")}. Keep confidence with ${confidenceSkills[0] ?? "a strong skill"}.`
           : confidenceSkills.length > 0
             ? `Great momentum. Keep sharpening ${confidenceSkills[0]} and stretch into ${stretchSkills[0] ?? "new challenges"}.`
-            : "Start with confidence builders and collect a few wins to set baseline mastery."
-    };
-
-    const bestStreak = Object.values(byGame).reduce((best, s) => Math.max(best, s.bestStreak), 0);
-    const avgSuccessScore = totalAttempts === 0
-      ? 0
-      : Number(
-        (
-          attempts.reduce((sum, a) => sum + scoreFromAttempt(a), 0) /
-          totalAttempts
-        ).toFixed(3)
-      );
-
-    return {
-      overview: {
-        totalAttempts,
-        correctAttempts,
-        accuracy: ensureFinite(accuracy, 0),
-        avgSuccessScore,
-        bestStreak
+            : "Start with confidence builders and collect a few wins to set baseline mastery.",
       },
-      byGame,
-      byGameLevel,
-      bySkill,
-      skillByGame,
-      skillHighlights: {
-        topGains,
-        needsWork,
-        readyToLevel
-      },
-      recommendations
     };
   }
 }

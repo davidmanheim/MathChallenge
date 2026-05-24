@@ -20,8 +20,8 @@ import { ProgressStore } from "./services/progress-store.ts";
 const __filename = fileURLToPath(import.meta.url);
 const projectRoot = join(__filename, "..", "..");
 const publicDir = join(projectRoot, "public");
-const profileStore = new ProfileStore(join(projectRoot, "data", "profiles.json"));
-const progressStore = new ProgressStore(join(projectRoot, "data", "progress.json"));
+const profileStore = new ProfileStore();
+const progressStore = new ProgressStore();
 
 const registry = new GameTypeRegistry();
 registry.register(numberBondsPlugin);
@@ -111,18 +111,18 @@ const server = createServer(async (req, res) => {
         if (!gradeBands.includes(gradeBand)) {
           return sendJson(res, 400, { error: "Invalid gradeBand." });
         }
-        const profile = profileStore.login(name, gradeBand);
+        const profile = await profileStore.login(name, gradeBand);
         return sendJson(res, 200, { profile });
       }
 
       if (method === "GET" && pathname === "/api/profiles") {
-        return sendJson(res, 200, { profiles: profileStore.list() });
+        return sendJson(res, 200, { profiles: await profileStore.list() });
       }
 
       if (method === "GET" && pathname === "/api/progress") {
         const profileId = String(url.searchParams.get("profileId") ?? "");
         if (!profileId) return sendJson(res, 400, { error: "profileId is required." });
-        return sendJson(res, 200, progressStore.getProfileSummary(profileId));
+        return sendJson(res, 200, await progressStore.getProfileSummary(profileId));
       }
 
       if (method === "POST" && pathname === "/api/puzzles/next") {
@@ -134,7 +134,7 @@ const server = createServer(async (req, res) => {
         const setSize = Number.isInteger(setSizeRaw)
           ? Math.min(12, Math.max(1, setSizeRaw))
           : 1;
-        const profile = profileStore.get(profileId);
+        const profile = await profileStore.get(profileId);
         if (!profile) return sendJson(res, 404, { error: "Profile not found." });
         const plugin = registry.get(gameTypeId);
         const normalizedDifficulty =
@@ -201,7 +201,7 @@ const server = createServer(async (req, res) => {
         const seed = Number(puzzle?.seed ?? 0);
         const difficulty = Number(puzzle?.difficulty ?? 1);
 
-        const profile = profileStore.get(profileId);
+        const profile = await profileStore.get(profileId);
         if (!profile) return sendJson(res, 404, { error: "Profile not found." });
 
         const plugin = registry.get(gameTypeId);
@@ -212,8 +212,8 @@ const server = createServer(async (req, res) => {
         const latencyBand = latencyBandForTimeMs(timeMs);
         const normalizedHints = Number.isFinite(hintsUsed) ? Math.max(0, hintsUsed) : 0;
         const successScore = successScoreForAttempt(isCorrect, normalizedHints, latencyBand);
-        const beforeSummary = progressStore.getProfileSummary(profileId);
-        const saved = progressStore.recordAttempt({
+        const beforeSummary = await progressStore.getProfileSummary(profileId);
+        const saved = await progressStore.recordAttempt({
           profileId,
           gameTypeId,
           puzzleSeed: seed,
@@ -227,7 +227,7 @@ const server = createServer(async (req, res) => {
           successScore,
           skillTags
         });
-        const afterSummary = progressStore.getProfileSummary(profileId);
+        const afterSummary = await progressStore.getProfileSummary(profileId);
         const beforeSkills = beforeSummary.bySkill || {};
         const afterSkills = afterSummary.bySkill || {};
         const gainedSkills = Object.keys(afterSkills)
@@ -267,6 +267,10 @@ const server = createServer(async (req, res) => {
       return sendJson(res, 404, { error: "Not found" });
     }
 
+    if (pathname === "/health") {
+      return sendJson(res, 200, { status: "ok" });
+    }
+
     if (!serveStatic(pathname, res)) {
       res.writeHead(404, { "Content-Type": "text/plain; charset=utf-8" });
       res.end("Not found");
@@ -277,7 +281,7 @@ const server = createServer(async (req, res) => {
   }
 });
 
-const port = 5678;
-server.listen(port, () => {
+const port = Number(process.env.PORT ?? 5678);
+server.listen(port, "0.0.0.0", () => {
   process.stdout.write(`MathChallenge running at http://localhost:${port}\n`);
 });
