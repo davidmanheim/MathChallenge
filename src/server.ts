@@ -115,10 +115,6 @@ const server = createServer(async (req, res) => {
         return sendJson(res, 200, { profile });
       }
 
-      if (method === "GET" && pathname === "/api/profiles") {
-        return sendJson(res, 200, { profiles: await profileStore.list() });
-      }
-
       if (method === "GET" && pathname === "/api/progress") {
         const profileId = String(url.searchParams.get("profileId") ?? "");
         if (!profileId) return sendJson(res, 400, { error: "profileId is required." });
