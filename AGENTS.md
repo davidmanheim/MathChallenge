@@ -37,6 +37,12 @@ To be filled in
 
 To be filled in
 
+### Deployment
+
+- Correct Google Cloud project for this repository: `mathchallenge-497313` (`MathChallenge`).
+- Do not use the active `gcloud config` project as deployment authority; it may point to unrelated projects such as SpacePuzzle.
+- Deploy with `.\scripts\deploy-cloud-run.ps1 -ProjectId mathchallenge-497313`.
+
 ### Version Control Expectations
 
 - Git commits and file edits/creation do not require user approval.
