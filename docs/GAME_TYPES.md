@@ -48,8 +48,10 @@ Each game type includes:
 
 10. **Story Logic Grids** (Grades 1-10) — `story-logic-grids`
    - Story-based one-to-one matching logic puzzles generated from YAML templates.
-   - Includes 20 story variants; difficulty scales by role count, category count, and clue density.
-   - Validation checks that each generated puzzle has a unique solution before serving.
+   - Includes 20 story variants; difficulty scales by role count, category count, and clue structure.
+   - Uses fewer integrated clues at higher levels: cross-category links, ordered-role chains,
+     grouped exclusions, initial-letter constraints, and partial row bundles.
+   - Validation checks that each structured clue set has a unique solution before serving.
 
 ## Games In Development
 
