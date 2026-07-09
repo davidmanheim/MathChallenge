@@ -48,12 +48,15 @@ Exit criteria:
 - Data/statistics interpretation and critique
 
 ### Next Steps TODO (Highest Leverage First)
-1. Build **Angle Chase Studio** (geometry/proof anchor).
-2. Build **Counting Lab** (combinatorics/counting anchor).
-3. Build **Proof Blocks** (formal reasoning/proof anchor).
-4. Design specs for `Chance Builder`, `Coordinate Quest 2D`, and `Graph Trails`.
-5. Add "two-method solve" and brief proof prompts to existing algebra/logic games.
-6. Define rubric-based scoring for explanation quality (not answer-only).
+1. Finish the **Story Logic Grids clue rewrite** across all 20 templates, not only Aquarium:
+   add template-specific order/group/category semantics so every story can generate fewer,
+   more integrated clues instead of long literal clue lists.
+2. Build **Angle Chase Studio** (geometry/proof anchor).
+3. Build **Counting Lab** (combinatorics/counting anchor).
+4. Build **Proof Blocks** (formal reasoning/proof anchor).
+5. Design specs for `Chance Builder`, `Coordinate Quest 2D`, and `Graph Trails`.
+6. Add "two-method solve" and brief proof prompts to existing algebra/logic games.
+7. Define rubric-based scoring for explanation quality (not answer-only).
 
 Exit criteria:
 - Full 12-type active catalog usable across grades 1-10
