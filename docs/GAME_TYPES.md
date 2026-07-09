@@ -46,23 +46,28 @@ Each game type includes:
    - Trace an adjacent path through counting sequences to reach a goal.
    - Interactive tap-path board with immediate path validation.
 
+10. **Story Logic Grids** (Grades 1-10) — `story-logic-grids`
+   - Story-based one-to-one matching logic puzzles generated from YAML templates.
+   - Includes 20 story variants; difficulty scales by role count, category count, and clue density.
+   - Validation checks that each generated puzzle has a unique solution before serving.
+
 ## Games In Development
 
 See `NEW_GAMES_DESIGN.md` for full specifications.
 
-10. **Sum Blobs** (Grades 1-4)
+11. **Sum Blobs** (Grades 1-4)
    - Draw contiguous blobs on a number grid, each summing to a target.
 
-11. **Honeycomb Paths** (Grades 1-4)
+12. **Honeycomb Paths** (Grades 1-4)
     - Trace a path through a hex grid to hit a target sum or sequence.
 
-12. **Subtractiles** (Grades 2-5)
+13. **Subtractiles** (Grades 2-5)
     - Place number tiles so adjacent-cell differences match edge constraints.
 
-13. **Measure Mazes** (Grades 2-5)
+14. **Measure Mazes** (Grades 2-5)
     - Connect dots at exact distances across a grid.
 
-14. **Equation Paths** (Grades 3-7)
+15. **Equation Paths** (Grades 3-7)
     - Trace a path through a number/operator grid to build an expression hitting a target.
 
 ## Potential Games Backlog (By Grade Band)
@@ -127,8 +132,8 @@ skills for later competitive mathematics.
 | Grade Band | Typical Core Content | Puzzles Covering It | Overlap Notes | Coverage Gaps |
 |------------|----------------------|---------------------|---------------|---------------|
 | 1-2 | Counting, place value beginnings, addition/subtraction fluency, skip-counting, simple patterns, comparison | Number Bonds Sprint, Pattern Train, Number Paths, Ordered Paths, Skip-Counting Crosswords, Difference Pyramids, Magic SUMmer | Pattern Train + Number Paths + Ordered Paths all target sequence structure; Number Bonds + Difference Pyramids both reinforce additive decomposition | Limited explicit place-value representation, almost no 2D shape vocabulary or measurement reasoning |
-| 2-3 | Multi-digit add/sub, intro multiplication/division, equal groups, beginning fractions, equation intuition, logic constraints | X-Outs, Sum Blobs, Subtractiles, Mismo, Honeycomb Paths, Measure Mazes, Equation Paths, Digit Differences, Expression Search, Sym-sums, 8's and 9's | X-Outs + Sum Blobs + Subtractiles all train constraint-based arithmetic; Mismo + Expression Search overlap expression-value equivalence | Weak coverage of unit fractions as operators, area/perimeter formulas, and data interpretation |
-| 4-5 | Multi-step operations, factors/multiples, fraction operations, area/volume intuition, variable introduction, structured reasoning | Factor Ninja, KenKen, Shikaku, Balance Scale, Product Placement, Factor Cave, Factor Blobs, Fraction Sumdoku, Sum Squares, Dot Puzzles, Pyramid Descent | Factor Ninja + Factor Cave/Blobs overlap number theory fluency; KenKen + Sumdoku + Greater than Sudoku overlap Latin-grid logic; Balance Scale + Equation Paths overlap algebraic structure | Minimal coordinate geometry, transformations, angle relationships, and formal probability/combinatorics |
+| 2-3 | Multi-digit add/sub, intro multiplication/division, equal groups, beginning fractions, equation intuition, logic constraints | X-Outs, Story Logic Grids, Sum Blobs, Subtractiles, Mismo, Honeycomb Paths, Measure Mazes, Equation Paths, Digit Differences, Expression Search, Sym-sums, 8's and 9's | X-Outs + Sum Blobs + Subtractiles all train constraint-based arithmetic; Mismo + Expression Search overlap expression-value equivalence | Weak coverage of unit fractions as operators, area/perimeter formulas, and data interpretation |
+| 4-5 | Multi-step operations, factors/multiples, fraction operations, area/volume intuition, variable introduction, structured reasoning | Factor Ninja, KenKen, Story Logic Grids, Shikaku, Balance Scale, Product Placement, Factor Cave, Factor Blobs, Fraction Sumdoku, Sum Squares, Dot Puzzles, Pyramid Descent | Factor Ninja + Factor Cave/Blobs overlap number theory fluency; KenKen + Sumdoku + Greater than Sudoku overlap Latin-grid logic; Balance Scale + Equation Paths overlap algebraic structure | Minimal coordinate geometry, transformations, angle relationships, and formal probability/combinatorics |
 | 5-6 | Integers, ratios/rates/percents, simplifying expressions, distributive property, early equations/inequalities | Integer Tiles, Like Terms Corrals, Averatiles, F&M Grids, Ratio Rooms, Percent Squares, Equivalink, Frac-turns, Shikaku Fractions, Cross-Sequences | Ratio Rooms + Percent Squares + Equivalink form a strong proportion/percent cluster; Integer Tiles + Like Terms Corrals support algebra readiness | Limited graph interpretation, function-machine thinking, and proof-style argumentation |
 
 ### Skills That Build Toward Advanced Competition Math
@@ -139,7 +144,7 @@ skills for later competitive mathematics.
 | Number theory (factors, multiples, divisibility) | Moderate-to-strong (Factor Ninja, F&M Grids, Factor Cave/Blobs) | Good base for AMC/AIME-style divisibility problems |
 | Algebraic manipulation | Moderate (Balance Scale, Equation Paths, Like Terms Corrals, Expression Search) | Good intro, but limited symbolic depth beyond linear structure |
 | Spatial/visual reasoning | Moderate (Shikaku, Polyominoes, Spiral Galaxies, Hive) | Helps with decomposition, invariants, and geometric casework habits |
-| Constraint logic and deduction | Strong (KenKen/Sumdoku family, X-Outs, Dutch Loop) | Strong transfer to Olympiad-style structured reasoning |
+| Constraint logic and deduction | Strong (Story Logic Grids, KenKen/Sumdoku family, X-Outs, Dutch Loop) | Strong transfer to Olympiad-style structured reasoning |
 | Fractions/ratios/percents equivalence | Moderate (Equivalink, Percent Squares, Ratio Rooms, Fraction Sumdoku) | Needs stronger bridge to algebraic rate/proportion problem-solving |
 | Combinatorics/probability foundations | Weak | Major gap for later contest progression |
 | Euclidean geometry foundations | Weak | Major gap: angle chasing, similarity, circles, transformations |
@@ -149,7 +154,7 @@ skills for later competitive mathematics.
 
 - **Arithmetic-constraint cluster:** `X-Outs`, `Sum Blobs`, `Subtractiles`, `Magic SUMmer`  
   Benefit: repeated transfer across formats; Risk: too much procedural overlap without conceptual expansion.
-- **Logic-grid cluster:** `KenKen`, `Sumdoku`, `Greater than Sudoku`, `Fraction Sumdoku`  
+- **Logic-grid cluster:** `Story Logic Grids`, `KenKen`, `Sumdoku`, `Greater than Sudoku`, `Fraction Sumdoku`  
   Benefit: deduction discipline; Risk: can over-index on grid logic vs broader math.
 - **Factor/divisibility cluster:** `Factor Ninja`, `Factor Cave`, `Factor Blobs`, `F&M Grids`  
   Benefit: strong number-theory fluency; Risk: overlap unless each title targets distinct theorems/strategies.

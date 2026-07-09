@@ -10,7 +10,8 @@ const state = {
   fn: null,
   mismo: null,
   xouts: null,
-  np: null
+  np: null,
+  slg: null
 };
 
 const gameModules = {};
@@ -65,6 +66,13 @@ const el = {
   npZone: document.getElementById("numberPathsZone"),
   npStatus: document.getElementById("numberPathsStatus"),
   npBoard: document.getElementById("numberPathsBoard"),
+  // Story Logic Grids
+  slgZone: document.getElementById("storyLogicZone"),
+  slgIntro: document.getElementById("storyLogicIntro"),
+  slgClues: document.getElementById("storyLogicClues"),
+  slgGrid: document.getElementById("storyLogicGrid"),
+  slgCheckBtn: document.getElementById("storyLogicCheckBtn"),
+  slgBanner: document.getElementById("storyLogicBanner"),
   // KenKen
   kkZone: document.getElementById("kenkenZone"),
   kkGrid: document.getElementById("kkGrid"),
@@ -980,6 +988,170 @@ function npTrySubmit() {
 
 // ===== End Number Paths =====
 
+// ===== Story Logic Grids Interactive UI =====
+
+function hideStoryLogic() {
+  if (!el.slgZone) return;
+  el.slgZone.style.display = "none";
+  el.slgIntro.textContent = "";
+  el.slgClues.innerHTML = "";
+  el.slgGrid.innerHTML = "";
+  el.slgBanner.textContent = "";
+  state.slg = null;
+}
+
+function renderStoryLogic(puzzle) {
+  if (!el.slgZone) return;
+  hideStoryLogic();
+  el.slgZone.style.display = "";
+  hideGenericInput();
+
+  const data = puzzle.data || {};
+  const roles = Array.isArray(data.roles) ? data.roles : [];
+  const categories = Array.isArray(data.categories) ? data.categories : [];
+  const clues = Array.isArray(data.clues) ? data.clues : [];
+  state.slg = { roles, categories, submitted: false };
+
+  el.slgIntro.textContent = data.intro || puzzle.prompt.text || "";
+
+  const clueList = document.createElement("ol");
+  clueList.className = "slg-clue-list";
+  for (const clue of clues) {
+    const item = document.createElement("li");
+    item.textContent = String(clue.text || "");
+    clueList.appendChild(item);
+  }
+  el.slgClues.appendChild(clueList);
+
+  const table = document.createElement("table");
+  table.className = "slg-table";
+  const thead = document.createElement("thead");
+  const headRow = document.createElement("tr");
+  const roleHead = document.createElement("th");
+  roleHead.textContent = "Who";
+  headRow.appendChild(roleHead);
+  for (const category of categories) {
+    const th = document.createElement("th");
+    th.textContent = category.label;
+    headRow.appendChild(th);
+  }
+  thead.appendChild(headRow);
+  table.appendChild(thead);
+
+  const tbody = document.createElement("tbody");
+  for (const role of roles) {
+    const tr = document.createElement("tr");
+    const roleCell = document.createElement("th");
+    roleCell.scope = "row";
+    roleCell.textContent = role;
+    tr.appendChild(roleCell);
+    for (const category of categories) {
+      const td = document.createElement("td");
+      const select = document.createElement("select");
+      select.dataset.role = role;
+      select.dataset.category = category.id;
+      const blank = document.createElement("option");
+      blank.value = "";
+      blank.textContent = "-";
+      select.appendChild(blank);
+      for (const value of category.values || []) {
+        const option = document.createElement("option");
+        option.value = value;
+        option.textContent = value;
+        select.appendChild(option);
+      }
+      select.addEventListener("change", slgRefreshAvailability);
+      td.appendChild(select);
+      tr.appendChild(td);
+    }
+    tbody.appendChild(tr);
+  }
+  table.appendChild(tbody);
+  el.slgGrid.appendChild(table);
+
+  el.slgCheckBtn.onclick = slgSubmit;
+  slgRefreshAvailability();
+}
+
+function slgBuildAnswer() {
+  const answer = {};
+  const selects = el.slgGrid.querySelectorAll("select[data-role][data-category]");
+  for (const select of selects) {
+    const role = select.dataset.role;
+    const category = select.dataset.category;
+    if (!role || !category || !select.value) return null;
+    if (!answer[role]) answer[role] = {};
+    answer[role][category] = select.value;
+  }
+  return answer;
+}
+
+function slgRefreshAvailability() {
+  if (!state.slg) return;
+  for (const category of state.slg.categories) {
+    const selects = [...el.slgGrid.querySelectorAll(`select[data-category="${category.id}"]`)];
+    const used = new Map();
+    for (const select of selects) {
+      if (select.value) used.set(select.value, (used.get(select.value) || 0) + 1);
+    }
+    for (const select of selects) {
+      select.classList.toggle("slg-duplicate", Boolean(select.value && used.get(select.value) > 1));
+      for (const option of select.options) {
+        if (!option.value || option.value === select.value) {
+          option.disabled = false;
+        } else {
+          option.disabled = used.has(option.value);
+        }
+      }
+    }
+  }
+}
+
+async function slgSubmit() {
+  if (!state.slg || state.slg.submitted) return;
+  const answer = slgBuildAnswer();
+  if (!answer) {
+    el.slgBanner.textContent = "Fill every cell first.";
+    return;
+  }
+  state.slg.submitted = true;
+  el.answer.value = JSON.stringify(answer);
+
+  const puzzle = getCurrentPuzzle();
+  const response = await api("/api/attempts", {
+    method: "POST",
+    body: JSON.stringify({
+      profileId: state.profile.id,
+      puzzle,
+      answer: el.answer.value,
+      hintsUsed: state.hintIndex,
+      timeMs: currentAttemptTimeMs()
+    })
+  });
+
+  if (response.result.isCorrect) {
+    el.slgBanner.textContent = "Solved!";
+    const justFinished = state.currentIndex + 1 === state.activeSet.length;
+    setTimeout(() => {
+      if (justFinished) {
+        applyReinforcementMessage(response, "Correct! Set complete. Start another set.");
+        state.activeSet = [];
+        state.currentIndex = 0;
+      } else {
+        applyReinforcementMessage(response, "Correct! Moving to next question.");
+        state.currentIndex += 1;
+      }
+      renderPuzzle();
+    }, 1000);
+  } else {
+    state.slg.submitted = false;
+    el.slgBanner.textContent = "Not yet. Recheck the clues.";
+  }
+  await refreshProgress();
+}
+
+// ===== End Story Logic Grids =====
+
 // ===== KenKen Interactive UI =====
 
 function hideKenKen() {
@@ -1686,6 +1858,7 @@ async function renderPuzzle() {
 
   hideXOuts();
   hideNumberPaths();
+  hideStoryLogic();
   hideKenKen();
   hideBalance();
   hideShikaku();
@@ -1741,6 +1914,11 @@ async function renderPuzzle() {
   if (state.puzzle.gameTypeId === "number-paths") {
     el.puzzleBox.textContent = state.puzzle.prompt.text;
     renderNumberPaths(state.puzzle);
+    return;
+  }
+  if (state.puzzle.gameTypeId === "story-logic-grids") {
+    el.puzzleBox.textContent = state.puzzle.data?.title || state.puzzle.prompt.text;
+    renderStoryLogic(state.puzzle);
     return;
   }
   if (state.puzzle.gameTypeId === "kenken") {

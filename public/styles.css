@@ -419,6 +419,100 @@ label[for="difficulty"] {
   box-shadow: inset 0 0 0 3px #2563eb;
 }
 
+/* ===== Story Logic Grids ===== */
+.slg-zone {
+  margin: 12px 0;
+  border-radius: 16px;
+  border: 2px solid #0f766e;
+  padding: 14px;
+  background: linear-gradient(180deg, #ecfeff 0%, #f0fdfa 100%);
+  color: #12343b;
+}
+
+.slg-intro {
+  font-weight: 700;
+  margin-bottom: 10px;
+}
+
+.slg-clues {
+  background: #ffffff;
+  border: 1px solid #99f6e4;
+  border-radius: 12px;
+  padding: 10px 14px;
+  margin-bottom: 12px;
+}
+
+.slg-clue-list {
+  margin: 0;
+  padding-left: 22px;
+}
+
+.slg-clue-list li {
+  margin: 5px 0;
+}
+
+.slg-grid {
+  overflow-x: auto;
+}
+
+.slg-table {
+  width: 100%;
+  min-width: 560px;
+  border-collapse: separate;
+  border-spacing: 0;
+  background: #ffffff;
+  border: 1px solid #99f6e4;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.slg-table th,
+.slg-table td {
+  padding: 8px;
+  border-bottom: 1px solid #ccfbf1;
+  text-align: left;
+}
+
+.slg-table th {
+  background: #ccfbf1;
+  color: #134e4a;
+  font-weight: 900;
+}
+
+.slg-table tbody tr:last-child th,
+.slg-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.slg-table select {
+  width: 100%;
+  min-width: 120px;
+  border: 2px solid #99f6e4;
+  border-radius: 8px;
+  background: #ffffff;
+  font-size: 0.96rem;
+}
+
+.slg-table select.slg-duplicate {
+  border-color: #ef4444;
+  background: #fff1f2;
+}
+
+.slg-controls {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 10px;
+}
+
+.slg-banner {
+  min-height: 28px;
+  margin-top: 8px;
+  font-size: 1.2rem;
+  font-weight: 900;
+  color: #0f766e;
+  text-align: center;
+}
+
 .xouts-board {
   display: inline-block;
   overflow-x: auto;
