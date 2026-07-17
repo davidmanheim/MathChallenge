@@ -17,7 +17,7 @@ Web-accessible TypeScript math puzzle platform for kids (grades 1-10), with ligh
   - Plugin-based puzzle engine with generation-time validation gate
   - Name-based profile login + JSON-persisted progress
   - Set-level deduplication (no repeated puzzles within a set)
-  - Playable games (8 implemented):
+  - Playable games (10 implemented):
     - `Pattern Train` — interactive multiple-choice pattern puzzles
     - `Mismo` — expression-equivalence card matching
     - `X-Outs` — row/column target-sum cross-out logic grid
@@ -25,9 +25,11 @@ Web-accessible TypeScript math puzzle platform for kids (grades 1-10), with ligh
     - `KenKen` — Latin square grid with arithmetic cage constraints
     - `Factor Ninja` — interactive prime factorisation + GCF/LCM
     - `Balance Scale` — visual equation solving (find x)
+    - `Number Paths` — tap-path counting-sequence puzzles
+    - `Story Logic Grids` — story-based one-to-one matching logic puzzles (20 templates)
     - `Number Bonds Sprint` — missing-addend practice (pending removal)
-  - 5 additional games designed: Sum Blobs, Honeycomb Paths, Subtractiles,
-    Measure Mazes, Equation Paths
+  - 5 additional games designed (not yet implemented): Sum Blobs, Honeycomb Paths,
+    Subtractiles, Measure Mazes, Equation Paths
 
 ## Run (Alpha)
 1. `npm run dev`
