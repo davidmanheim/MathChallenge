@@ -17,10 +17,11 @@ design specs for 2 games (Mismo, X-Outs) that have already been built.
 
 ### Already Implemented (specs preserved for reference)
 
-| #  | Game    | Grades | Status      |
-|----|---------|--------|-------------|
-| 6  | Mismo   | 1-6    | Implemented |
-| 7  | X-Outs  | 2-5    | Implemented |
+| #  | Game               | Grades | Status      |
+|----|--------------------|--------|-------------|
+| 6  | Mismo              | 1-6    | Implemented |
+| 7  | X-Outs             | 2-5    | Implemented |
+| 8  | Angle Chase Studio | 5-9    | Implemented |
 
 ### Pending Removal
 
@@ -462,6 +463,131 @@ Ordered list of cell coordinates forming the path: `(r,c),(r,c),...`
 
 ---
 
+## 8. Angle Chase Studio
+
+**Status:** Implemented (`src/games/angleChaseStudio/plugin.ts`, gameTypeId `angle-chase-studio`).
+
+**Source inspiration:** Classic "angle chasing" worksheets and olympiad-prep
+angle-relationship drills — the geometry counterpart to Balance Scale's
+algebra-chasing.
+
+### Concept
+A static SVG diagram shows a geometric figure (a line split by rays, two
+crossing lines, a triangle, two parallel lines cut by a transversal, or a
+polygon) with some angles labeled with their degree measure and exactly one
+angle marked with "?". The player enters the numeric degree measure of the
+marked angle. Unlike a pure answer-fetching drill, every puzzle carries an
+explicit deduction chain (1-3 steps) that names the theorem used at each
+step, so the hint ladder can walk the player through the actual proof
+reasoning rather than just revealing the number.
+
+### Rules
+1. The diagram is generated from one of several angle-relationship
+   templates (see Generation Algorithm).
+2. Every angle used in the underlying construction is a positive integer
+   number of degrees, and the full geometric configuration is drawn to
+   scale (except polygons, which use a simplified — not to scale — regular
+   layout, clearly labeled as such in the prompt).
+3. Exactly one angle is hidden (marked "?"); all others needed to solve it
+   are shown as plain numbers or, at difficulty 4+, simple linear
+   expressions in `x` (e.g. `2x°`, `(x + 15)°`).
+4. The player submits a single number (degrees). Extra text like `°` or
+   `degrees` is accepted and ignored by the grader.
+5. Every puzzle has exactly one correct numeric answer
+   (`expectUniqueSolution: true`).
+
+### Difficulty Scaling
+
+| Difficulty | Grade | Theorem Family (2 variants per tier, chosen at random) | Deduction Steps | Notes |
+|------------|-------|----------------------------------------------------------|------------------|-------|
+| 1          | 5     | Vertical angles / linear pair at a single crossing; angles on a line (2 parts) | 1 | Direct application of one theorem |
+| 2          | 5-6   | Angles on a line (3 parts); angles around a point (3 parts, sum 360°) | 1 (more arithmetic) | Two knowns combined, not just one |
+| 3          | 6-7   | Triangle angle sum (basic); angles around a point (4 parts) | 1 | Introduces the triangle-sum theorem |
+| 4          | 7     | Triangle angle sum with algebraic expressions (solve for x, then substitute); parallel lines — corresponding angles (1 hop) | 2 | First algebra-in-geometry and first parallel-line theorem |
+| 5          | 7-8   | Parallel lines — alternate/co-interior angles (2 hops: same-point + cross-point); exterior angle theorem (triangle sum + linear pair) | 2 | Composed theorem chains |
+| 6          | 8-9   | Parallel lines hardest chain (3 hops); polygon interior angle sum `(n−2)×180°`, n = 5-8 | 2-3 | Longest chains; newest theorem (polygons) |
+
+### Generation Algorithm
+1. Pick a template pair for the requested difficulty and flip a coin (via
+   the seeded RNG) between the two variants.
+2. Build the underlying geometric ground truth first — e.g. for two
+   crossing lines, pick one acute angle `a` (20°-160°) and derive all 4
+   region values (`a`, `180-a`, `a`, `180-a`) via `computeRegions()`, a
+   generic helper that partitions the ray directions around a vertex into
+   consecutive gaps. For a triangle, pick two integer angles and derive the
+   third via `180 - a - b`. For a polygon with `n` sides, distribute
+   `(n-2)×180°` across `n` random-ish angles.
+3. For "parallel lines cut by a transversal," both intersection points use
+   the *same* 4 ray directions (0°, 180°, `a`, `a+180°`) because the lines
+   are parallel and the transversal is one straight line — so corresponding
+   angles are trivially equal by construction, and alternate/co-interior
+   angle relationships fall out as a *composition* of one same-point hop
+   (vertical or linear-pair) with one cross-point hop (corresponding),
+   which is also how these theorems are proved in a textbook.
+4. Hide one angle as the target; keep the rest as "given." Record the
+   ordered list of theorem-named deduction steps used to go from the given
+   angle(s) to the target — this list is stored directly in
+   `candidate.data.chain` and reused verbatim by `buildHints()`.
+5. Compute real (x, y) coordinates for every point in the figure using
+   trigonometry (or, for polygons only, a regular n-gon layout used purely
+   for a legible sketch) so the diagram is genuinely consistent with the
+   labeled values.
+6. Each generator internally retries (up to ~60-100 times) if a random
+   draw produces a degenerate or out-of-range configuration, and falls
+   back to a known-good hardcoded configuration if retries are exhausted,
+   so `generate()` itself never throws.
+7. `validatePuzzle()` re-checks structural invariants (finite diagram
+   coordinates, at least one given and one target angle mark, non-empty
+   deduction chain, answer strictly between 0° and 360°) plus a
+   generator-computed `selfCheck` boolean that re-verifies the template's
+   arithmetic invariant (angles actually sum to 180°/360°/`(n-2)×180°`,
+   or the algebraic/exterior-angle equation actually balances).
+
+### Answer Format
+A single number of degrees, e.g. `70` or `70°` (the grader strips `°`,
+`deg`, and `degrees` and compares numerically with a small tolerance).
+
+### Interactive UI
+- **Theme:** Deep indigo/navy "blueprint" background, evoking a geometry
+  notebook page. Lines in light blue, the given angle's arc in cyan, the
+  target angle's arc in glowing amber/gold with a drop-shadow highlight.
+- **Rendering:** A generated SVG diagram (lines/segments + arc markers with
+  degree labels) is rendered client-side from the structured
+  `puzzle.data.diagram` payload — no per-template drawing code is needed in
+  the frontend, since every template emits the same generic
+  `{segments, angleMarks}` shape.
+- **Interaction:** The player reads the diagram and types the numeric
+  answer into the existing generic answer field, then presses Submit (or
+  Enter) — matching the platform's standard "diagram + numeric entry"
+  pattern rather than introducing a new input widget.
+- **Legend:** A small color-key under the diagram reminds the player which
+  arc is "given" (cyan) and which one to solve for (amber).
+- **Auto-advance:** On a correct answer, the standard reinforcement message
+  plays and the set advances to the next puzzle, consistent with every
+  other game type.
+
+### Skill Tags
+`geometry`, `angles`, `angle_chasing`, `vertical_angles`, `linear_pair`,
+`angles_on_a_line`, `angles_around_a_point`, `triangle_angle_sum`,
+`exterior_angle_theorem`, `parallel_lines`, `corresponding_angles`,
+`alternate_angles`, `co_interior_angles`, `polygon_angle_sum`, `algebra`,
+`equations`
+
+### Hints
+The hint ladder is generated directly from the puzzle's recorded deduction
+chain rather than being hand-written per puzzle:
+1. **Nudge** — names the geometric relationship(s) needed (e.g. "vertical
+   angles," or, for multi-step puzzles, the full chain of theorem names)
+   without doing any arithmetic.
+2. **Strategy** — walks through every step except the last, with the
+   actual numbers substituted in (e.g. "the given angle and the next angle
+   we need lie on a straight line together, so that angle = 180 − 42 =
+   138°").
+3. **Near-solution** — states the final deduction step and the resulting
+   numeric answer explicitly.
+
+---
+
 ## Implementation Priority
 
 Recommended implementation order based on complexity and impact:
@@ -500,7 +626,7 @@ Current/planned catalog still under-covers:
 
 ## Next-Step Design TODO (Highest Leverage)
 
-1. **Angle Chase Studio** (geometry + proof reasoning anchor)
+1. ~~**Angle Chase Studio** (geometry + proof reasoning anchor)~~ — implemented, see section 8 above.
 2. **Counting Lab** (counting principles/combinatorics anchor)
 3. **Proof Blocks** (argument structure and proof-writing anchor)
 4. **Chance Builder** (probability and expected value)

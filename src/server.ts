@@ -14,6 +14,7 @@ import { kenkenPlugin } from "./games/kenken/plugin.ts";
 import { balanceScalePlugin } from "./games/balanceScale/plugin.ts";
 import { shikakuPlugin } from "./games/shikaku/plugin.ts";
 import { numberPathsPlugin } from "./games/numberPaths/plugin.ts";
+import { angleChaseStudioPlugin } from "./games/angleChaseStudio/plugin.ts";
 import { ProfileStore } from "./services/profile-store.ts";
 import { ProgressStore } from "./services/progress-store.ts";
 
@@ -33,6 +34,7 @@ registry.register(kenkenPlugin);
 registry.register(balanceScalePlugin);
 registry.register(shikakuPlugin);
 registry.register(numberPathsPlugin);
+registry.register(angleChaseStudioPlugin);
 
 const gradeBands: GradeBand[] = ["1-2", "2-3", "3-4", "4-6", "6-8", "8-10"];
 

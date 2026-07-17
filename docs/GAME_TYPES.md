@@ -46,23 +46,30 @@ Each game type includes:
    - Trace an adjacent path through counting sequences to reach a goal.
    - Interactive tap-path board with immediate path validation.
 
+10. **Angle Chase Studio** (Grades 5-9) — `angle-chase-studio`
+    - Find an unknown angle in a generated SVG diagram using vertical
+      angles, angles on a line/point, triangle and polygon angle sums,
+      exterior angle theorem, and parallel-line angle theorems.
+    - Static diagram + numeric answer entry; hint ladder walks through the
+      actual theorem-by-theorem deduction chain rather than just the answer.
+
 ## Games In Development
 
 See `NEW_GAMES_DESIGN.md` for full specifications.
 
-10. **Sum Blobs** (Grades 1-4)
+11. **Sum Blobs** (Grades 1-4)
    - Draw contiguous blobs on a number grid, each summing to a target.
 
-11. **Honeycomb Paths** (Grades 1-4)
+12. **Honeycomb Paths** (Grades 1-4)
     - Trace a path through a hex grid to hit a target sum or sequence.
 
-12. **Subtractiles** (Grades 2-5)
+13. **Subtractiles** (Grades 2-5)
     - Place number tiles so adjacent-cell differences match edge constraints.
 
-13. **Measure Mazes** (Grades 2-5)
+14. **Measure Mazes** (Grades 2-5)
     - Connect dots at exact distances across a grid.
 
-14. **Equation Paths** (Grades 3-7)
+15. **Equation Paths** (Grades 3-7)
     - Trace a path through a number/operator grid to build an expression hitting a target.
 
 ## Potential Games Backlog (By Grade Band)

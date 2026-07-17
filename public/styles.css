@@ -1186,6 +1186,101 @@ label[for="difficulty"] {
   text-align: center;
 }
 
+/* ===== Angle Chase Studio Theme ===== */
+.acs-zone {
+  background: linear-gradient(135deg, #111a35 0%, #050914 100%);
+  border-radius: 16px;
+  padding: 20px;
+  margin: 12px 0;
+  color: #cbd5f5;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.acs-svg-wrap {
+  width: 100%;
+  max-width: 480px;
+  border: 3px solid #334155;
+  border-radius: 10px;
+  background: radial-gradient(circle at 50% 0%, #16213f 0%, #0a0f1f 100%);
+}
+
+.acs-svg {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.acs-line {
+  stroke: #93c5fd;
+  stroke-width: 2.5;
+  stroke-linecap: round;
+}
+
+.acs-arc {
+  fill: none;
+  stroke: rgba(203, 213, 245, 0.28);
+  stroke-width: 2;
+}
+
+.acs-arc-given {
+  fill: none;
+  stroke: #38bdf8;
+  stroke-width: 3;
+}
+
+.acs-arc-target {
+  fill: none;
+  stroke: #fbbf24;
+  stroke-width: 3.5;
+  filter: drop-shadow(0 0 3px rgba(251, 191, 36, 0.6));
+}
+
+.acs-vertex-dot {
+  fill: #e2e8f0;
+}
+
+.acs-label {
+  fill: #e2e8f0;
+  font-size: 15px;
+  font-weight: 700;
+  font-family: "Trebuchet MS", "Segoe UI", sans-serif;
+}
+
+.acs-label-given {
+  fill: #7dd3fc;
+}
+
+.acs-label-target {
+  fill: #fbbf24;
+  font-size: 17px;
+}
+
+.acs-legend {
+  display: flex;
+  gap: 18px;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.acs-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.acs-legend .acs-swatch {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  display: inline-block;
+}
+
+.acs-legend .acs-swatch-given { background: #38bdf8; }
+.acs-legend .acs-swatch-target { background: #fbbf24; }
+
 /* ===== Progress display ===== */
 #progress {
   font-size: 0.85rem;

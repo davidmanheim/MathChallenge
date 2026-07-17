@@ -86,7 +86,10 @@ const el = {
   skUndoBtn: document.getElementById("skUndoBtn"),
   skClearBtn: document.getElementById("skClearBtn"),
   skCheckBtn: document.getElementById("skCheckBtn"),
-  skBanner: document.getElementById("skBanner")
+  skBanner: document.getElementById("skBanner"),
+  // Angle Chase Studio
+  acsZone: document.getElementById("angleChaseZone"),
+  acsSvg: document.getElementById("acsSvg")
 };
 
 function difficultyLabel(n) {
@@ -1664,6 +1667,98 @@ async function skCheckSolution() {
 
 // ===== End Shikaku =====
 
+// ===== Angle Chase Studio Interactive UI =====
+
+function hideAngleChase() {
+  if (!el.acsZone) return;
+  el.acsZone.style.display = "none";
+  if (el.acsSvg) el.acsSvg.innerHTML = "";
+}
+
+function renderAngleChase(puzzle) {
+  if (!el.acsZone || !el.acsSvg) return;
+  hideAngleChase();
+  el.acsZone.style.display = "";
+
+  const diagram = puzzle.data.diagram;
+  if (!diagram) return;
+
+  const ns = "http://www.w3.org/2000/svg";
+  const svg = el.acsSvg;
+  svg.setAttribute("viewBox", `0 0 ${diagram.width} ${diagram.height}`);
+  svg.innerHTML = "";
+
+  for (const seg of diagram.segments || []) {
+    const line = document.createElementNS(ns, "line");
+    line.setAttribute("x1", seg.a.x);
+    line.setAttribute("y1", seg.a.y);
+    line.setAttribute("x2", seg.b.x);
+    line.setAttribute("y2", seg.b.y);
+    line.setAttribute("class", "acs-line");
+    svg.appendChild(line);
+  }
+
+  // Small dots at each distinct segment endpoint (vertices), for legibility.
+  const vertexKeys = new Set();
+  for (const seg of diagram.segments || []) {
+    for (const p of [seg.a, seg.b]) {
+      const key = `${Math.round(p.x)},${Math.round(p.y)}`;
+      if (vertexKeys.has(key)) continue;
+      vertexKeys.add(key);
+    }
+  }
+
+  for (const mark of diagram.angleMarks || []) {
+    const steps = Math.max(2, Math.min(48, Math.round(Math.abs(mark.value) / 6)));
+    const pts = [];
+    for (let i = 0; i <= steps; i++) {
+      const t = mark.dir1 + (mark.value * i) / steps;
+      const rad = (t * Math.PI) / 180;
+      const x = mark.vertex.x + mark.radius * Math.cos(rad);
+      const y = mark.vertex.y - mark.radius * Math.sin(rad);
+      pts.push(`${x.toFixed(1)},${y.toFixed(1)}`);
+    }
+    const poly = document.createElementNS(ns, "polyline");
+    poly.setAttribute("points", pts.join(" "));
+    poly.setAttribute(
+      "class",
+      mark.isTarget ? "acs-arc-target" : mark.isGiven ? "acs-arc-given" : "acs-arc"
+    );
+    svg.appendChild(poly);
+
+    if (mark.label) {
+      const midDeg = mark.dir1 + mark.value / 2;
+      const midRad = (midDeg * Math.PI) / 180;
+      const labelR = mark.radius + 18;
+      const lx = mark.vertex.x + labelR * Math.cos(midRad);
+      const ly = mark.vertex.y - labelR * Math.sin(midRad);
+      const text = document.createElementNS(ns, "text");
+      text.setAttribute("x", lx.toFixed(1));
+      text.setAttribute("y", ly.toFixed(1));
+      text.setAttribute("text-anchor", "middle");
+      text.setAttribute("dominant-baseline", "middle");
+      text.setAttribute(
+        "class",
+        `acs-label ${mark.isTarget ? "acs-label-target" : mark.isGiven ? "acs-label-given" : ""}`
+      );
+      text.textContent = mark.label;
+      svg.appendChild(text);
+    }
+  }
+
+  for (const key of vertexKeys) {
+    const [x, y] = key.split(",").map(Number);
+    const dot = document.createElementNS(ns, "circle");
+    dot.setAttribute("cx", x);
+    dot.setAttribute("cy", y);
+    dot.setAttribute("r", 3);
+    dot.setAttribute("class", "acs-vertex-dot");
+    svg.appendChild(dot);
+  }
+}
+
+// ===== End Angle Chase Studio =====
+
 async function renderPuzzle() {
   state.puzzle = getCurrentPuzzle();
   state.puzzleStartedAt = state.puzzle ? Date.now() : 0;
@@ -1689,6 +1784,7 @@ async function renderPuzzle() {
   hideKenKen();
   hideBalance();
   hideShikaku();
+  hideAngleChase();
   restoreGenericInput();
 
   if (!state.puzzle) {
@@ -1756,6 +1852,14 @@ async function renderPuzzle() {
   if (state.puzzle.gameTypeId === "shikaku") {
     el.puzzleBox.textContent = state.puzzle.prompt.text;
     renderShikaku(state.puzzle);
+    return;
+  }
+  if (state.puzzle.gameTypeId === "angle-chase-studio") {
+    el.puzzleBox.textContent = state.puzzle.prompt.text;
+    renderAngleChase(state.puzzle);
+    updateGenericAnswerControls(state.puzzle);
+    renderChoices(state.puzzle);
+    renderNumberLine(state.puzzle);
     return;
   }
 
