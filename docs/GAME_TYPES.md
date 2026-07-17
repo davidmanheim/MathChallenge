@@ -49,8 +49,12 @@ Each game type includes:
 10. **Story Logic Grids** (Grades 1-10) — `story-logic-grids`
    - Story-based one-to-one matching logic puzzles generated from YAML templates.
    - Includes 20 story variants; difficulty scales by role count, category count, and clue structure.
-   - Uses fewer integrated clues at higher levels: cross-category links, ordered-role chains,
-     grouped exclusions, initial-letter constraints, and partial row bundles.
+   - Uses fewer integrated clues at higher levels: cross-category links, order chains (either
+     from literally ordered roles like "Tank 1" or from an intrinsically ordered category such
+     as day/score/platform paired with a second category to name the rows), grouped exclusions,
+     initial-letter constraints, and partial row bundles. Every template defines at least a
+     grouped-exclusion category, and most also define an ordered category or ordered roles, so
+     the integrated clue mix is not limited to one story.
    - Validation checks that each structured clue set has a unique solution before serving.
 
 ## Games In Development
