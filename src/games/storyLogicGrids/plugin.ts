@@ -15,6 +15,7 @@ type CategoryTemplate = {
   label: string;
   values: string[];
   groups?: ValueGroup[];
+  ordered?: boolean;
 };
 
 type StoryTemplate = {
@@ -40,6 +41,13 @@ type Constraint =
       otherCategoryId: string;
       otherValue: string;
       relation: "is" | "not";
+    }
+  | {
+      type: "categoryOrder";
+      identifyCategoryId: string;
+      identifyValues: string[];
+      orderCategoryId: string;
+      direction: "ascending" | "descending";
     };
 
 type LogicClue = {
@@ -174,8 +182,26 @@ function hasOrderedRoles(roles: string[]): boolean {
     roles.every((role) => /^booth\s+[a-z]$/i.test(role));
 }
 
-function valueRoleIndex(roles: string[], solution: Assignment, categoryId: string, value: string): number {
-  return roles.findIndex((role) => solution[role]?.[categoryId] === value);
+// Extracts the natural sequence key embedded in an ordered role name
+// (e.g. "Tank 3" -> 3, "Case B" -> charCode of "B"), so order clues compare
+// the role's real identity rather than its (possibly shuffled) array position.
+function roleOrderRank(role: string): number {
+  const numMatch = role.match(/(\d+)/);
+  if (numMatch) return Number(numMatch[1]);
+  const letterMatch = role.match(/([A-Za-z])\s*$/);
+  if (letterMatch) return letterMatch[1].toUpperCase().charCodeAt(0);
+  return 0;
+}
+
+function roleHoldingValue(assignment: Assignment, categoryId: string, value: string): string | undefined {
+  return Object.keys(assignment).find((role) => assignment[role]?.[categoryId] === value);
+}
+
+function categoryValueRank(categories: CategoryTemplate[], categoryId: string, value: string | undefined): number {
+  if (value === undefined) return -1;
+  const category = categories.find((c) => c.id === categoryId);
+  if (!category) return -1;
+  return category.values.indexOf(value);
 }
 
 function permutations<T>(items: T[]): T[][] {
@@ -190,6 +216,7 @@ function permutations<T>(items: T[]): T[][] {
 
 function constraintCategoryIds(constraint: Constraint): string[] {
   if (constraint.type === "link") return [constraint.categoryId, constraint.otherCategoryId];
+  if (constraint.type === "categoryOrder") return [constraint.identifyCategoryId, constraint.orderCategoryId];
   return [constraint.categoryId];
 }
 
@@ -209,6 +236,12 @@ function constraintReady(assignment: Assignment, constraint: Constraint): boolea
       );
       if (!role) return false;
       if (assignment[role]?.[constraint.otherCategoryId] === undefined) return false;
+    } else if (constraint.type === "categoryOrder") {
+      for (const value of constraint.identifyValues) {
+        const role = roleHoldingValue(assignment, constraint.identifyCategoryId, value);
+        if (!role) return false;
+        if (assignment[role]?.[constraint.orderCategoryId] === undefined) return false;
+      }
     } else if (assignment[constraint.role]?.[categoryId] === undefined) {
       return false;
     }
@@ -216,7 +249,12 @@ function constraintReady(assignment: Assignment, constraint: Constraint): boolea
   return true;
 }
 
-function constraintPasses(roles: string[], assignment: Assignment, constraint: Constraint): boolean {
+function constraintPasses(
+  roles: string[],
+  categories: CategoryTemplate[],
+  assignment: Assignment,
+  constraint: Constraint
+): boolean {
   if (!constraintReady(assignment, constraint)) return true;
   if (constraint.type === "is") {
     return assignment[constraint.role]?.[constraint.categoryId] === constraint.value;
@@ -242,8 +280,23 @@ function constraintPasses(roles: string[], assignment: Assignment, constraint: C
       ? actual === constraint.otherValue
       : actual !== constraint.otherValue;
   }
+  if (constraint.type === "categoryOrder") {
+    const ranks = constraint.identifyValues.map((value) => {
+      const role = roleHoldingValue(assignment, constraint.identifyCategoryId, value);
+      return categoryValueRank(categories, constraint.orderCategoryId, role ? assignment[role]?.[constraint.orderCategoryId] : undefined);
+    });
+    if (ranks.some((rank) => rank < 0)) return true;
+    for (let i = 1; i < ranks.length; i += 1) {
+      if (constraint.direction === "ascending" && !(ranks[i - 1] < ranks[i])) return false;
+      if (constraint.direction === "descending" && !(ranks[i - 1] > ranks[i])) return false;
+    }
+    return true;
+  }
 
-  const positions = constraint.values.map((value) => valueRoleIndex(roles, assignment, constraint.categoryId, value));
+  const positions = constraint.values.map((value) => {
+    const role = roleHoldingValue(assignment, constraint.categoryId, value);
+    return role ? roleOrderRank(role) : -1;
+  });
   if (positions.some((pos) => pos < 0)) return true;
   for (let i = 1; i < positions.length; i += 1) {
     if (constraint.direction === "ascending" && !(positions[i - 1] < positions[i])) return false;
@@ -252,12 +305,18 @@ function constraintPasses(roles: string[], assignment: Assignment, constraint: C
   return true;
 }
 
-function cluePasses(roles: string[], assignment: Assignment, clue: LogicClue): boolean {
-  return clue.constraints.every((constraint) => constraintPasses(roles, assignment, constraint));
+function cluePasses(
+  roles: string[],
+  categories: CategoryTemplate[],
+  assignment: Assignment,
+  clue: LogicClue
+): boolean {
+  return clue.constraints.every((constraint) => constraintPasses(roles, categories, assignment, constraint));
 }
 
 function candidatePermutations(
   roles: string[],
+  categories: CategoryTemplate[],
   category: CategoryTemplate,
   clues: LogicClue[]
 ): string[][] {
@@ -273,7 +332,7 @@ function candidatePermutations(
     for (let i = 0; i < roles.length; i += 1) {
       partial[roles[i]] = { [category.id]: perm[i] };
     }
-    return simpleClues.every((clue) => cluePasses(roles, partial, clue));
+    return simpleClues.every((clue) => cluePasses(roles, categories, partial, clue));
   });
 }
 
@@ -284,14 +343,14 @@ function solveAssignments(
   limit = 2
 ): Assignment[] {
   const options = categories
-    .map((category) => ({ category, perms: candidatePermutations(roles, category, clues) }))
+    .map((category) => ({ category, perms: candidatePermutations(roles, categories, category, clues) }))
     .sort((a, b) => a.perms.length - b.perms.length);
   const solutions: Assignment[] = [];
 
   function backtrack(index: number, assignment: Assignment): void {
     if (solutions.length >= limit) return;
     if (index === options.length) {
-      if (clues.every((clue) => cluePasses(roles, assignment, clue))) {
+      if (clues.every((clue) => cluePasses(roles, categories, assignment, clue))) {
         solutions.push(JSON.parse(JSON.stringify(assignment)) as Assignment);
       }
       return;
@@ -303,7 +362,7 @@ function solveAssignments(
       for (let i = 0; i < roles.length; i += 1) {
         next[roles[i]] = { ...(next[roles[i]] ?? {}), [category.id]: perm[i] };
       }
-      if (clues.every((clue) => cluePasses(roles, next, clue))) {
+      if (clues.every((clue) => cluePasses(roles, categories, next, clue))) {
         backtrack(index + 1, next);
       }
       if (solutions.length >= limit) return;
@@ -368,9 +427,12 @@ function buildCandidateClues(
 
     if (hasOrderedRoles(roles)) {
       const roleOrderClues = values
-        .map((value) => ({ value, index: valueRoleIndex(roles, solution, category.id, value) }))
-        .filter((entry) => entry.index >= 0)
-        .sort((a, b) => b.index - a.index);
+        .map((value) => {
+          const role = roles.find((r) => solution[r][category.id] === value);
+          return role ? { value, rank: roleOrderRank(role) } : null;
+        })
+        .filter((entry): entry is { value: string; rank: number } => entry !== null)
+        .sort((a, b) => b.rank - a.rank);
       for (let i = 0; i + 2 < roleOrderClues.length; i += 1) {
         const chain = roleOrderClues.slice(i, i + 3);
         out.push({
@@ -383,6 +445,37 @@ function buildCandidateClues(
             direction: "ascending"
           }]
         });
+      }
+    } else if (category.ordered) {
+      // For templates whose roles are plain names (no embedded numbering), an
+      // intrinsically-ordered category (day, score, platform, ...) still lets
+      // us build an integrated order chain, naming the roles via a *different*
+      // category's value so the clue actually conveys information.
+      const orderRankOf = (role: string): number => category.values.indexOf(solution[role][category.id]);
+      for (const identifyCategory of categories) {
+        if (identifyCategory.id === category.id) continue;
+        const identifyValues = identifyCategory.values.slice(0, roles.length);
+        const chainEntries = identifyValues
+          .map((value) => {
+            const role = roles.find((r) => solution[r][identifyCategory.id] === value);
+            return role ? { value, rank: orderRankOf(role) } : null;
+          })
+          .filter((entry): entry is { value: string; rank: number } => entry !== null)
+          .sort((a, b) => a.rank - b.rank);
+        for (let i = 0; i + 2 < chainEntries.length; i += 1) {
+          const chain = chainEntries.slice(i, i + 3);
+          out.push({
+            kind: "order",
+            text: `The ${noun} with ${valueLabel(identifyCategory, chain[0].value)} comes before the ${noun} with ${chain[1].value} in ${category.label}, which comes before the ${noun} with ${chain[2].value}.`,
+            constraints: [{
+              type: "categoryOrder",
+              identifyCategoryId: identifyCategory.id,
+              identifyValues: chain.map((entry) => entry.value),
+              orderCategoryId: category.id,
+              direction: "ascending"
+            }]
+          });
+        }
       }
     }
 
@@ -573,14 +666,24 @@ function buildPuzzle(seed: number, difficulty: number, gradeBand: GradeBand): Pu
   const cfg = configFor(difficulty, gradeBand);
   const template = templates[Math.abs(seed) % templates.length];
   const roles = shuffle(rng, template.roles).slice(0, cfg.roleCount);
-  const categories = shuffle(rng, template.categories).slice(0, cfg.categoryCount).map((category) => ({
-    ...category,
-    values: shuffle(rng, category.values).slice(0, cfg.roleCount),
-    groups: (category.groups ?? []).map((group) => ({
-      ...group,
-      values: group.values.filter((value) => category.values.includes(value))
-    }))
-  }));
+  const categories = shuffle(rng, template.categories).slice(0, cfg.categoryCount).map((category) => {
+    const naturalIndex = new Map(category.values.map((value, index) => [value, index]));
+    const picked = shuffle(rng, category.values).slice(0, cfg.roleCount);
+    // Ordered categories (day, score, platform, ...) keep their true natural
+    // sequence at runtime, even though a random subset of values is used, so
+    // that order-chain clues can rely on relative position being meaningful.
+    const values = category.ordered
+      ? picked.sort((a, b) => (naturalIndex.get(a) ?? 0) - (naturalIndex.get(b) ?? 0))
+      : picked;
+    return {
+      ...category,
+      values,
+      groups: (category.groups ?? []).map((group) => ({
+        ...group,
+        values: group.values.filter((value) => values.includes(value))
+      }))
+    };
+  });
 
   const solution: Assignment = {};
   for (const role of roles) solution[role] = {};
