@@ -1479,6 +1479,223 @@ label[for="difficulty"] {
   max-width: 420px;
 }
 
+/* ===== Proof Blocks ===== */
+.pb-zone {
+  background: linear-gradient(135deg, #1e1b3a 0%, #0f0d20 100%);
+  border-radius: 16px;
+  padding: 18px;
+  margin: 12px 0;
+  color: #e6e2ff;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.pb-goal {
+  font-weight: 800;
+  font-size: 1.05rem;
+  text-align: center;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: rgba(167, 139, 250, 0.15);
+  border: 1px solid rgba(167, 139, 250, 0.5);
+  color: #f5f3ff;
+}
+
+.pb-columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+.pb-col {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.pb-col-title {
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 700;
+  color: #c4b5fd;
+}
+
+.pb-bank,
+.pb-proof {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 80px;
+  padding: 8px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px dashed rgba(196, 181, 253, 0.35);
+}
+
+.pb-empty {
+  font-size: 0.82rem;
+  color: #a5a0c9;
+  font-style: italic;
+  text-align: center;
+  padding: 14px 6px;
+}
+
+.pb-chip {
+  position: relative;
+  border-radius: 10px;
+  padding: 9px 11px;
+  background: #2c2850;
+  border: 1px solid #4c4680;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+}
+
+.pb-chip-given {
+  background: #14352e;
+  border-color: #2f855a;
+}
+
+.pb-chip-goal {
+  background: #3a2340;
+  border-color: #c026d3;
+}
+
+.pb-clickable {
+  cursor: pointer;
+  transition: transform 0.08s ease, border-color 0.12s ease;
+}
+
+.pb-clickable:hover {
+  transform: translateY(-1px);
+  border-color: #a78bfa;
+}
+
+.pb-chip-meta {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 800;
+  color: #c4b5fd;
+  margin-bottom: 2px;
+}
+
+.pb-chip-given .pb-chip-meta {
+  color: #86efac;
+}
+
+.pb-chip-goal .pb-chip-meta {
+  color: #f0abfc;
+}
+
+.pb-chip-statement {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #f8f7ff;
+  line-height: 1.3;
+}
+
+.pb-chip-reason {
+  font-size: 0.78rem;
+  color: #b9b4dd;
+  margin-top: 3px;
+  line-height: 1.25;
+}
+
+.pb-placed {
+  padding-right: 12px;
+}
+
+.pb-chip-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.pb-step-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #a78bfa;
+  color: #1e1b3a;
+  font-weight: 800;
+  font-size: 0.78rem;
+}
+
+.pb-move,
+.pb-remove {
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  border: 1px solid #4c4680;
+  background: #1e1b3a;
+  color: #e6e2ff;
+  font-weight: 800;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.pb-move:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.pb-remove {
+  margin-left: auto;
+  border-color: #7f1d4b;
+  color: #fda4c7;
+}
+
+.pb-move:not(:disabled):hover,
+.pb-remove:hover {
+  border-color: #a78bfa;
+}
+
+.pb-controls {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+}
+
+#proofBlocksCheckBtn {
+  background: #7c3aed;
+  color: #fff;
+  border: none;
+  padding: 9px 20px;
+  border-radius: 10px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+#proofBlocksClearBtn {
+  background: transparent;
+  color: #c4b5fd;
+  border: 1px solid #4c4680;
+  padding: 9px 16px;
+  border-radius: 10px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.pb-banner {
+  min-height: 24px;
+  text-align: center;
+  font-weight: 700;
+  color: #f0abfc;
+  line-height: 1.35;
+}
+
+@media (max-width: 640px) {
+  .pb-columns {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* ===== Progress display ===== */
 #progress {
   font-size: 0.85rem;

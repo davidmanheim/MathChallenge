@@ -755,6 +755,159 @@ family and deduction chain rather than being hand-written per puzzle:
 
 ---
 
+## 10. Proof Blocks
+
+**Status:** Implemented (`src/games/proofBlocks/plugin.ts`, gameTypeId `proof-blocks`).
+
+**Source inspiration:** The coverage gap flagged in both `docs/ROADMAP.md` and
+`docs/GAME_TYPES.md` — "formal proof / argument structure": kids had little
+practice with theorem→claim→justification reasoning. Structurally a cousin of
+Angle Chase Studio and Counting Lab (a generated scenario, a recorded
+step-by-step chain, and a hint ladder built from that chain), but it departs in
+its *answer format* — this is an ordering/selection puzzle over statement
+blocks, not a numeric-answer game — so its grader and validation differ.
+
+### Concept
+The player is given a set of statement "blocks." Some are **givens** (a
+starting set with no justification), some are candidate **steps** (each a
+statement plus a named justification/rule), one is the **goal**, and some are
+**distractors** (plausible-but-invalid statements — a wrong justification, an
+algebra slip, an irrelevant claim, or a logical fallacy such as affirming the
+converse). The player assembles a correct proof by ordering the blocks into a
+valid chain from the givens to the goal, where each step's justification only
+uses statements already established earlier in the chain — and must *exclude*
+every distractor. Four content domains are implemented: algebraic
+equation-solving (each line justified by "distributive property", "subtract N
+from both sides", "divide both sides by N", ... proving `x = value`); if-then
+logic chains (modus ponens along a chain of conditionals); number-property
+parity proofs ("the sum of two evens is even", "even + odd is odd", "an even
+times any integer is even", ... via the definition-of-even/odd substitution
+argument); and geometry angle proofs (reusing Angle Chase Studio's theorem
+vocabulary — "Linear Pair Postulate", "vertical angles" — to prove two angles
+equal or solve for `x` with justification).
+
+### Rules
+1. A proof node is a **given** (deps = none, reason "Given"), a **step** (a
+   statement justified by a named rule, depending on one or more earlier
+   nodes), or the single **goal** node (the sink). Distractor blocks are never
+   part of any valid proof.
+2. The proof forms a DAG: every non-given node's justification references the
+   ids of the earlier statements it follows from. The goal is the unique sink,
+   and — by construction — every non-distractor block is an ancestor of the
+   goal (no proof block is dead weight), so a correct answer must use *all* the
+   non-distractor blocks.
+3. Algebraic and logic-chain proofs at low difficulty are **linear** (each step
+   depends on the previous, unique valid order). Parity and geometry proofs at
+   higher difficulty **branch**: e.g. the two "definition of even" lines
+   (`a = 2m`, `b = 2n`) each depend only on their own given, so they are
+   independent and may be placed in either order. This makes multiple
+   topological orders valid — which is why the grader validates *structurally*
+   rather than string-matching a single canonical order.
+4. The player submits an **ordered list of block ids** (the proof sequence). A
+   submission is correct iff it (a) contains exactly the non-distractor set (no
+   distractor included, none missing), (b) has no duplicate/invented ids, and
+   (c) respects every dependency (each block's prerequisites all appear strictly
+   earlier). This exactly rejects the four canonical error modes: using a step
+   before its prerequisite, including a distractor, stopping short of the goal,
+   and repeating a block.
+5. Because independent steps yield several valid orders, `expectUniqueSolution`
+   is **false**; `solve()` returns one canonical (construction-order) topological
+   ordering, which the structural grader is guaranteed to accept.
+
+### Grading Approach (canonical-order vs. structural-validity)
+**Structural validity** was chosen over canonical-string comparison. This is the
+mathematically honest option (independent steps genuinely have no required
+relative order) and, per the platform's own guidance, the cleaner one to get
+right: the grader *checks that the submitted order is a valid proof* rather than
+comparing against a stored string. The tradeoff — the grader is slightly more
+code than an equality check — is worth it: a canonical-string grader would
+wrongly reject a student who established `b = 2n` before `a = 2m`, teaching a
+false lesson about proof order. `solve()` still returns a single canonical
+ordering so the validation gate's solvability and grader-consistency checks pass
+(the gate only requires that every returned canonical solution grades as
+correct, which it does).
+
+### Difficulty Scaling
+
+| Difficulty | Grade | Domain (2 variants per tier, chosen at random) | Structure | Distractors | Notes |
+|------------|-------|-------------------------------------------------|-----------|-------------|-------|
+| 1          | 6     | Algebra 2-step (`ax + c = r`); logic 2-link if-then chain | Linear | 0 | Pure "what order do these go in" — no distractors yet |
+| 2          | 6-7   | Algebra 2-step; logic 2-link chain | Linear | 1 | First distractor (wrong-inverse-operation / converse error) |
+| 3          | 7     | Algebra 3-step (`k(x+p) = r`: distribute → subtract → divide); parity "sum of two evens is even" | Linear / branching | 1 | First branching DAG (two independent definition steps) |
+| 4          | 7-8   | Parity "sum of two odds"/"even + odd"; geometry "vertical angles are equal" | Branching | 1-2 | Branching in both domains |
+| 5          | 8-9   | Geometry solve-for-x (complementary/supplementary + substitution); parity "even × integer is even" | Branching | 2 | Longer chains, 2 distractors |
+| 6          | 9-10  | Geometry vertical-angles (2 distractors); algebra 3-step (2 distractors) | Branching / linear | 2 | Maximum distractor load |
+
+### Generation Algorithm
+1. Pick the difficulty tier's two domain variants and flip the seeded coin
+   between them, exactly as Angle Chase Studio / Counting Lab dispatch.
+2. A `ProofBuilder` accumulates proof nodes in a natural, dependency-respecting
+   insertion order (`given` / `step` / `goal`); it throws if a node references a
+   dep not yet added, so a malformed generator fails loudly rather than emitting
+   a bad puzzle. Distractors are added separately with a plausible statement and
+   a (deliberately invalid) justification.
+3. The assembler assigns ids, derives the **canonical order** directly from the
+   builder's insertion order (topologically valid by construction), records the
+   derivation **chain** (steps + goal, for hints), and **shuffles** all blocks
+   (proof nodes + distractors) with a Fisher-Yates draw for presentation.
+4. Every generator computes a structural `selfCheck` via `verifyProof()`, which
+   re-verifies: deps precede in the canonical order; exactly one goal, which is
+   the last node; ≥1 given and ≥1 step; and the goal's reverse-dependency
+   closure covers every proof node (no dead weight). Geometry solve-for-x folds
+   an extra arithmetic check (integer, positive `x`; second angle in range) into
+   `selfCheck`. Because ranges are constructed to always be valid, `generate()`
+   never throws.
+5. `validatePuzzle()` independently re-checks the served payload: ≥3 blocks,
+   no duplicate/empty ids, the canonical order equals exactly the non-distractor
+   set, no proof block depends on a distractor or a dangling id, the goal is a
+   real proof block, `verifyProof()` passes, the hint chain is non-empty, and
+   `selfCheck` is true.
+
+### Answer Format
+A JSON array of block ids in proof order, e.g. `["ga","gb","sa","sb","ssum",
+"sfac","goal"]` (a whitespace/comma-separated list of ids is also accepted by
+the grader as a fallback). The grader validates the order structurally (set
+equality against the non-distractor blocks + dependency-respecting order); it
+does not compare against a single stored string, so any topologically valid
+ordering is accepted.
+
+### Interactive UI
+- **Theme:** Deep indigo/violet "logic workshop" panel — distinct from Angle
+  Chase Studio's blueprint indigo and Counting Lab's teal lab. Given blocks are
+  tinted green, the goal block magenta, ordinary steps violet.
+- **Layout:** A goal banner ("Prove: …") over two columns: an **Available
+  blocks** bank (all blocks, shuffled) and **Your proof** (the ordered sequence
+  being assembled). Collapses to a single column under 640px.
+- **Interaction:** Click-to-append — tapping a bank block moves it into the
+  proof column at the end. Each placed block shows its position number and has
+  ↑ / ↓ reorder buttons and a × remove button (a click-to-append-then-reorder
+  model, simpler than full drag-and-drop, as the platform allows). Each block
+  chip displays its statement and its justification ("because: …") so the
+  reasoning is always visible. A "Check Proof" button submits; "Clear" empties
+  the proof.
+- **Submit:** Follows the Story Logic Grids pattern — builds the id array into
+  the hidden answer field, POSTs to `/api/attempts`, and on success shows a
+  banner and auto-advances; on failure it explains the three things to check
+  (no distractors, dependency order, reaching the goal) without revealing the
+  answer.
+
+### Skill Tags
+`proof`, `argument_structure`, `justification`, plus domain-specific tags:
+`algebra` / `equations`; `logic` / `if_then` / `modus_ponens`;
+`number_properties` / `parity`; `geometry` / `angles`.
+
+### Hints
+Built from the recorded chain, teaching proof *strategy* rather than the answer:
+1. **Nudge** — restates what is being proved and what is given, and reminds the
+   player that every block must be justified only by blocks already placed and
+   that some blocks are distractors to leave out.
+2. **Strategy** — identifies which statement can be established first using only
+   the givens, and names its justification.
+3. **Near-solution** — reveals the first correct step, then lists the remaining
+   steps in dependency order with their justifications.
+
+---
+
 ## Implementation Priority
 
 Recommended implementation order based on complexity and impact:

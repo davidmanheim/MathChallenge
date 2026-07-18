@@ -17,7 +17,7 @@ Web-accessible TypeScript math puzzle platform for kids (grades 1-10), with ligh
   - Plugin-based puzzle engine with generation-time validation gate
   - Name-based profile login + JSON-persisted progress
   - Set-level deduplication (no repeated puzzles within a set)
-  - Playable games (12 implemented):
+  - Playable games (13 implemented):
     - `Pattern Train` — interactive multiple-choice pattern puzzles
     - `Mismo` — expression-equivalence card matching
     - `X-Outs` — row/column target-sum cross-out logic grid
@@ -32,6 +32,9 @@ Web-accessible TypeScript math puzzle platform for kids (grades 1-10), with ligh
     - `Counting Lab` — count outcomes using the multiplication counting
       principle, permutations, combinations, restrictions, casework, and an
       intro to the pigeonhole principle
+    - `Proof Blocks` — assemble a valid deductive proof by ordering statement
+      blocks from givens to goal (algebra, if-then logic, parity, and geometry
+      angle proofs), excluding invalid distractor blocks
     - `Number Bonds Sprint` — missing-addend practice (pending removal)
   - 5 additional games designed (not yet implemented): Sum Blobs, Honeycomb Paths,
     Subtractiles, Measure Mazes, Equation Paths
