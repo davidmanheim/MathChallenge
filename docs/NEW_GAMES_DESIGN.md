@@ -755,6 +755,513 @@ family and deduction chain rather than being hand-written per puzzle:
 
 ---
 
+## 11. Chance Builder
+
+**Status:** Designed (not yet implemented).
+
+**Source inspiration:** The probability/expected-value coverage gap called out
+in `docs/GAME_TYPES.md` ("Combinatorics/probability foundations — Weak. Major
+gap") and `docs/ROADMAP.md` — no existing game touches probability at all.
+Structurally mirrors Angle Chase Studio and Counting Lab: a generated concrete
+scenario, a recorded step-by-step deduction chain, and a hint ladder built
+directly from that chain rather than hand-written per puzzle.
+
+### Concept
+A concrete, visual random experiment (a spinner, one or two dice, a coin, a
+handful of coloured balls in an urn, or a small deck of cards) is generated
+from one of six scenario templates. The player is asked for the probability of
+a described event, or — at the top tier — the expected value of a simple
+payoff game. The key design commitment is that **the sample space is drawn, not
+just described**: the diagram shows every equally-likely outcome (each spinner
+sector, each die face, each ball), with the favourable outcomes highlighted, so
+a kid can literally count "favourable out of total" instead of manipulating
+fractions abstractly. Every puzzle carries an explicit deduction chain (count
+total outcomes -> count favourable -> combine / take complement / weight by
+payoff) that names the probability principle used at each step, so the hint
+ladder walks the actual reasoning.
+
+### Rules
+1. Every scenario is built as an explicit set of **equally-likely atomic
+   outcomes** (see Generation Algorithm), so every probability is an exact
+   rational `favourable / total` and every expected value is an exact rational
+   `sum-of-payoffs / total`. Unequal-looking spinners are subdivided into equal
+   unit sectors internally so this invariant always holds.
+2. The event is described in plain, concrete language tied to the drawing
+   (e.g. "the spinner lands on a red sector", "the two dice sum to 7", "you draw
+   a face card"), and the favourable atomic outcomes are highlighted in the
+   diagram.
+3. The player submits a single value. For probability questions the answer may
+   be given as a **fraction, a decimal, or a percent** — all three are accepted
+   (see Answer Format), because forcing one representation would penalise a
+   student who understands the ratio but prefers a different form. For
+   expected-value questions the answer is a single number (fraction or decimal).
+4. Probabilities are always in `[0, 1]`; the "impossible" (0) and "certain" (1)
+   edge events are allowed and are useful at the low tiers.
+5. Every puzzle has exactly one correct *value* (`expectUniqueSolution: true`);
+   the multiple accepted string forms all normalise to that one value, so
+   uniqueness is over the numeric value, not the string.
+
+### Difficulty Scaling
+
+| Difficulty | Grade | Principle Family (2 variants per tier, chosen at random) | Steps | Notes |
+|------------|-------|-----------------------------------------------------------|-------|-------|
+| 1          | 5     | Single-event probability, equal outcomes: spinner with equal sectors; one fair die | 1 | Pure `favourable / total`; small counts, answer often a "nice" fraction |
+| 2          | 5-6   | Single-event with grouped/unequal favourable outcomes: unequal-sector spinner (integer sector sizes); urn of coloured balls, one draw | 1 | Favourable set is a subset that must be counted, not read off |
+| 3          | 6-7   | Complementary events: `P(not A) = 1 - P(A)`, "at least one" phrased as "not none" on a single draw; single card draw from a small deck | 1-2 | Introduces the complement rule |
+| 4          | 7     | Compound **independent** events (AND, multiply): two spins, two dice, or coin-then-die; `P(A and B) = P(A)·P(B)` | 2 | First product rule; sample space is the Cartesian product |
+| 5          | 7-8   | Compound events with OR / mutually-exclusive add and complement combined: two dice sum/difference events; `P(A or B) = P(A) + P(B)` for disjoint A, B | 2-3 | Distinguishes "and" vs "or"; some chains end with a complement |
+| 6          | 8-9   | Expected value of a simple payoff game: spinner or single die where each outcome carries a win/lose payoff; `EV = Σ payoffᵢ / total` | 2-3 | Newest concept; answer may be a non-terminating decimal (see Answer Format) |
+
+### Generation Algorithm
+1. Pick one of the two scenario templates for the requested difficulty and flip
+   a coin (via the seeded RNG) between the two variants, exactly as Angle Chase
+   Studio and Counting Lab dispatch between two families per tier.
+2. Build the ground truth as an explicit array of equally-likely atomic
+   outcomes:
+   - **Spinner (equal sectors):** `k` sectors, each one outcome.
+   - **Spinner (unequal sectors):** each labelled region has an integer weight;
+     subdivide into that many unit sectors so all atoms are equally likely and
+     `total = Σ weights`.
+   - **One die:** outcomes `1..6`. **Two dice:** the 36 ordered pairs. **Coin:**
+     `{H, T}`; **two coins / coin+die:** the Cartesian product.
+   - **Urn:** a multiset of coloured balls; one draw = one atom per ball.
+   - **Cards:** a small generated deck (e.g. 12-20 cards with suit/rank/colour
+     attributes), one atom per card.
+3. Define the event as a predicate over atoms (colour == red, sum == 7, value
+   is even, "not blue", etc.). Count `favourable` = atoms satisfying it.
+   Compound AND/OR events compose two predicates over the product space.
+4. Compute the answer:
+   - Probability = `reduce(favourable, total)` (a reduced fraction, plus its
+     decimal).
+   - Complement = `reduce(total - favourable, total)`.
+   - Expected value: attach an integer payoff to each atom and compute
+     `reduce(Σ payoff, total)`.
+5. Record an ordered, principle-named deduction chain with the real numbers
+   substituted in (e.g. "36 equally-likely rolls in total -> 6 of them sum to 7
+   -> P = 6/36 = 1/6"), stored in `candidate.data.chain` and reused verbatim by
+   `buildHints()`.
+6. Build a generic diagram payload keyed by `kind`
+   (`"spinner"` — sector labels + colours + which are favourable; `"dice"` —
+   one or two dice plus, for two dice, the highlighted cells of the 6×6 outcome
+   grid; `"coins"`; `"urn"` — coloured-ball counts; `"cards"` — a small card
+   grid; `"payoff-spinner"` / `"payoff-die"` — as spinner/die but each outcome
+   also carries its payoff). The frontend renders one generic drawer per `kind`;
+   no per-template drawing code.
+7. Because every scenario is range-constructed from small integer counts, every
+   downstream count is automatically valid — no retry loop is needed and
+   `generate()` never throws (following Counting Lab rather than Angle Chase
+   Studio). A `selfCheck` boolean re-derives the answer a second way
+   (e.g. probability via complement should equal `1 − P(event)`; EV recomputed
+   by grouping equal payoffs) as a guard.
+8. `validatePuzzle()` re-derives the answer directly from the raw diagram
+   primitives using generic arithmetic — count highlighted atoms over total
+   atoms, or sum payoffs over total — independent of the template-specific
+   predicate code, and checks the reasoning chain is non-empty, the probability
+   lies in `[0, 1]`, and `selfCheck` passed.
+
+### Answer Format
+A single probability or expected-value number. The grader normalises before
+comparing, and accepts three equivalent forms so representation preference is
+never penalised:
+- **Fraction** — `3/8`, and also unreduced forms like `6/16` (compared by
+  cross-multiplication, so any equivalent fraction matches exactly).
+- **Decimal** — `0.375` (accepted within a tolerance of `0.01`, so a student's
+  `0.33` matches `1/3` but `0.3` does not).
+- **Percent** — `37.5%` or `37.5 percent` (the `%`/`percent` suffix is stripped,
+  the number is divided by 100, then compared as a decimal within `0.01`).
+
+The grader first tries an exact rational parse (fraction or integer) for an
+exact match, then falls back to the decimal/percent tolerance path. Expected
+values follow the same rules, except an EV such as `7/3` is genuinely
+non-terminating: the **exact fraction** `7/3` matches exactly, and the decimal
+`2.33` matches via the `0.01` tolerance — the spec deliberately accepts both
+rather than dictating a rounding rule, so a student who reasons in fractions and
+one who reasons in decimals are both graded correct. `expectUniqueSolution:
+true` (uniqueness is over the normalised numeric value).
+
+### Interactive UI
+- **Theme:** Deep plum/violet "game-show" background with warm gold accents,
+  distinct from Angle Chase Studio's indigo blueprint and Counting Lab's teal
+  lab. Spinners drawn as SVG pie charts, dice as pip squares, urns as a jar of
+  coloured circles, cards as small rounded rectangles.
+- **Rendering:** A generic SVG (spinner/dice/cards) or DOM (urn) diagram is
+  built client-side from `puzzle.data.diagram`; favourable atoms glow gold while
+  the rest are dimmed, so the "favourable out of total" ratio is visible before
+  any arithmetic. One renderer per `kind`.
+- **Interaction:** The player reads the diagram and types the answer into the
+  existing generic answer field, then presses Submit (or Enter) — matching the
+  platform's standard "diagram + entry" pattern (Angle Chase Studio, Counting
+  Lab) rather than introducing a new widget. An optional affordance lets the
+  player click atoms to tally them; the count is a scratch aid only and is not
+  the submitted answer.
+- **Legend:** A caption under the diagram states the accepted answer forms
+  ("answer as a fraction, decimal, or percent") and, for EV puzzles, that the
+  answer is the average payoff per play.
+- **Auto-advance:** On a correct answer the standard reinforcement message plays
+  and the set advances, consistent with every other game type.
+
+### Skill Tags
+`probability`, `sample_space`, `favourable_outcomes`, `equally_likely`,
+`complementary_events`, `compound_events`, `independent_events`,
+`mutually_exclusive`, `expected_value`, `fractions`, `ratio`
+
+### Hints
+The hint ladder is generated directly from the puzzle's recorded principle
+family and deduction chain rather than being hand-written per puzzle:
+1. **Nudge** — a principle-specific framing question ("how many equally-likely
+   outcomes are there in total?"; for compound events "do both things have to
+   happen, or just one?"; for EV "what does each outcome win or lose, and how
+   likely is each?") without doing arithmetic.
+2. **Strategy** — walks through every step except the last, with the real
+   numbers substituted in (e.g. "there are 36 equally-likely rolls, and 6 of
+   them sum to 7").
+3. **Near-solution** — states the final step and the resulting value explicitly
+   (e.g. "so P = 6/36 = 1/6 ≈ 0.17").
+
+---
+
+## 12. Coordinate Quest 2D
+
+**Status:** Designed (not yet implemented).
+
+**Source inspiration:** The coordinate-geometry gap named in `docs/GAME_TYPES.md`
+("Coordinate plane reasoning (slope, distance formula intuition,
+transformations)" under Content Not Yet Covered) and `docs/ROADMAP.md`. Reuses
+the platform's diagram-plus-answer pattern, adding a click-to-plot interaction
+mode for tasks whose natural answer is a location on the grid.
+
+### Concept
+A Cartesian grid with labelled, scaled axes is drawn. Depending on the task
+family, the player either **reads** information off the grid (name a marked
+point's coordinates, find a midpoint, a distance, or a slope) or **acts** on the
+grid (plot a point at named coordinates, or apply a transformation to a shape
+and place/report the image). Difficulty scales smoothly from "plot (3, 4) in the
+first quadrant" up to "reflect this triangle over the line y = x and give the
+image coordinates". Because the answer type varies by task family, the spec
+pins down exactly what the grader accepts for each.
+
+### Rules
+1. All source points have **integer** coordinates within the grid's range;
+   generation additionally guarantees the *expected answer* is clean for its
+   task (integer or half-integer midpoints, integer or 2-decimal distances,
+   rational slopes — see Generation Algorithm).
+2. The task types are: **read-coordinates**, **plot-point**, **midpoint**,
+   **distance**, **slope**, **transform-point**, and **transform-polygon**
+   (translation, reflection over an axis or `y = x`, and rotation of 90/180/270°
+   about the origin).
+3. Answers are submitted per task type (see Answer Format): a coordinate pair, a
+   number, a slope value (including the "undefined" vertical case), or — for a
+   transformed polygon — the set of image vertices.
+4. Single-answer tasks set `expectUniqueSolution: true`. The
+   `transform-polygon` task is also uniquely determined *as a set* of vertices,
+   and is graded by set equality (see Answer Format) so vertex order is not
+   penalised.
+5. Grid orientation is standard: x increases right, y increases up; the origin
+   and axis ticks are always drawn and labelled.
+
+### Difficulty Scaling
+
+| Difficulty | Grade | Task Family (2 variants per tier, chosen at random) | Grid Range | Notes |
+|------------|-------|------------------------------------------------------|------------|-------|
+| 1          | 5     | Read the coordinates of one marked point; plot one named point — both first-quadrant only | `0..10` | Positive integers only; introduces (x, y) order |
+| 2          | 5-6   | Read / plot a point in any of the four quadrants (negatives), incl. points on an axis | `-6..6` | Signed coordinates; axis points test the "0" coordinate |
+| 3          | 6-7   | Midpoint of two points; distance along a horizontal or vertical segment | `-8..8` | Midpoint may be a half-integer; distance is a simple count |
+| 4          | 7     | Distance via a right triangle (Pythagorean, integer result, e.g. 3-4-5); reflect a single point over the x- or y-axis | `-10..10` | First diagonal distance; first transformation (sign flip) |
+| 5          | 7-8   | Slope between two lattice points; translate a triangle by a vector; reflect a triangle over an axis | `-10..10` | Slope as rise/run; first multi-vertex transform |
+| 6          | 8-9   | Rotate a triangle 90/180/270° about the origin; reflect a triangle over `y = x`; distance with a non-integer (irrational) result reported to 2 dp | `-10..10` | Hardest transforms; first deliberately non-integer distance |
+
+### Generation Algorithm
+1. Pick one of the two task-family templates for the requested difficulty and
+   flip a coin (via the seeded RNG) between the two variants.
+2. Choose the grid range for the tier and sample integer source coordinates
+   within it, enforcing task-specific niceness:
+   - **midpoint:** pick both points with the same parity per axis when an
+     integer midpoint is wanted, or allow mixed parity to produce a clean
+     half-integer (`x.5`) — never worse than one decimal place.
+   - **distance (d3-4):** draw the leg lengths from a small table of Pythagorean
+     triples (3-4-5, 6-8-10, 5-12-13, ...) or axis-aligned segments so the
+     result is a whole number.
+   - **distance (d6):** allow any two points, accept an irrational result and
+     store both the exact value and its 2-dp rounding.
+   - **slope:** ensure `x₁ ≠ x₂` for a defined slope, or deliberately set
+     `x₁ = x₂` for the "undefined" case; reduce `Δy/Δx`.
+   - **transforms:** sample a small triangle (3 non-collinear lattice points)
+     whose image stays inside the grid range.
+3. Compute the canonical answer by direct formula:
+   - midpoint `((x₁+x₂)/2, (y₁+y₂)/2)`; distance `√((Δx)²+(Δy)²)`; slope
+     `Δy/Δx` (reduced fraction, or `undefined`).
+   - translate by `(dx, dy)`: `(x+dx, y+dy)`. Reflect: x-axis `(x, −y)`, y-axis
+     `(−x, y)`, `y = x` `(y, x)`. Rotate about origin: 90° CCW `(−y, x)`, 180°
+     `(−x, −y)`, 270° CCW `(y, −x)`.
+4. Record an ordered, technique-named deduction chain with the real numbers
+   substituted in (e.g. "horizontal leg = |7 − 2| = 5, vertical leg =
+   |6 − 2| = 4, distance = √(5² + 4²) = √41 ≈ 6.40"), stored in
+   `candidate.data.chain` and reused verbatim by `buildHints()`.
+5. Build a generic diagram payload: `{ range, axisLabels, points[], segments[],
+   polygons[], clickable }`, where each `point`/`polygon` carries a label,
+   colour, and role (`given` vs `target`), and `clickable` flags plot/transform
+   tasks where the player places markers. One generic SVG renderer covers all
+   task families.
+6. Because every configuration is range-constructed to be valid, `generate()`
+   never throws; a `selfCheck` boolean re-verifies the answer a second way
+   (e.g. a transform's image is re-derived by matrix application and compared to
+   the formula result; a midpoint is re-checked as `p₁ + ½(p₂ − p₁)`).
+7. `validatePuzzle()` re-derives the answer from the raw point coordinates using
+   generic geometry independent of the template code, checks every drawn point
+   lies within `range`, the reasoning chain is non-empty, and `selfCheck`
+   passed.
+
+### Answer Format
+The accepted form depends on task type; the grader dispatches on
+`candidate.data.taskType`:
+- **read-coordinates / plot-point / midpoint / transform-point:** a coordinate
+  pair. The grader strips spaces and optional parentheses, so `(3,4)`, `3,4`,
+  and `(3, 4)` all match; components are compared numerically (half-integers
+  like `2.5` allowed for midpoints).
+- **distance:** a number. Accepted as an exact integer (d3-4), or as a decimal
+  within a tolerance of `0.01` (d6, where the true value is irrational and the
+  expected form is 2-dp). Because a general distance is irrational, the spec
+  fixes the accepted form as the 2-dp decimal rather than requiring students to
+  type a radical; a reduced-radical parser (`√41`, `sqrt(41)`) is an optional
+  bonus, not required for a correct grade.
+- **slope:** a value accepted as a reduced or unreduced fraction (`3/2`, `6/4`),
+  a decimal within `0.01` (`1.5`), or an integer; the vertical case accepts
+  `undefined`, `none`, or `vertical` (case-insensitive), and a horizontal line's
+  slope is `0`.
+- **transform-polygon:** the **set of image vertices**. Graded by set equality
+  (each expected image vertex must appear once in the submission and vice
+  versa), *not* as an ordered list — a polygon's image is uniquely determined as
+  a set, and requiring a particular vertex order would penalise a correct answer
+  written in a different order. This is the same "grade structurally, since
+  multiple string forms are equally correct" reasoning Counting Lab and Angle
+  Chase Studio use for their single answers, applied to a set-valued answer.
+
+`expectUniqueSolution: true` for all task types (the polygon image is unique as
+a set).
+
+### Interactive UI
+- **Theme:** Slate graph-paper background with a lime/green "cartographer quest"
+  accent; axes and gridlines in muted slate, marked points as small flag/star
+  glyphs, target points/shapes glowing green. Distinct from the indigo, teal,
+  and plum themes of the other three most recent games.
+- **Rendering:** One generic SVG grid renderer draws axes, ticks, gridlines, and
+  every `point`/`segment`/`polygon` from `puzzle.data.diagram`, colour-coded by
+  `given` vs `target` role.
+- **Interaction (two modes):**
+  - *Read / compute tasks* (read-coordinates, midpoint, distance, slope): the
+    player types the answer into the existing generic answer field.
+  - *Place tasks* (plot-point, transform-point, transform-polygon): the grid is
+    clickable; clicking snaps a marker to the nearest lattice intersection. For
+    a polygon transform the player places one marker per image vertex; markers
+    can be dragged or cleared. The placed lattice coordinates become the
+    submitted answer, so the same grader path is used whether the player clicked
+    or typed.
+- **Feedback:** Hovering a lattice point shows its coordinates as a tooltip
+  (a "reading ruler"), helping students connect a location to its (x, y) label.
+- **Auto-submit:** Plot tasks auto-check once the required number of markers is
+  placed; typed tasks submit on Enter — consistent with the platform default.
+
+### Skill Tags
+`coordinate_geometry`, `cartesian_plane`, `plotting_points`,
+`reading_coordinates`, `quadrants`, `midpoint`, `distance_formula`, `slope`,
+`transformations`, `translation`, `reflection`, `rotation`,
+`pythagorean_theorem`
+
+### Hints
+The hint ladder is generated directly from the puzzle's recorded technique and
+deduction chain rather than being hand-written per puzzle:
+1. **Nudge** — names the technique without arithmetic ("count how far apart the
+   points are horizontally and vertically, then think of a right triangle"; for
+   a reflection "how does reflecting over the y-axis change the sign of each
+   coordinate?").
+2. **Strategy** — walks through every step except the last with real numbers
+   (e.g. "horizontal leg = 5, vertical leg = 4").
+3. **Near-solution** — states the final step and the answer explicitly (e.g.
+   "distance = √(25 + 16) = √41 ≈ 6.40", or "so the image of A(2, 3) is
+   A′(3, 2)").
+
+---
+
+## 13. Graph Trails
+
+**Status:** Designed (not yet implemented).
+
+**Source inspiration:** The discrete-math / graph-theory gap in
+`docs/GAME_TYPES.md` ("Intro graph theory (paths, cycles, parity)" in the
+grades 6-8 competition-prep list; "Graph theory/discrete math" in the
+gap-driven list) and `docs/ROADMAP.md`. This is the classic "can you draw it
+without lifting your pen / without repeating an edge?" family (Euler paths and
+circuits) plus an introduction to proper graph colouring.
+
+### Concept
+A node-and-edge graph is drawn (nodes as labelled circles, edges as lines).
+Depending on the task family the player answers a **structural question** about
+the graph (a vertex's degree, how many odd-degree vertices there are, whether an
+Euler trail/circuit exists, the fewest colours needed) or **acts on the graph**
+(trace an Euler trail edge by edge, or properly colour the nodes). The unifying
+idea is parity and reachability: an Euler trail exists iff the graph is
+connected and has exactly 0 or 2 odd-degree vertices, and that odd-vertex count
+is something a kid can literally tally on the drawing.
+
+### Rules
+1. Graphs are simple (no self-loops; at most one edge between a pair of nodes),
+   undirected, and — for every task that needs it — connected. Each node has a
+   fixed 2D layout position for rendering.
+2. Task families: **degree** (report a named vertex's degree), **odd-count**
+   (how many vertices have odd degree), **euler-decision** (does an Euler
+   trail/circuit exist, and which — answered yes/no plus, at higher tiers, a
+   short "path" vs "circuit" choice), **euler-trace** (interactively draw an
+   Euler trail), **chromatic-number** (fewest colours for a proper colouring),
+   and **proper-colouring** (interactively colour the nodes).
+3. **Uniqueness differs by family and is stated per task:**
+   - **degree, odd-count, euler-decision, chromatic-number** have a single
+     correct value -> `expectUniqueSolution: true`.
+   - **euler-trace** and **proper-colouring** have *many* valid solutions, so
+     they are graded **structurally** (the submission is checked against the
+     defining properties, not against one canonical answer) and set
+     `expectUniqueSolution: false`. This is the deliberate design choice: a
+     graph colouring or an Euler trail has no canonical form, so grading the
+     properties is both correct and fair. The uniquely-determined *numeric*
+     companions (chromatic number, odd-vertex count) are the unique-answer
+     variants that live in the same game.
+4. Interactive tasks are always generated to be feasible (an Euler trail exists;
+   a proper colouring within the stated colour budget exists), verified by the
+   solver before serving.
+
+### Difficulty Scaling
+
+| Difficulty | Grade | Task Family (2 variants per tier, chosen at random) | Graph Size | Notes |
+|------------|-------|------------------------------------------------------|------------|-------|
+| 1          | 6     | Degree of a named vertex; is there a path between two named vertices (connectivity yes/no) | 4-5 nodes | Vocabulary: vertex, edge, degree, connected |
+| 2          | 6-7   | Count the odd-degree vertices (numeric); degree of a vertex on a denser graph | 5-6 nodes | Parity tally, the key Euler prerequisite |
+| 3          | 7     | Euler decision (yes/no): does a trail exist without repeating an edge; classic shapes (house, envelope) | 5-7 nodes | Applies the 0-or-2-odd-vertices rule |
+| 4          | 7-8   | Euler-trace: draw a full Euler trail (graph guaranteed to have one) | 6-8 nodes | First interactive tracing; structural grading |
+| 5          | 8-9   | Chromatic number (numeric, answer 2 or 3); proper 2-colouring of a bipartite graph (interactive) | 6-8 nodes | Introduces colouring; bipartite = 2-colourable |
+| 6          | 9-10  | Proper colouring with the fewest colours (interactive, answer needs 3); Euler decision distinguishing path vs circuit | 7-9 nodes | Hardest: 3-colouring and the trail-vs-circuit distinction |
+
+### Generation Algorithm
+1. Pick one of the two task-family templates for the requested difficulty and
+   flip a coin (via the seeded RNG) between the two variants.
+2. Build a connected simple graph: place `N` nodes on a circle or small grid for
+   a clean layout, then add edges. Guarantee connectivity with a union-find
+   spanning tree first, then add extra random edges up to a tier-dependent
+   density. Store node positions for rendering.
+3. Shape the graph to the task:
+   - **euler-decision (yes case) / euler-trace:** adjust edges until the
+     odd-degree count is exactly 0 (circuit) or 2 (open trail) — e.g. pair up
+     surplus odd vertices by toggling an edge between them — while keeping the
+     graph connected. For the "no" case, target 4+ odd vertices.
+   - **chromatic-number / proper-colouring:** to force chromatic number 2,
+     generate a bipartite graph (2-colour the layout, only add edges across the
+     partition). To force 3, additionally plant an odd cycle (which is not
+     2-colourable) and keep the graph small enough that 3 colours still suffice.
+   - **degree / odd-count / connectivity:** any connected graph of the tier's
+     size; pick the queried vertex or vertex pair.
+4. Solve for the canonical value/solution:
+   - degree and odd-count: direct from the degree sequence.
+   - euler-decision: connected AND `oddCount ∈ {0, 2}`; classify as circuit
+     (0 odd), open trail (2 odd), or none.
+   - euler-trace canonical trail: **Hierholzer's algorithm** returns one valid
+     Euler trail (used for the near-solution hint and the grader-consistency
+     check).
+   - chromatic number: since graphs are small (≤ 9 nodes), compute exactly by
+     trying `k = 1, 2, 3, …` and testing k-colourability with a backtracking
+     search; the first feasible `k` is the answer.
+   - proper-colouring canonical: the backtracking search returns one valid
+     colouring within the budget.
+5. Record an ordered, principle-named deduction chain with real numbers
+   substituted in (e.g. "3 vertices have odd degree (B, D, E); an Euler trail
+   needs 0 or 2 odd vertices; 3 is neither, so it cannot be drawn without
+   repeating an edge"), stored in `candidate.data.chain` and reused verbatim by
+   `buildHints()`.
+6. Build a generic diagram payload: `{ nodes: [{id, label, x, y}], edges:
+   [{a, b}], taskType, palette? }`, plus `query` fields (the named vertex/pair
+   for degree/connectivity, the colour budget for colouring). One generic SVG
+   renderer draws nodes and edges for every family; colouring tasks additionally
+   render the `palette`.
+7. Small graph sizes keep the backtracking colour search and the Euler
+   construction cheap, so `generate()` retries only on the rare degenerate draw
+   (e.g. an accidentally disconnected graph) — bounded like Angle Chase Studio's
+   retry loop — and falls back to a hand-checked graph for the tier if retries
+   are exhausted, so it never throws.
+8. `validatePuzzle()` recomputes the degree sequence, connectivity (BFS/DFS),
+   odd-vertex count, and — for colouring — re-runs the exact chromatic-number
+   search from the raw `nodes`/`edges`, independent of the template code; it
+   confirms interactive tasks are actually feasible (Hierholzer succeeds; a
+   colouring within budget exists), the reasoning chain is non-empty, and the
+   canonical solution passes `gradeAnswer()` (the gate's grader-consistency
+   check).
+
+### Answer Format
+The grader dispatches on `candidate.data.taskType`:
+- **degree / odd-count / chromatic-number:** a single non-negative integer
+  (whitespace stripped, exact match).
+- **euler-decision / connectivity:** a yes/no token — `yes`/`no`, `y`/`n`,
+  `true`/`false` (case-insensitive). The path-vs-circuit variant (d6) accepts a
+  second token, `path` or `circuit`, graded against the classification.
+- **euler-trace:** an ordered list of vertex labels forming the walk (e.g.
+  `A-B-C-A-D`, hyphen- or comma-separated). Graded **structurally**: (a) each
+  consecutive pair is joined by an edge that exists, (b) every edge of the graph
+  is used exactly once, and (c) no edge is reused — i.e. it is a valid Euler
+  trail. Any trail satisfying these passes; there is no canonical target.
+- **proper-colouring:** a map from vertex label to colour (e.g.
+  `A:1,B:2,C:1,…`, or the colour indices the UI produced). Graded
+  **structurally**: (a) every vertex is coloured, (b) no edge joins two
+  same-coloured vertices (proper), and (c) the number of distinct colours used
+  is ≤ the stated budget `k`. Any colouring meeting these passes.
+
+For the two structurally-graded families `expectUniqueSolution: false`; all
+others `true`. The reasoning (stated in Rules) is that trails and colourings are
+inherently non-canonical, so grading their defining properties is both correct
+and fair, while the numeric companions keep a unique-answer path in the same
+game.
+
+### Interactive UI
+- **Theme:** Midnight-navy "constellation / circuit-board" background with cyan
+  nodes and magenta accents, glowing edges — distinct from the indigo, teal,
+  plum, and slate-green themes of the other recent games.
+- **Rendering:** One generic SVG renderer draws nodes (labelled circles) and
+  edges (lines) from `puzzle.data.diagram`; colouring tasks render a small
+  colour palette beside the graph.
+- **Interaction (by family):**
+  - *degree / odd-count / chromatic-number:* type the integer.
+  - *euler-decision / connectivity:* Yes/No buttons (plus Path/Circuit buttons
+    on the d6 variant).
+  - *euler-trace:* the player clicks nodes in sequence (or clicks edges); each
+    traversed edge highlights green and is "consumed", and the running walk is
+    shown; an undo/clear control backs out mistakes. The completed walk is the
+    submitted answer.
+  - *proper-colouring:* click a node, then click a palette colour to fill it; an
+    edge flashes red whenever its two endpoints share a colour, giving immediate
+    "is this proper?" feedback, and a live counter shows colours used vs the
+    budget.
+- **Feedback:** edges consumed by an Euler trace turn green; colour conflicts
+  flash red; a structural check runs continuously so the player sees progress.
+- **Auto-submit:** euler-trace auto-checks when every edge has been used;
+  proper-colouring auto-checks when all nodes are coloured with no conflicts;
+  numeric/decision tasks submit on Enter or button press.
+
+### Skill Tags
+`graph_theory`, `discrete_math`, `vertices_edges`, `degree`, `parity`,
+`connectivity`, `euler_path`, `euler_circuit`, `cycles`, `graph_coloring`,
+`chromatic_number`, `bipartite`
+
+### Hints
+The hint ladder is generated directly from the puzzle's recorded principle
+family and deduction chain rather than being hand-written per puzzle:
+1. **Nudge** — names the relevant idea without arithmetic ("count how many edges
+   meet at each vertex — an Euler trail cares about which counts are odd"; for
+   colouring "look for a group of nodes that are all connected to each other —
+   they all need different colours").
+2. **Strategy** — walks through every step except the last with real numbers
+   (e.g. "vertices B, D, and E each have odd degree, so there are 3 odd
+   vertices").
+3. **Near-solution** — states the final step and the answer explicitly (e.g.
+   "an Euler trail needs 0 or 2 odd vertices, and 3 is neither, so the answer is
+   no"; or reveals the first few edges of a valid Hierholzer trail).
+
+---
+
 ## Implementation Priority
 
 Recommended implementation order based on complexity and impact:
@@ -796,9 +1303,9 @@ Current/planned catalog still under-covers:
 1. ~~**Angle Chase Studio** (geometry + proof reasoning anchor)~~ — implemented, see section 8 above.
 2. **Counting Lab** (counting principles/combinatorics anchor)
 3. **Proof Blocks** (argument structure and proof-writing anchor)
-4. **Chance Builder** (probability and expected value)
-5. **Coordinate Quest 2D** (slope/distance/transformations)
-6. **Graph Trails** (paths, cycles, parity, coloring)
+4. ~~**Chance Builder** (probability and expected value)~~ — spec written, see section 11 above.
+5. ~~**Coordinate Quest 2D** (slope/distance/transformations)~~ — spec written, see section 12 above.
+6. ~~**Graph Trails** (paths, cycles, parity, coloring)~~ — spec written, see section 13 above.
 
 ## Shared Implementation Notes
 

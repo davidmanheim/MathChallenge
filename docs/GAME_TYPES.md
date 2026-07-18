@@ -149,6 +149,11 @@ implemented or in development; this list is the master idea backlog.
 - Percent Squares
 - Equivalink (equivalent fractions/decimals/percentages)
 
+### Grades 5-10 (geometry, probability, discrete math)
+- Chance Builder (probability and expected value; visual sample spaces) — designed, see NEW_GAMES_DESIGN.md §11
+- Coordinate Quest 2D (plotting, distance, midpoint, slope, transformations) — designed, see NEW_GAMES_DESIGN.md §12
+- Graph Trails (Euler paths/circuits, parity, graph coloring) — designed, see NEW_GAMES_DESIGN.md §13
+
 ## Curriculum and Skill Mapping
 
 This section maps puzzle coverage to school math progressions and to prerequisite
