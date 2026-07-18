@@ -97,7 +97,10 @@ const el = {
   skBanner: document.getElementById("skBanner"),
   // Angle Chase Studio
   acsZone: document.getElementById("angleChaseZone"),
-  acsSvg: document.getElementById("acsSvg")
+  acsSvg: document.getElementById("acsSvg"),
+  // Counting Lab
+  clZone: document.getElementById("countingLabZone"),
+  clDiagram: document.getElementById("clDiagram")
 };
 
 function difficultyLabel(n) {
@@ -1931,6 +1934,95 @@ function renderAngleChase(puzzle) {
 
 // ===== End Angle Chase Studio =====
 
+// ===== Counting Lab =====
+
+function hideCountingLab() {
+  if (!el.clZone) return;
+  el.clZone.style.display = "none";
+  if (el.clDiagram) el.clDiagram.innerHTML = "";
+}
+
+function clMakeSlot(label, count) {
+  const box = document.createElement("div");
+  box.className = "cl-slot";
+  const num = document.createElement("div");
+  num.className = "cl-slot-count";
+  num.textContent = String(count);
+  const lab = document.createElement("div");
+  lab.className = "cl-slot-label";
+  lab.textContent = label;
+  box.appendChild(num);
+  box.appendChild(lab);
+  return box;
+}
+
+function clMakeOp(symbol) {
+  const op = document.createElement("div");
+  op.className = "cl-op";
+  op.textContent = symbol;
+  return op;
+}
+
+function clRenderChainRow(slots, divideBy) {
+  const row = document.createElement("div");
+  row.className = "cl-chain-row";
+  (slots || []).forEach((slot, i) => {
+    if (i > 0) row.appendChild(clMakeOp("×"));
+    row.appendChild(clMakeSlot(slot.label, slot.count));
+  });
+  if (divideBy) {
+    row.appendChild(clMakeOp("÷"));
+    row.appendChild(clMakeSlot("remove extra orderings", divideBy));
+  }
+  return row;
+}
+
+function renderCountingLab(puzzle) {
+  if (!el.clZone || !el.clDiagram) return;
+  hideCountingLab();
+  el.clZone.style.display = "";
+
+  const diagram = puzzle.data && puzzle.data.diagram;
+  const container = el.clDiagram;
+  container.innerHTML = "";
+  if (!diagram) return;
+
+  if (diagram.kind === "chain") {
+    container.appendChild(clRenderChainRow(diagram.slots, diagram.divideBy));
+  } else if (diagram.kind === "cases") {
+    const row = document.createElement("div");
+    row.className = "cl-cases-row";
+    (diagram.cases || []).forEach((caseSpec, ci) => {
+      if (ci > 0) row.appendChild(clMakeOp("+"));
+      const caseBox = document.createElement("div");
+      caseBox.className = "cl-case";
+      const caseLabel = document.createElement("div");
+      caseLabel.className = "cl-case-label";
+      caseLabel.textContent = caseSpec.label;
+      caseBox.appendChild(caseLabel);
+      caseBox.appendChild(clRenderChainRow(caseSpec.slots));
+      row.appendChild(caseBox);
+    });
+    container.appendChild(row);
+  } else if (diagram.kind === "pigeonhole") {
+    const row = document.createElement("div");
+    row.className = "cl-pigeonhole-row";
+    for (let i = 0; i < (diagram.categories || 0); i++) {
+      const hole = document.createElement("div");
+      hole.className = "cl-hole";
+      hole.textContent = `color ${i + 1}`;
+      row.appendChild(hole);
+    }
+    container.appendChild(row);
+    const note = document.createElement("div");
+    note.className = "cl-pigeonhole-note";
+    note.textContent = `Goal: guarantee ${diagram.guaranteeCount} socks of the same color.`;
+    container.appendChild(note);
+  }
+}
+
+// ===== End Counting Lab =====
+
 async function renderPuzzle() {
   state.puzzle = getCurrentPuzzle();
   state.puzzleStartedAt = state.puzzle ? Date.now() : 0;
@@ -1958,6 +2050,7 @@ async function renderPuzzle() {
   hideBalance();
   hideShikaku();
   hideAngleChase();
+  hideCountingLab();
   restoreGenericInput();
 
   if (!state.puzzle) {
@@ -2035,6 +2128,14 @@ async function renderPuzzle() {
   if (state.puzzle.gameTypeId === "angle-chase-studio") {
     el.puzzleBox.textContent = state.puzzle.prompt.text;
     renderAngleChase(state.puzzle);
+    updateGenericAnswerControls(state.puzzle);
+    renderChoices(state.puzzle);
+    renderNumberLine(state.puzzle);
+    return;
+  }
+  if (state.puzzle.gameTypeId === "counting-lab") {
+    el.puzzleBox.textContent = state.puzzle.prompt.text;
+    renderCountingLab(state.puzzle);
     updateGenericAnswerControls(state.puzzle);
     renderChoices(state.puzzle);
     renderNumberLine(state.puzzle);

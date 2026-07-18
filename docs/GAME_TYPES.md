@@ -64,6 +64,16 @@ Each game type includes:
     - Static diagram + numeric answer entry; hint ladder walks through the
       actual theorem-by-theorem deduction chain rather than just the answer.
 
+12. **Counting Lab** (Grades 6-9) — `counting-lab`
+    - Count outcomes in a generated concrete scenario using the
+      multiplication counting principle, permutations (full and partial),
+      combinations, restrictions (no-repeat, must-include, adjacency),
+      casework, and an intro flavor of the pigeonhole principle.
+    - Slot/case/pigeonhole diagram + integer answer entry; hint ladder is
+      principle-specific (e.g. "does order matter here?" for combinations)
+      and walks through the actual deduction chain rather than just the
+      answer.
+
 ## Games In Development
 
 See `NEW_GAMES_DESIGN.md` for full specifications.
