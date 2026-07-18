@@ -328,7 +328,15 @@ export const mismoPlugin: GameTypePlugin = {
         cards: built.cards.map((c) => ({ id: c.id, expr: c.expr })),
         pairCount: built.pairCount,
         expectedPairs: built.answer,
-        difficultyLabel
+        difficultyLabel,
+        // Optional reasoning prompt (see docs/FRAMEWORK.md "Reasoning capture").
+        // Advisory only — never affects grading.
+        reasoning: {
+          supportsExplanation: true,
+          supportsTwoMethod: false,
+          explanationPrompt:
+            "Pick one pair you matched and explain why the two expressions are equal."
+        }
       },
       metadata: {
         expectUniqueSolution: true,

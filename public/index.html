@@ -175,6 +175,22 @@
           </div>
           <div id="proofBlocksBanner" class="pb-banner"></div>
         </div>
+        <details id="reasoningPanel" class="reasoning-panel" style="display:none">
+          <summary class="reasoning-summary">✍️ Explain your thinking (optional)</summary>
+          <div class="reasoning-body">
+            <label class="reasoning-field" id="reasoningExplanationField">
+              <span class="reasoning-label" id="reasoningExplanationPrompt">Explain how you solved it.</span>
+              <textarea id="reasoningExplanation" class="reasoning-textarea" rows="3"
+                placeholder="Type your reasoning here… (this is just for you — it won't change your score)"></textarea>
+            </label>
+            <label class="reasoning-field" id="reasoningSecondMethodField">
+              <span class="reasoning-label" id="reasoningSecondMethodPrompt">Show a second method.</span>
+              <textarea id="reasoningSecondMethod" class="reasoning-textarea" rows="3"
+                placeholder="Optional: describe another way to solve it…"></textarea>
+            </label>
+            <p class="reasoning-note muted">Totally optional — you can just submit your answer.</p>
+          </div>
+        </details>
         <p id="result"></p>
       </section>
 
