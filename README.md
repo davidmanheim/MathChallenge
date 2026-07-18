@@ -17,7 +17,7 @@ Web-accessible TypeScript math puzzle platform for kids (grades 1-10), with ligh
   - Plugin-based puzzle engine with generation-time validation gate
   - Name-based profile login + JSON-persisted progress
   - Set-level deduplication (no repeated puzzles within a set)
-  - Playable games (10 implemented):
+  - Playable games (11 implemented):
     - `Pattern Train` — interactive multiple-choice pattern puzzles
     - `Mismo` — expression-equivalence card matching
     - `X-Outs` — row/column target-sum cross-out logic grid
@@ -27,6 +27,8 @@ Web-accessible TypeScript math puzzle platform for kids (grades 1-10), with ligh
     - `Balance Scale` — visual equation solving (find x)
     - `Number Paths` — tap-path counting-sequence puzzles
     - `Story Logic Grids` — story-based one-to-one matching logic puzzles (20 templates)
+    - `Angle Chase Studio` — find an unknown angle in a generated diagram using
+      vertical angles, angle-sum, and parallel-line theorems
     - `Number Bonds Sprint` — missing-addend practice (pending removal)
   - 5 additional games designed (not yet implemented): Sum Blobs, Honeycomb Paths,
     Subtractiles, Measure Mazes, Equation Paths
