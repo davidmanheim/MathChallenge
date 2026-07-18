@@ -881,10 +881,455 @@ function genPolygon(rng: Rng): GenResult {
   };
 }
 
+// ===== Template 9: isosceles triangle + exterior angle (composite) =====
+
+// Isosceles triangle ABC with AB = AC. Side AB is extended beyond B to a
+// point E, forming an exterior angle at B. Given that exterior angle, the
+// player must chain three theorems to reach the apex: a linear pair (to get
+// the interior base angle at B), the isosceles base-angles theorem (to get
+// the equal base angle at C), and finally the triangle angle sum (to get the
+// apex). This mirrors the classic "isosceles + exterior angle" olympiad-prep
+// composite: no single theorem application solves it, and the intermediate
+// base angle is never marked in the diagram, so the player must actually
+// track it as scratch work.
+function genIsoscelesExterior(rng: Rng): GenResult {
+  let beta = 50;
+  let apex = 80;
+  const Bp: Pt = { x: 120, y: 250 };
+  const Cp: Pt = { x: 340, y: 250 };
+  let Ap: Pt = { x: 230, y: 100 };
+  let found = false;
+
+  for (let tries = 0; tries < 60; tries++) {
+    beta = rng.int(25, 60);
+    apex = 180 - 2 * beta;
+    if (apex < 55 || apex > 130) continue;
+    Ap = triangleApex(beta, beta, Bp, Cp);
+    if (finitePt(Ap) && Ap.y > 30 && Ap.y < 230) {
+      found = true;
+      break;
+    }
+  }
+  if (!found) {
+    beta = 50;
+    apex = 80;
+    Ap = triangleApex(beta, beta, Bp, Cp);
+  }
+
+  const ext = 180 - beta;
+
+  // Extend side AB beyond B to point E (E, B, A are collinear).
+  const dirAtoB = normDeg(
+    (Math.atan2(-(Bp.y - Ap.y), Bp.x - Ap.x) * 180) / Math.PI
+  );
+  const Ep = dirPoint(Bp, dirAtoB, 95);
+
+  const chain: ChainStep[] = [
+    {
+      theorem: "Linear Pair",
+      text: `The exterior angle at B (angle EBC) and the triangle's interior angle at B (angle ABC) sit on the straight line through E, B, and A, so they're supplementary. Interior angle ABC = 180 − ${ext} = ${beta}°.`,
+      resultValue: beta
+    },
+    {
+      theorem: "Isosceles Base Angles",
+      text: `Since AB = AC, triangle ABC is isosceles, so its base angles are equal: angle ACB = angle ABC = ${beta}°.`,
+      resultValue: beta
+    },
+    {
+      theorem: "Triangle Angle Sum",
+      text: `The three angles of triangle ABC add to 180°, so the apex angle = 180 − ${beta} − ${beta} = ${apex}°.`,
+      resultValue: apex
+    }
+  ];
+
+  const segments: Seg[] = [
+    { a: Ap, b: Ep },
+    { a: Bp, b: Cp },
+    { a: Cp, b: Ap }
+  ];
+
+  const angleMarks: AngleMark[] = [
+    angleMarkFromVertex(Bp, Ep, Cp, ext, `${ext}°`, false, true, 30),
+    angleMarkFromVertex(Ap, Bp, Cp, apex, "?", true, false, 30)
+  ];
+
+  const selfCheck =
+    beta * 2 + apex === 180 &&
+    ext === 180 - beta &&
+    finitePt(Ap) &&
+    finitePt(Ep);
+
+  return {
+    promptText:
+      'Triangle ABC is isosceles with AB = AC. Side AB is extended beyond B to point E, forming an exterior angle at B. Find the measure of the triangle\'s angle marked "?" (the apex angle at A).',
+    diagram: { width: 460, height: 345, segments, angleMarks },
+    answer: apex,
+    targetLabel: "the apex angle",
+    chain,
+    skillTags: [
+      "geometry",
+      "angles",
+      "isosceles_triangle",
+      "exterior_angle_theorem",
+      "triangle_angle_sum",
+      "angle_chasing"
+    ],
+    variant: "isosceles-exterior",
+    selfCheck
+  };
+}
+
+// ===== Template 10: angle bisector splitting two triangles sharing a cevian =====
+
+// Triangle ABC with cevian AD, where AD bisects angle A and D lies on BC.
+// This creates two sub-triangles, ABD and ADC, that share side AD. Given
+// angle B and one bisected half-angle (angle BAD), the player must solve
+// triangle ABD for the cevian's angle at D, hop across the straight line
+// B-D-C (linear pair) to get the cevian's angle on the other side, invoke
+// the bisector property to get the other half-angle, and then solve
+// triangle ADC for angle C. D's position is derived exactly via the angle
+// bisector length-ratio theorem (BD:DC = AB:AC), so the figure is genuinely
+// consistent, not just visually suggestive.
+function genCevianTwoTriangles(rng: Rng): GenResult {
+  let angleB = 50;
+  let half = 30;
+  let angleC = 70;
+  const Bp: Pt = { x: 90, y: 255 };
+  const Cp: Pt = { x: 350, y: 255 };
+  let Ap: Pt = { x: 220, y: 100 };
+  let found = false;
+
+  for (let tries = 0; tries < 100; tries++) {
+    angleB = rng.int(25, 100);
+    half = rng.int(15, 65);
+    const apexFull = 2 * half;
+    angleC = 180 - angleB - apexFull;
+    if (angleC < 15 || angleC > 130) continue;
+    Ap = triangleApex(angleB, angleC, Bp, Cp);
+    if (finitePt(Ap) && Ap.y > 20 && Ap.y < 230 && Ap.x > 10 && Ap.x < 430) {
+      found = true;
+      break;
+    }
+  }
+  if (!found) {
+    angleB = 50;
+    half = 30;
+    angleC = 180 - angleB - 2 * half;
+    Ap = triangleApex(angleB, angleC, Bp, Cp);
+  }
+
+  const angleADB = 180 - angleB - half;
+  const angleADC = 180 - angleADB;
+
+  const AB = Math.hypot(Ap.x - Bp.x, Ap.y - Bp.y);
+  const AC = Math.hypot(Ap.x - Cp.x, Ap.y - Cp.y);
+  const t = AB / (AB + AC);
+  const Dp: Pt = {
+    x: Bp.x + t * (Cp.x - Bp.x),
+    y: Bp.y + t * (Cp.y - Bp.y)
+  };
+
+  const chain: ChainStep[] = [
+    {
+      theorem: "Triangle Angle Sum",
+      text: `Look at the smaller triangle ABD first: its angles are ${angleB}° at B and ${half}° at A (half of the bisected angle). So angle ADB = 180 − ${angleB} − ${half} = ${angleADB}°.`,
+      resultValue: angleADB
+    },
+    {
+      theorem: "Linear Pair",
+      text: `B, D, and C lie on the same straight line, so angle ADC and angle ADB are supplementary: angle ADC = 180 − ${angleADB} = ${angleADC}°.`,
+      resultValue: angleADC
+    },
+    {
+      theorem: "Angle Bisector",
+      text: `AD bisects angle A, so its other half, angle DAC, is also ${half}° — the same as angle BAD.`,
+      resultValue: half
+    },
+    {
+      theorem: "Triangle Angle Sum",
+      text: `Now use the other small triangle, ADC: angle ACB = 180 − angle ADC − angle DAC = 180 − ${angleADC} − ${half} = ${angleC}°.`,
+      resultValue: angleC
+    }
+  ];
+
+  const segments: Seg[] = [
+    { a: Ap, b: Bp },
+    { a: Bp, b: Cp },
+    { a: Cp, b: Ap },
+    { a: Ap, b: Dp }
+  ];
+
+  const angleMarks: AngleMark[] = [
+    angleMarkFromVertex(Bp, Ap, Cp, angleB, `${angleB}°`, false, true, 30),
+    angleMarkFromVertex(Ap, Bp, Dp, half, `${half}°`, false, true, 24),
+    angleMarkFromVertex(Cp, Ap, Bp, angleC, "?", true, false, 30)
+  ];
+
+  const selfCheck =
+    angleB + 2 * half + angleC === 180 &&
+    angleADB === 180 - angleB - half &&
+    angleADC === angleB + half &&
+    finitePt(Ap) &&
+    finitePt(Dp) &&
+    Dp.x > Math.min(Bp.x, Cp.x) &&
+    Dp.x < Math.max(Bp.x, Cp.x);
+
+  return {
+    promptText:
+      'In triangle ABC, segment AD bisects angle A, with D on side BC. Find the measure of the angle marked "?" (angle ACB).',
+    diagram: { width: 460, height: 320, segments, angleMarks },
+    answer: angleC,
+    targetLabel: "angle ACB",
+    chain,
+    skillTags: [
+      "geometry",
+      "angles",
+      "angle_bisector",
+      "triangle_angle_sum",
+      "linear_pair",
+      "angle_chasing"
+    ],
+    variant: "cevian-two-triangles",
+    selfCheck
+  };
+}
+
+// ===== Template 11: isosceles triangle, base angles as two different expressions =====
+
+function formatLinExpr(k: number, c: number): string {
+  const coefPart = k === 1 ? "x" : `${k}x`;
+  if (c === 0) return `${coefPart}°`;
+  return `(${coefPart} ${c > 0 ? "+ " + c : "− " + -c})°`;
+}
+
+// Isosceles triangle ABC (AB = AC) whose two base angles are given as two
+// *different-looking* linear expressions in x (e.g. `(2x + 5)°` at B and
+// `(3x − 15)°` at C). Because the base angles must be equal, the player has
+// to recognize that fact, set the two expressions equal to each other
+// (a genuine two-expression equation, not a single substitution), solve for
+// x, and then either report the base angle or take one more triangle-sum
+// step to reach the apex.
+function genIsoscelesAlgebraic(rng: Rng): GenResult {
+  let x = 10;
+  let k1 = 2;
+  let k2 = 3;
+  let c1 = 0;
+  let c2 = 0;
+  let beta = 40;
+  let apex = 100;
+  const Bp: Pt = { x: 120, y: 250 };
+  const Cp: Pt = { x: 340, y: 250 };
+  let Ap: Pt = { x: 230, y: 130 };
+  let found = false;
+
+  for (let tries = 0; tries < 80; tries++) {
+    x = rng.int(4, 25);
+    const options = [1, 2, 3];
+    k1 = rng.pick(options);
+    k2 = rng.pick(options.filter((v) => v !== k1));
+    beta = rng.int(25, 60);
+    apex = 180 - 2 * beta;
+    c1 = beta - k1 * x;
+    c2 = beta - k2 * x;
+    if (Math.abs(c1) > 45 || Math.abs(c2) > 45 || c1 === c2) continue;
+    Ap = triangleApex(beta, beta, Bp, Cp);
+    if (finitePt(Ap) && Ap.y > 20 && Ap.y < 235) {
+      found = true;
+      break;
+    }
+  }
+  if (!found) {
+    x = 10;
+    k1 = 2;
+    k2 = 3;
+    beta = 40;
+    apex = 100;
+    c1 = beta - k1 * x;
+    c2 = beta - k2 * x;
+    Ap = triangleApex(beta, beta, Bp, Cp);
+  }
+
+  const label1 = formatLinExpr(k1, c1);
+  const label2 = formatLinExpr(k2, c2);
+
+  const targetIsApex = rng.pick([true, false]);
+
+  const eqSide = (k: number, c: number) =>
+    `${k === 1 ? "x" : k + "x"} ${c >= 0 ? "+ " + c : "− " + -c}`;
+  const eqText = `${eqSide(k1, c1)} = ${eqSide(k2, c2)}`;
+  const kDiff = k1 - k2;
+  const cDiff = c2 - c1;
+  const kDiffTerm =
+    kDiff === 1 ? "x" : kDiff === -1 ? "−x" : `${kDiff}x`;
+
+  const chain: ChainStep[] = [
+    {
+      theorem: "Isosceles Base Angles (set up equation)",
+      text: `Since AB = AC, the base angles at B and C must be equal. Set the two expressions equal: ${eqText}.`,
+      resultValue: x
+    },
+    {
+      theorem: "Solve the equation",
+      text: `Combine like terms: ${kDiffTerm} = ${cDiff}, so x = ${x}.`,
+      resultValue: x
+    },
+    {
+      theorem: "Substitute back",
+      text: `Substitute x = ${x} into either expression: ${label1} = ${beta}°. That's each base angle.`,
+      resultValue: beta
+    }
+  ];
+
+  if (targetIsApex) {
+    chain.push({
+      theorem: "Triangle Angle Sum",
+      text: `The three angles of the triangle add to 180°, so the apex angle = 180 − ${beta} − ${beta} = ${apex}°.`,
+      resultValue: apex
+    });
+  }
+
+  const answer = targetIsApex ? apex : beta;
+
+  let markB: AngleMark;
+  let markC: AngleMark;
+  const apexMarks: AngleMark[] = [];
+
+  if (targetIsApex) {
+    markB = angleMarkFromVertex(Bp, Ap, Cp, beta, label1, false, true, 30);
+    markC = angleMarkFromVertex(Cp, Ap, Bp, beta, label2, false, true, 30);
+    apexMarks.push(angleMarkFromVertex(Ap, Bp, Cp, apex, "?", true, false, 36));
+  } else {
+    const bIsTarget = rng.pick([true, false]);
+    markB = angleMarkFromVertex(Bp, Ap, Cp, beta, label1, bIsTarget, !bIsTarget, 30);
+    markC = angleMarkFromVertex(Cp, Ap, Bp, beta, label2, !bIsTarget, bIsTarget, 30);
+  }
+
+  const segments: Seg[] = [
+    { a: Ap, b: Bp },
+    { a: Bp, b: Cp },
+    { a: Cp, b: Ap }
+  ];
+
+  const angleMarks: AngleMark[] = [markB, markC, ...apexMarks];
+
+  const selfCheck =
+    k1 * x + c1 === beta &&
+    k2 * x + c2 === beta &&
+    beta * 2 + apex === 180 &&
+    finitePt(Ap);
+
+  return {
+    promptText:
+      "Triangle ABC is isosceles with AB = AC. Its two base angles are given as two different-looking expressions in x. Find x, then find the numeric measure of the highlighted angle.",
+    diagram: { width: 480, height: 300, segments, angleMarks },
+    answer,
+    targetLabel: "the highlighted angle",
+    chain,
+    skillTags: [
+      "geometry",
+      "angles",
+      "isosceles_triangle",
+      "triangle_angle_sum",
+      "algebra",
+      "equations"
+    ],
+    variant: "isosceles-algebraic",
+    selfCheck
+  };
+}
+
+// ===== Template 12: triangle sitting on one of two parallel lines =====
+
+// Triangle ABC has its base BC lying on a line, and a second line through
+// A is parallel to it. AC acts as a transversal cutting both parallel
+// lines, so the angle between the parallel line (at A) and AC is an
+// alternate interior angle to angle ACB — genuinely equal to it, verified
+// here by exact direction arithmetic rather than assumed. That composes
+// with the ordinary triangle angle sum to reach the apex, forcing the
+// player to combine a parallel-line theorem with a triangle theorem in a
+// figure shape (two horizontal lines plus a triangle hanging between them)
+// that doesn't appear at any earlier difficulty tier.
+function genTriangleOnParallel(rng: Rng): GenResult {
+  let angleB = 50;
+  let angleC = 60;
+  let apex = 70;
+  const Bp: Pt = { x: 90, y: 260 };
+  const Cp: Pt = { x: 350, y: 260 };
+  let Ap: Pt = { x: 220, y: 120 };
+  let found = false;
+
+  for (let tries = 0; tries < 80; tries++) {
+    angleB = rng.int(25, 100);
+    angleC = rng.int(25, 100);
+    apex = 180 - angleB - angleC;
+    if (apex < 15 || apex > 130) continue;
+    Ap = triangleApex(angleB, angleC, Bp, Cp);
+    if (finitePt(Ap) && Ap.y > 20 && Ap.y < 235 && Ap.x > 20 && Ap.x < 420) {
+      found = true;
+      break;
+    }
+  }
+  if (!found) {
+    angleB = 50;
+    angleC = 60;
+    apex = 70;
+    Ap = triangleApex(angleB, angleC, Bp, Cp);
+  }
+
+  const wingPt = dirPoint(Ap, 0, 90);
+
+  const chain: ChainStep[] = [
+    {
+      theorem: "Alternate Angles",
+      text: `The line through A is parallel to BC, and AC is a transversal crossing both. The marked angle at A and angle ACB are alternate interior angles — they sit on opposite sides of the transversal, each between the two parallel lines — so they're equal: angle ACB = ${angleC}°.`,
+      resultValue: angleC
+    },
+    {
+      theorem: "Triangle Angle Sum",
+      text: `Now use the triangle's angle sum: angle A = 180 − ${angleB} − ${angleC} = ${apex}°.`,
+      resultValue: apex
+    }
+  ];
+
+  const segments: Seg[] = [
+    { a: { x: 40, y: 260 }, b: { x: 400, y: 260 } },
+    { a: { x: 40, y: Ap.y }, b: { x: 400, y: Ap.y } },
+    { a: Ap, b: Bp },
+    { a: Ap, b: Cp }
+  ];
+
+  const angleMarks: AngleMark[] = [
+    angleMarkFromVertex(Bp, Ap, Cp, angleB, `${angleB}°`, false, true, 30),
+    angleMarkFromVertex(Ap, wingPt, Cp, angleC, `${angleC}°`, false, true, 22),
+    angleMarkFromVertex(Ap, Bp, Cp, apex, "?", true, false, 44)
+  ];
+
+  const selfCheck = angleB + angleC + apex === 180 && finitePt(Ap);
+
+  return {
+    promptText:
+      'Triangle ABC sits with its base BC on one line; a second line through A is parallel to it. Find the measure of the triangle\'s angle marked "?" (angle A).',
+    diagram: { width: 440, height: 320, segments, angleMarks },
+    answer: apex,
+    targetLabel: "angle A",
+    chain,
+    skillTags: [
+      "geometry",
+      "angles",
+      "parallel_lines",
+      "alternate_angles",
+      "triangle_angle_sum",
+      "angle_chasing"
+    ],
+    variant: "triangle-on-parallel",
+    selfCheck
+  };
+}
+
 // ===== Difficulty dispatch =====
 
 function generatePuzzleData(rng: Rng, difficulty: number): GenResult {
-  const d = Math.max(1, Math.min(6, Math.round(difficulty)));
+  const d = Math.max(1, Math.min(8, Math.round(difficulty)));
   const branch = rng.int(0, 1);
   switch (d) {
     case 1:
@@ -897,8 +1342,12 @@ function generatePuzzleData(rng: Rng, difficulty: number): GenResult {
       return branch === 0 ? genTriangleAlgebraic(rng) : genParallel(rng, 1);
     case 5:
       return branch === 0 ? genParallel(rng, 2) : genTriangleExterior(rng);
-    default:
+    case 6:
       return branch === 0 ? genParallel(rng, 3) : genPolygon(rng);
+    case 7:
+      return branch === 0 ? genIsoscelesExterior(rng) : genTriangleOnParallel(rng);
+    default:
+      return branch === 0 ? genCevianTwoTriangles(rng) : genIsoscelesAlgebraic(rng);
   }
 }
 
@@ -908,9 +1357,9 @@ export const angleChaseStudioPlugin: GameTypePlugin = {
   id: "angle-chase-studio",
   name: "Angle Chase Studio",
   minGrade: 5,
-  maxGrade: 9,
+  maxGrade: 10,
   description:
-    "Chase down an unknown angle using vertical angles, angles on a line, triangle and polygon angle sums, and parallel-line angle theorems. Enter the degree measure of the marked angle.",
+    "Chase down an unknown angle using vertical angles, angles on a line, triangle and polygon angle sums, and parallel-line angle theorems. At the hardest tiers, composite figures (isosceles triangles with exterior angles, angle bisectors splitting two shared-cevian triangles, and triangles sitting on parallel lines) push toward olympiad-style angle chasing. Enter the degree measure of the marked angle.",
 
   generate(input) {
     const rng = new Rng(input.seed);
