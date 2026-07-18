@@ -57,12 +57,16 @@ Each game type includes:
      the integrated clue mix is not limited to one story.
    - Validation checks that each structured clue set has a unique solution before serving.
 
-11. **Angle Chase Studio** (Grades 5-9) — `angle-chase-studio`
+11. **Angle Chase Studio** (Grades 5-10) — `angle-chase-studio`
     - Find an unknown angle in a generated SVG diagram using vertical
       angles, angles on a line/point, triangle and polygon angle sums,
       exterior angle theorem, and parallel-line angle theorems.
     - Static diagram + numeric answer entry; hint ladder walks through the
       actual theorem-by-theorem deduction chain rather than just the answer.
+    - Difficulty 7-8 add olympiad-prep composite figures (isosceles
+      triangle + exterior angle, two triangles sharing an angle-bisected
+      cevian, a triangle sitting on a second parallel line) for strong
+      grades 8-10 students.
 
 12. **Counting Lab** (Grades 6-9) — `counting-lab`
     - Count outcomes in a generated concrete scenario using the

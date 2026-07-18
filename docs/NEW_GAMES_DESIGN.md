@@ -473,13 +473,16 @@ algebra-chasing.
 
 ### Concept
 A static SVG diagram shows a geometric figure (a line split by rays, two
-crossing lines, a triangle, two parallel lines cut by a transversal, or a
-polygon) with some angles labeled with their degree measure and exactly one
-angle marked with "?". The player enters the numeric degree measure of the
-marked angle. Unlike a pure answer-fetching drill, every puzzle carries an
-explicit deduction chain (1-3 steps) that names the theorem used at each
-step, so the hint ladder can walk the player through the actual proof
-reasoning rather than just revealing the number.
+crossing lines, a triangle, two parallel lines cut by a transversal, a
+polygon, or, at the hardest tiers, a composite figure such as an isosceles
+triangle with an exterior angle, two triangles sharing an angle-bisected
+cevian, or a triangle sitting on one of two parallel lines) with some
+angles labeled with their degree measure and exactly one angle marked with
+"?". The player enters the numeric degree measure of the marked angle.
+Unlike a pure answer-fetching drill, every puzzle carries an explicit
+deduction chain (1-4 steps, longest at the hardest tiers) that names the
+theorem used at each step, so the hint ladder can walk the player through
+the actual proof reasoning rather than just revealing the number.
 
 ### Rules
 1. The diagram is generated from one of several angle-relationship
@@ -506,6 +509,8 @@ reasoning rather than just revealing the number.
 | 4          | 7     | Triangle angle sum with algebraic expressions (solve for x, then substitute); parallel lines — corresponding angles (1 hop) | 2 | First algebra-in-geometry and first parallel-line theorem |
 | 5          | 7-8   | Parallel lines — alternate/co-interior angles (2 hops: same-point + cross-point); exterior angle theorem (triangle sum + linear pair) | 2 | Composed theorem chains |
 | 6          | 8-9   | Parallel lines hardest chain (3 hops); polygon interior angle sum `(n−2)×180°`, n = 5-8 | 2-3 | Longest chains; newest theorem (polygons) |
+| 7          | 8-10  | Isosceles triangle + exterior angle (linear pair → isosceles base angles → triangle sum); triangle sitting on one of two parallel lines (alternate angles → triangle sum) | 2-3 | First composite figures: a new theorem (isosceles base angles) combined with an existing one, and a new figure shape (triangle spanning two parallel lines) that doesn't appear at any earlier tier |
+| 8          | 9-10  | Angle bisector splitting a triangle into two triangles that share a cevian (triangle sum → linear pair → angle-bisector equality → triangle sum); isosceles triangle whose two base angles are given as two *different-looking* algebraic expressions that must be set equal and solved before an optional final triangle-sum hop | 3-4 | Deepest chains: multi-triangle composites and a genuine two-expression equation (not a single substitution) — pitched at strong grades 8-10 kids heading toward AMC/AIME-style angle chasing |
 
 ### Generation Algorithm
 1. Pick a template pair for the requested difficulty and flip a coin (via
@@ -542,6 +547,22 @@ reasoning rather than just revealing the number.
    generator-computed `selfCheck` boolean that re-verifies the template's
    arithmetic invariant (angles actually sum to 180°/360°/`(n-2)×180°`,
    or the algebraic/exterior-angle equation actually balances).
+8. Difficulty 7-8's composite figures are built from the same primitives,
+   composed differently: an isosceles triangle is built with
+   `triangleApex(beta, beta, ...)`, which is automatically symmetric,
+   guaranteeing equal base angles by construction rather than by
+   assumption. A shared-cevian figure locates the cevian's foot `D` on the
+   base via the angle-bisector length-ratio theorem
+   (`BD:DC = AB:AC`, i.e. `D = B + (AB/(AB+AC))·(C−B)`) so the drawn ray
+   really is the angle bisector, not just a suggestive sketch. A triangle
+   "sitting on" a second parallel line is built by drawing two equal-span
+   horizontal segments (one through the base, one through the apex) —
+   parallel by construction — and the alternate-interior-angle claim
+   between them is exact integer arithmetic (verified independently by
+   direct direction/coordinate computation during development, not just
+   by the generator's own self-check).
+
+
 
 ### Answer Format
 A single number of degrees, e.g. `70` or `70°` (the grader strips `°`,
@@ -571,7 +592,7 @@ A single number of degrees, e.g. `70` or `70°` (the grader strips `°`,
 `angles_on_a_line`, `angles_around_a_point`, `triangle_angle_sum`,
 `exterior_angle_theorem`, `parallel_lines`, `corresponding_angles`,
 `alternate_angles`, `co_interior_angles`, `polygon_angle_sum`, `algebra`,
-`equations`
+`equations`, `isosceles_triangle`, `angle_bisector`
 
 ### Hints
 The hint ladder is generated directly from the puzzle's recorded deduction
