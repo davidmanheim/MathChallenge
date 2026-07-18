@@ -48,10 +48,13 @@ Exit criteria:
 - Data/statistics interpretation and critique
 
 ### Next Steps TODO (Highest Leverage First)
-1. Finish the **Story Logic Grids clue rewrite** across all 20 templates, not only Aquarium:
-   add template-specific order/group/category semantics so every story can generate fewer,
-   more integrated clues instead of long literal clue lists.
-2. Build **Angle Chase Studio** (geometry/proof anchor).
+1. ~~Finish the **Story Logic Grids clue rewrite** across all 20 templates~~ — done: every
+   template now has integrated clues (cross-category links, order chains, grouped exclusions,
+   initial-letter constraints, bundles), validated across 1200 generated puzzles.
+2. ~~Build **Angle Chase Studio** (geometry/proof anchor)~~ — done, `angle-chase-studio`.
+   Follow-up: difficulty is currently capped at 6 (grade 5-9 ceiling); extend with a genuinely
+   hard tier (multi-triangle composites, isosceles/exterior-angle chains, denser parallel-line
+   transversal chains) for competition-prep-track kids.
 3. Build **Counting Lab** (combinatorics/counting anchor).
 4. Build **Proof Blocks** (formal reasoning/proof anchor).
 5. Design specs for `Chance Builder`, `Coordinate Quest 2D`, and `Graph Trails`.
