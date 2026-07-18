@@ -588,6 +588,152 @@ chain rather than being hand-written per puzzle:
 
 ---
 
+## 9. Counting Lab
+
+**Status:** Implemented (`src/games/countingLab/plugin.ts`, gameTypeId `counting-lab`).
+
+**Source inspiration:** The coverage gap identified in `docs/ROADMAP.md` — no
+existing game exercised combinatorics/counting principles, a prerequisite
+skill family for later AMC/AIME-style contest-math counting problems.
+Structurally mirrors Angle Chase Studio: a generated concrete scenario, a
+recorded principle-by-principle deduction chain, and a hint ladder built
+directly from that chain rather than hand-written per puzzle.
+
+### Concept
+A concrete, countable scenario (an outfit combo, a shelf of books, a club
+election, a committee, a security code, a sock drawer, ...) is generated
+from one of nine scenario templates spanning seven counting-principle
+families: the multiplication counting principle, permutations (full and
+partial), combinations, counting principles with restrictions (no-repeat,
+must-include, adjacency), casework (summing disjoint cases), and an intro
+flavor of the pigeonhole principle. A slot/case/pigeonhole diagram shows the
+scenario's raw structure (choice counts per step, or per-case category
+sizes, or category count) — never the computed answer — so the player can
+see *why* the counting principle applies, not just look up a formula. The
+player enters the single integer total count.
+
+### Rules
+1. Every scenario names concrete, distinct items (people, books, letters,
+   digits, toppings, ...) drawn from small themed word banks, never bare
+   variables.
+2. Exactly one of the seven principle families listed above applies to any
+   given puzzle; the diagram and hint ladder are keyed to that family so the
+   support a player gets is technique-specific (e.g. a combination puzzle's
+   first hint asks "does order matter here?", not a generic nudge).
+3. All generated counts are kept small enough to be sanity-checked by a
+   grade 6-9 kid: item pools stay in the 2-10 range and no template can
+   produce a final answer over a few thousand (concretely, every template's
+   internal numeric ranges are hand-bounded so the worst case across all
+   difficulties tops out under ~3,000 — no raw `10!`-style factorial blowups).
+4. The player submits a single non-negative integer; commas and surrounding
+   whitespace are accepted and stripped by the grader, but the value must
+   match exactly (no numeric-tolerance fuzzing, since counts are exact).
+5. Every puzzle has exactly one correct integer answer
+   (`expectUniqueSolution: true`).
+
+### Difficulty Scaling
+
+| Difficulty | Grade | Principle Family (2 variants per tier, chosen at random) | Steps/Cases | Notes |
+|------------|-------|------------------------------------------------------------|--------------|-------|
+| 1          | 6     | Multiplication principle, 2 independent slots; multiplication principle, 3 independent slots | 1 | Pure "multiply independent choice counts," no restriction |
+| 2          | 6-7   | Full permutation of 3-6 distinct items in a row (`N!`); multiplication principle, 3 slots with wider counts | 1 | Introduces the permutation-of-everything idea |
+| 3          | 7     | Counting principle with a no-repeat restriction (letters, then independent repeatable digits); partial permutation — choose and arrange K of N (`P(N,K)`) | 1-2 | First restriction; first "choose which K, in order" |
+| 4          | 7-8   | Combination — choose K of N, order doesn't matter (`C(N,K)`, contrasted explicitly against permutation); restricted combination — a specific item must be included (`C(N-1,K-1)`) | 2 | Combination debut; must-include restriction |
+| 5          | 8     | Restricted permutation — a specific pair must stand adjacent (`2·(N-1)!`); harder combination (wider N, K range) | 2 | Adjacency restriction via "block" trick |
+| 6          | 8-9   | Casework — split into 2 disjoint cases (by sub-group composition) and sum; pigeonhole principle intro — smallest pull to guarantee a match (`(M-1)·C + 1`) | 2-3 cases/steps | Longest reasoning chains; newest principle (pigeonhole) |
+
+### Generation Algorithm
+1. Pick one of the two principle-family templates for the requested
+   difficulty and flip a coin (via the seeded RNG) between its two variants,
+   exactly as `angleChaseStudio` dispatches between two theorem-family
+   templates per tier.
+2. Build the scenario's ground truth directly from small integer ranges
+   chosen so every downstream constraint is automatically satisfiable — no
+   retry loop is needed (unlike `angleChaseStudio`'s continuous geometry,
+   integer counting scenarios can be range-constructed to always be valid).
+   For example: casework picks the team size `K` first, then draws the girl
+   count `G` from `[K, K+3]` and boy count `B` from `[1, 4]`, guaranteeing
+   both cases (`C(G,K-1)·B` and `C(G,K)`) are always well-defined.
+3. Pick a themed word bank (people names, book titles, food/outfit
+   categories, colors, letters) and sample concrete, distinct item names via
+   a Fisher-Yates-style draw-without-replacement helper, so the same item
+   never appears twice in one scenario.
+4. Compute the true count via the applicable principle(s) — `factorial`,
+   `permute(n,k) = n·(n-1)·...·(n-k+1)`, and `choose(n,k) = permute(n,k) /
+   k!` are the only primitives; every template composes them (optionally
+   with a second multiplication for independent parts, a division for
+   removing an ordering overcount, or a sum across disjoint cases).
+5. Record an ordered, principle-named deduction chain (1-3 steps) with the
+   real numbers substituted in — this list is stored in
+   `candidate.data.chain` and reused verbatim by `buildHints()`.
+6. Build a generic diagram payload keyed by `kind` (`"chain"` — an ordered
+   list of `{label, count}` slots optionally divided by a factor;
+   `"cases"` — 2+ labeled sub-chains with per-case values; `"pigeonhole"` —
+   a category count and a guarantee target) that shows the *scenario's raw
+   structure*, not the computed answer, so the frontend can render one
+   generic diagram renderer per `kind` rather than one drawer per template.
+7. Each generator also computes an internal `selfCheck` boolean by
+   re-deriving the same arithmetic invariant a second way (e.g. casework
+   additionally cross-checks its two-case sum against a complementary-
+   counting computation: total teams minus "too few girls" teams). Because
+   every generator's numeric ranges are constructed to always be valid,
+   `generate()` never throws and never needs a fallback configuration.
+8. `validatePuzzle()` re-derives the answer from the raw diagram primitives
+   using generic arithmetic (multiply the chain's slots, divide by
+   `divideBy`, or sum the cases' values, or apply the pigeonhole formula to
+   `categories`/`guaranteeCount`) — independent of the domain-specific
+   `permute`/`choose` helpers `generate()` used — plus checks that the
+   reasoning chain is non-empty and the generator's own `selfCheck` passed.
+
+### Answer Format
+A single non-negative integer, e.g. `70` or `1,680` (the grader strips
+commas and whitespace and requires an exact integer match — no tolerance,
+since these are exact counts).
+
+### Interactive UI
+- **Theme:** Deep teal/emerald "lab" background evoking a science-lab
+  notebook page, contrasting with Angle Chase Studio's indigo "blueprint"
+  theme. Slot boxes render as rounded "beaker" shapes in teal with glowing
+  amber operator symbols (`×`, `÷`, `+`) between them.
+- **Rendering:** A DOM-based (non-SVG) diagram is built client-side from the
+  structured `puzzle.data.diagram` payload. Because every template emits one
+  of three generic shapes (`chain`, `cases`, `pigeonhole`), the frontend
+  needs only one renderer per shape, not one per scenario template — the
+  same "generic payload, generic renderer" pattern `angleChaseStudio` uses
+  for its SVG diagram, just rendered as styled `<div>`s instead of an SVG,
+  since a slot/case row doesn't need true geometric drawing.
+- **Interaction:** The player reads the scenario and diagram, then types the
+  integer answer into the existing generic answer field and presses Submit
+  (or Enter) — matching the platform's standard pattern rather than
+  introducing a new input widget.
+- **Legend:** A short caption under the diagram reminds the player the
+  diagram shows the scenario's structure (the numbers to combine), not the
+  final count — they still have to do the multiply/divide/sum themselves.
+- **Auto-advance:** On a correct answer, the standard reinforcement message
+  plays and the set advances to the next puzzle, consistent with every other
+  game type.
+
+### Skill Tags
+`combinatorics`, `counting_principle`, `multiplication_principle`,
+`permutations`, `factorial`, `combinations`, `no_repeat`, `must_include`,
+`adjacency_restriction`, `casework`, `pigeonhole_principle`
+
+### Hints
+The hint ladder is generated directly from the puzzle's recorded principle
+family and deduction chain rather than being hand-written per puzzle:
+1. **Nudge** — a principle-family-specific framing question (e.g. for
+   combinations: "does the order you pick these in matter?"; for casework:
+   "can you split this into a few cases that can't both happen at once?")
+   that points the player at *which* technique applies, without doing any
+   arithmetic.
+2. **Strategy** — walks through every step except the last, with the actual
+   numbers substituted in (e.g. "Case 1: exactly 1 girl and 1 boy... =
+   8. Case 2: all 2 girls... = 6.").
+3. **Near-solution** — states the final deduction step and the resulting
+   integer answer explicitly.
+
+---
+
 ## Implementation Priority
 
 Recommended implementation order based on complexity and impact:

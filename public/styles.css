@@ -1375,6 +1375,110 @@ label[for="difficulty"] {
 .acs-legend .acs-swatch-given { background: #38bdf8; }
 .acs-legend .acs-swatch-target { background: #fbbf24; }
 
+/* ===== Counting Lab Theme ===== */
+.cl-zone {
+  background: linear-gradient(135deg, #062521 0%, #08130f 100%);
+  border-radius: 16px;
+  padding: 20px;
+  margin: 12px 0;
+  color: #d1fae5;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+}
+
+.cl-diagram {
+  width: 100%;
+  overflow-x: auto;
+  display: flex;
+  justify-content: center;
+}
+
+.cl-chain-row,
+.cl-cases-row,
+.cl-pigeonhole-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.cl-slot {
+  background: radial-gradient(circle at 30% 20%, #134e3f 0%, #0a2e25 100%);
+  border: 2px solid #2dd4bf;
+  border-radius: 10px 10px 16px 16px;
+  min-width: 76px;
+  padding: 10px 8px;
+  text-align: center;
+  box-shadow: 0 0 8px rgba(45, 212, 191, 0.25);
+}
+
+.cl-slot-count {
+  font-size: 1.4rem;
+  font-weight: 800;
+  color: #5eead4;
+  font-family: "Trebuchet MS", "Segoe UI", sans-serif;
+}
+
+.cl-slot-label {
+  font-size: 0.7rem;
+  color: #a7f3d0;
+  margin-top: 4px;
+  word-break: break-word;
+}
+
+.cl-op {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: #fbbf24;
+}
+
+.cl-case {
+  border: 2px dashed #34d399;
+  border-radius: 12px;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.cl-case-label {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #fde68a;
+}
+
+.cl-hole {
+  background: #0a2e25;
+  border: 2px solid #5eead4;
+  border-radius: 50%;
+  width: 64px;
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.65rem;
+  text-align: center;
+  color: #a7f3d0;
+}
+
+.cl-pigeonhole-note {
+  font-size: 0.85rem;
+  color: #fde68a;
+  font-weight: 700;
+  text-align: center;
+}
+
+.cl-legend {
+  font-size: 0.8rem;
+  color: #a7f3d0;
+  text-align: center;
+  max-width: 420px;
+}
+
 /* ===== Progress display ===== */
 #progress {
   font-size: 0.85rem;

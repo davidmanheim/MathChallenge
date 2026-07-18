@@ -16,6 +16,7 @@ import { shikakuPlugin } from "./games/shikaku/plugin.ts";
 import { numberPathsPlugin } from "./games/numberPaths/plugin.ts";
 import { storyLogicGridsPlugin } from "./games/storyLogicGrids/plugin.ts";
 import { angleChaseStudioPlugin } from "./games/angleChaseStudio/plugin.ts";
+import { countingLabPlugin } from "./games/countingLab/plugin.ts";
 import { ProfileStore } from "./services/profile-store.ts";
 import { ProgressStore } from "./services/progress-store.ts";
 
@@ -37,6 +38,7 @@ registry.register(shikakuPlugin);
 registry.register(numberPathsPlugin);
 registry.register(storyLogicGridsPlugin);
 registry.register(angleChaseStudioPlugin);
+registry.register(countingLabPlugin);
 
 const gradeBands: GradeBand[] = ["1-2", "2-3", "3-4", "4-6", "6-8", "8-10"];
 
