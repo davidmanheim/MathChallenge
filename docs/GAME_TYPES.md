@@ -74,23 +74,36 @@ Each game type includes:
       and walks through the actual deduction chain rather than just the
       answer.
 
+13. **Proof Blocks** (Grades 6-10) — `proof-blocks`
+    - Assemble a valid deductive proof by ordering statement blocks from the
+      givens to the goal, where each step's justification must follow from
+      statements already established, while excluding plausible-but-invalid
+      distractor blocks.
+    - Four domains: algebra equation-solving, if-then logic chains,
+      number-property (parity) proofs, and geometry angle proofs.
+    - Click-to-append block-ordering UI; graded structurally (any
+      dependency-respecting order of the non-distractor blocks is accepted, so
+      independent steps may be ordered freely) rather than by a single
+      canonical string. Hint ladder teaches proof strategy: what to prove,
+      which statement follows from the givens first, then the first correct step.
+
 ## Games In Development
 
 See `NEW_GAMES_DESIGN.md` for full specifications.
 
-13. **Sum Blobs** (Grades 1-4)
+14. **Sum Blobs** (Grades 1-4)
    - Draw contiguous blobs on a number grid, each summing to a target.
 
-14. **Honeycomb Paths** (Grades 1-4)
+15. **Honeycomb Paths** (Grades 1-4)
     - Trace a path through a hex grid to hit a target sum or sequence.
 
-15. **Subtractiles** (Grades 2-5)
+16. **Subtractiles** (Grades 2-5)
     - Place number tiles so adjacent-cell differences match edge constraints.
 
-16. **Measure Mazes** (Grades 2-5)
+17. **Measure Mazes** (Grades 2-5)
     - Connect dots at exact distances across a grid.
 
-17. **Equation Paths** (Grades 3-7)
+18. **Equation Paths** (Grades 3-7)
     - Trace a path through a number/operator grid to build an expression hitting a target.
 
 ## Potential Games Backlog (By Grade Band)

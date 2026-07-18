@@ -11,7 +11,8 @@ const state = {
   mismo: null,
   xouts: null,
   np: null,
-  slg: null
+  slg: null,
+  pb: null
 };
 
 const gameModules = {};
@@ -100,7 +101,15 @@ const el = {
   acsSvg: document.getElementById("acsSvg"),
   // Counting Lab
   clZone: document.getElementById("countingLabZone"),
-  clDiagram: document.getElementById("clDiagram")
+  clDiagram: document.getElementById("clDiagram"),
+  // Proof Blocks
+  pbZone: document.getElementById("proofBlocksZone"),
+  pbGoal: document.getElementById("proofBlocksGoal"),
+  pbBank: document.getElementById("proofBlocksBank"),
+  pbProof: document.getElementById("proofBlocksProof"),
+  pbCheckBtn: document.getElementById("proofBlocksCheckBtn"),
+  pbClearBtn: document.getElementById("proofBlocksClearBtn"),
+  pbBanner: document.getElementById("proofBlocksBanner")
 };
 
 function difficultyLabel(n) {
@@ -2023,6 +2032,204 @@ function renderCountingLab(puzzle) {
 
 // ===== End Counting Lab =====
 
+// ===== Proof Blocks Interactive UI =====
+
+function hideProofBlocks() {
+  if (!el.pbZone) return;
+  el.pbZone.style.display = "none";
+  if (el.pbGoal) el.pbGoal.textContent = "";
+  if (el.pbBank) el.pbBank.innerHTML = "";
+  if (el.pbProof) el.pbProof.innerHTML = "";
+  if (el.pbBanner) el.pbBanner.textContent = "";
+  state.pb = null;
+}
+
+function pbKindLabel(kind) {
+  if (kind === "given") return "Given";
+  if (kind === "goal") return "Goal";
+  return "Statement";
+}
+
+function renderProofBlocks(puzzle) {
+  if (!el.pbZone) return;
+  hideProofBlocks();
+  el.pbZone.style.display = "";
+  hideGenericInput();
+
+  const data = puzzle.data || {};
+  const blocks = Array.isArray(data.blocks) ? data.blocks : [];
+  if (blocks.length === 0) return;
+
+  state.pb = {
+    blocks,
+    byId: new Map(blocks.map((b) => [b.id, b])),
+    order: [], // ids the player has added, in order
+    submitted: false
+  };
+
+  el.pbGoal.textContent = `Prove: ${data.goalStatement || ""}`;
+
+  el.pbCheckBtn.onclick = pbSubmit;
+  el.pbClearBtn.onclick = () => {
+    if (!state.pb || state.pb.submitted) return;
+    state.pb.order = [];
+    el.pbBanner.textContent = "";
+    pbRender();
+  };
+
+  pbRender();
+}
+
+function pbMakeChip(block, context) {
+  const chip = document.createElement("div");
+  chip.className = `pb-chip pb-chip-${block.kind}`;
+  const meta = document.createElement("div");
+  meta.className = "pb-chip-meta";
+  meta.textContent = pbKindLabel(block.kind);
+  const stmt = document.createElement("div");
+  stmt.className = "pb-chip-statement";
+  stmt.textContent = block.statement;
+  const reason = document.createElement("div");
+  reason.className = "pb-chip-reason";
+  reason.textContent = block.kind === "given" ? "(given)" : `because: ${block.reason}`;
+  chip.appendChild(meta);
+  chip.appendChild(stmt);
+  chip.appendChild(reason);
+  if (context) chip.appendChild(context);
+  return chip;
+}
+
+function pbRender() {
+  if (!state.pb) return;
+  const pb = state.pb;
+  const inProof = new Set(pb.order);
+
+  // Bank: blocks not yet placed, in their (shuffled) presentation order.
+  el.pbBank.innerHTML = "";
+  const bankBlocks = pb.blocks.filter((b) => !inProof.has(b.id));
+  if (bankBlocks.length === 0) {
+    const empty = document.createElement("div");
+    empty.className = "pb-empty";
+    empty.textContent = "All blocks placed. Check your proof.";
+    el.pbBank.appendChild(empty);
+  }
+  for (const block of bankBlocks) {
+    const chip = pbMakeChip(block, null);
+    if (!pb.submitted) {
+      chip.classList.add("pb-clickable");
+      chip.addEventListener("click", () => {
+        if (pb.submitted) return;
+        pb.order.push(block.id);
+        el.pbBanner.textContent = "";
+        pbRender();
+      });
+    }
+    el.pbBank.appendChild(chip);
+  }
+
+  // Proof: ordered placed blocks with position numbers + controls.
+  el.pbProof.innerHTML = "";
+  if (pb.order.length === 0) {
+    const empty = document.createElement("div");
+    empty.className = "pb-empty";
+    empty.textContent = "Tap blocks on the left to build your proof here.";
+    el.pbProof.appendChild(empty);
+  }
+  pb.order.forEach((id, idx) => {
+    const block = pb.byId.get(id);
+    if (!block) return;
+    const controls = document.createElement("div");
+    controls.className = "pb-chip-controls";
+    const num = document.createElement("span");
+    num.className = "pb-step-num";
+    num.textContent = String(idx + 1);
+    controls.appendChild(num);
+    if (!pb.submitted) {
+      const up = document.createElement("button");
+      up.type = "button";
+      up.className = "pb-move";
+      up.textContent = "↑";
+      up.disabled = idx === 0;
+      up.addEventListener("click", (e) => {
+        e.stopPropagation();
+        [pb.order[idx - 1], pb.order[idx]] = [pb.order[idx], pb.order[idx - 1]];
+        pbRender();
+      });
+      const down = document.createElement("button");
+      down.type = "button";
+      down.className = "pb-move";
+      down.textContent = "↓";
+      down.disabled = idx === pb.order.length - 1;
+      down.addEventListener("click", (e) => {
+        e.stopPropagation();
+        [pb.order[idx + 1], pb.order[idx]] = [pb.order[idx], pb.order[idx + 1]];
+        pbRender();
+      });
+      const rm = document.createElement("button");
+      rm.type = "button";
+      rm.className = "pb-remove";
+      rm.textContent = "×";
+      rm.addEventListener("click", (e) => {
+        e.stopPropagation();
+        pb.order.splice(idx, 1);
+        el.pbBanner.textContent = "";
+        pbRender();
+      });
+      controls.appendChild(up);
+      controls.appendChild(down);
+      controls.appendChild(rm);
+    }
+    const chip = pbMakeChip(block, controls);
+    chip.classList.add("pb-placed");
+    el.pbProof.appendChild(chip);
+  });
+}
+
+async function pbSubmit() {
+  if (!state.pb || state.pb.submitted) return;
+  if (state.pb.order.length === 0) {
+    el.pbBanner.textContent = "Add some blocks to your proof first.";
+    return;
+  }
+  state.pb.submitted = true;
+  el.answer.value = JSON.stringify(state.pb.order);
+
+  const puzzle = getCurrentPuzzle();
+  const response = await api("/api/attempts", {
+    method: "POST",
+    body: JSON.stringify({
+      profileId: state.profile.id,
+      puzzle,
+      answer: el.answer.value,
+      hintsUsed: state.hintIndex,
+      timeMs: currentAttemptTimeMs()
+    })
+  });
+
+  if (response.result.isCorrect) {
+    el.pbBanner.textContent = "Valid proof! Well reasoned.";
+    const justFinished = state.currentIndex + 1 === state.activeSet.length;
+    setTimeout(() => {
+      if (justFinished) {
+        applyReinforcementMessage(response, "Correct! Set complete. Start another set.");
+        state.activeSet = [];
+        state.currentIndex = 0;
+      } else {
+        applyReinforcementMessage(response, "Correct! Moving to next question.");
+        state.currentIndex += 1;
+      }
+      renderPuzzle();
+    }, 1100);
+  } else {
+    state.pb.submitted = false;
+    el.pbBanner.textContent =
+      "Not a valid proof yet. Check: no distractor blocks, every step's justification uses only blocks already above it, and you reach the goal.";
+  }
+  await refreshProgress();
+}
+
+// ===== End Proof Blocks =====
+
 async function renderPuzzle() {
   state.puzzle = getCurrentPuzzle();
   state.puzzleStartedAt = state.puzzle ? Date.now() : 0;
@@ -2051,6 +2258,7 @@ async function renderPuzzle() {
   hideShikaku();
   hideAngleChase();
   hideCountingLab();
+  hideProofBlocks();
   restoreGenericInput();
 
   if (!state.puzzle) {
@@ -2139,6 +2347,11 @@ async function renderPuzzle() {
     updateGenericAnswerControls(state.puzzle);
     renderChoices(state.puzzle);
     renderNumberLine(state.puzzle);
+    return;
+  }
+  if (state.puzzle.gameTypeId === "proof-blocks") {
+    el.puzzleBox.textContent = state.puzzle.prompt.text;
+    renderProofBlocks(state.puzzle);
     return;
   }
 
