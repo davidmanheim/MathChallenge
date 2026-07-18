@@ -349,7 +349,15 @@ export const kenkenPlugin: GameTypePlugin = {
       data: {
         size,
         cages: cageData,
-        solution: gridToAnswer(solution)
+        solution: gridToAnswer(solution),
+        // Optional reasoning prompt (see docs/FRAMEWORK.md "Reasoning capture").
+        // Advisory only — never affects grading.
+        reasoning: {
+          supportsExplanation: true,
+          supportsTwoMethod: false,
+          explanationPrompt:
+            "Choose one cell and justify why it must be that number (which row, column, or cage rule forces it)."
+        }
       },
       metadata: {
         expectUniqueSolution: true,

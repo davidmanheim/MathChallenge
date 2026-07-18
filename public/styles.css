@@ -1745,3 +1745,74 @@ label[for="difficulty"] {
     font-size: 0.78rem;
   }
 }
+
+/* ===== Reasoning capture panel ("Explain your thinking") ===== */
+.reasoning-panel {
+  margin-top: 12px;
+  border: 2px dashed #f0d7a5;
+  border-radius: 14px;
+  background: linear-gradient(180deg, #fffdf7 0%, #fff4dd 100%);
+  padding: 4px 12px;
+}
+
+.reasoning-summary {
+  cursor: pointer;
+  font-weight: 700;
+  color: var(--accent);
+  list-style: none;
+  padding: 8px 2px;
+  user-select: none;
+}
+
+.reasoning-summary::-webkit-details-marker {
+  display: none;
+}
+
+.reasoning-summary::before {
+  content: "▸ ";
+  display: inline-block;
+  transition: transform 0.15s ease;
+}
+
+.reasoning-panel[open] .reasoning-summary::before {
+  content: "▾ ";
+}
+
+.reasoning-body {
+  display: grid;
+  gap: 12px;
+  padding: 4px 2px 12px;
+}
+
+.reasoning-field {
+  display: grid;
+  gap: 6px;
+}
+
+.reasoning-label {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.reasoning-textarea {
+  width: 100%;
+  resize: vertical;
+  font-family: inherit;
+  font-size: 0.95rem;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 2px solid #e6cfa0;
+  background: #fffdf7;
+  color: var(--ink);
+}
+
+.reasoning-textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.reasoning-note {
+  margin: 0;
+  font-size: 0.8rem;
+}

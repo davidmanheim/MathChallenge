@@ -41,6 +41,14 @@ const el = {
   hintBtn: document.getElementById("hintBtn"),
   result: document.getElementById("result"),
   progress: document.getElementById("progress"),
+  // Reasoning capture panel (optional "explain your thinking" / "second method")
+  reasoningPanel: document.getElementById("reasoningPanel"),
+  reasoningExplanationField: document.getElementById("reasoningExplanationField"),
+  reasoningExplanationPrompt: document.getElementById("reasoningExplanationPrompt"),
+  reasoningExplanation: document.getElementById("reasoningExplanation"),
+  reasoningSecondMethodField: document.getElementById("reasoningSecondMethodField"),
+  reasoningSecondMethodPrompt: document.getElementById("reasoningSecondMethodPrompt"),
+  reasoningSecondMethod: document.getElementById("reasoningSecondMethod"),
   fnZone: document.getElementById("factorNinjaZone"),
   fnStreak: document.getElementById("fnStreak"),
   fnSubLabel: document.getElementById("fnSubLabel"),
@@ -169,6 +177,54 @@ function getCurrentPuzzle() {
 function currentAttemptTimeMs() {
   if (!state.puzzleStartedAt) return 0;
   return Math.max(0, Date.now() - state.puzzleStartedAt);
+}
+
+// ----- Optional reasoning capture -----
+// Show/hide + configure the "Explain your thinking" panel based on the
+// puzzle's advisory `data.reasoning` flag. Purely optional enrichment: it never
+// gates submission and never affects grading.
+function applyReasoningPanel(puzzle) {
+  if (!el.reasoningPanel) return;
+  const reasoning = puzzle?.data?.reasoning;
+  const supportsExplanation = Boolean(reasoning?.supportsExplanation);
+  const supportsTwoMethod = Boolean(reasoning?.supportsTwoMethod);
+
+  // Reset contents on every render so text never leaks between puzzles.
+  if (el.reasoningExplanation) el.reasoningExplanation.value = "";
+  if (el.reasoningSecondMethod) el.reasoningSecondMethod.value = "";
+  el.reasoningPanel.open = false;
+
+  if (!supportsExplanation && !supportsTwoMethod) {
+    el.reasoningPanel.style.display = "none";
+    return;
+  }
+
+  el.reasoningPanel.style.display = "";
+  if (el.reasoningExplanationField) {
+    el.reasoningExplanationField.style.display = supportsExplanation ? "" : "none";
+  }
+  if (el.reasoningExplanationPrompt && reasoning?.explanationPrompt) {
+    el.reasoningExplanationPrompt.textContent = reasoning.explanationPrompt;
+  }
+  if (el.reasoningSecondMethodField) {
+    el.reasoningSecondMethodField.style.display = supportsTwoMethod ? "" : "none";
+  }
+  if (el.reasoningSecondMethodPrompt && reasoning?.secondMethodPrompt) {
+    el.reasoningSecondMethodPrompt.textContent = reasoning.secondMethodPrompt;
+  }
+}
+
+// Collect the optional reasoning fields for an attempt payload. Returns {} when
+// the panel is hidden or empty, so attempts for non-supporting games are byte
+// -for-byte identical to before (backward compatible).
+function collectReasoning() {
+  if (!el.reasoningPanel || el.reasoningPanel.style.display === "none") return {};
+  const out = {};
+  const explanation = (el.reasoningExplanation?.value || "").trim();
+  const secondMethod = (el.reasoningSecondMethod?.value || "").trim();
+  if (explanation) out.explanation = explanation;
+  if (secondMethod) out.secondMethod = secondMethod;
+  return out;
 }
 
 function applyReinforcementMessage(response, fallback) {
@@ -1326,7 +1382,8 @@ async function kkCheckSolution() {
       puzzle,
       answer,
       hintsUsed: state.hintIndex,
-      timeMs: currentAttemptTimeMs()
+      timeMs: currentAttemptTimeMs(),
+      ...collectReasoning()
     })
   });
 
@@ -1570,7 +1627,8 @@ async function bsSubmit() {
       puzzle,
       answer,
       hintsUsed: state.hintIndex,
-      timeMs: currentAttemptTimeMs()
+      timeMs: currentAttemptTimeMs(),
+      ...collectReasoning()
     })
   });
 
@@ -2266,8 +2324,13 @@ async function renderPuzzle() {
     el.setProgress.textContent = "";
     el.choiceButtons.innerHTML = "";
     el.numberLine.innerHTML = "";
+    applyReasoningPanel(null);
     return;
   }
+
+  // Optional "explain your thinking" panel — visibility driven by the puzzle's
+  // advisory data.reasoning flag; applies across all game render branches below.
+  applyReasoningPanel(state.puzzle);
 
   const difficultyText = String(state.puzzle.data?.difficultyLabel || "").trim();
   const label = difficultyText || difficultyLabel(Number(state.puzzle.difficulty || 1));
@@ -2453,7 +2516,8 @@ async function submitCurrent() {
       puzzle,
       answer: el.answer.value,
       hintsUsed: state.hintIndex,
-      timeMs: currentAttemptTimeMs()
+      timeMs: currentAttemptTimeMs(),
+      ...collectReasoning()
     })
   });
 

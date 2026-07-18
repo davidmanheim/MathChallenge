@@ -198,7 +198,17 @@ export const balanceScalePlugin: GameTypePlugin = {
         display: eq.display,
         left: eq.left,
         right: eq.right,
-        answer: eq.answer
+        answer: eq.answer,
+        // Optional reasoning prompt (see docs/FRAMEWORK.md "Reasoning capture").
+        // Advisory only — never affects grading.
+        reasoning: {
+          supportsExplanation: true,
+          supportsTwoMethod: true,
+          explanationPrompt:
+            "Explain the steps you took to get x by itself.",
+          secondMethodPrompt:
+            "Can you find x a different way? (e.g. by inspection/guess-and-check instead of algebra, or the reverse)"
+        }
       },
       metadata: {
         expectUniqueSolution: true,

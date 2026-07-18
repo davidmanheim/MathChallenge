@@ -200,6 +200,18 @@ const server = createServer(async (req, res) => {
         const answer = String(body.answer ?? "");
         const hintsUsed = Number(body.hintsUsed ?? 0);
         const timeMs = Number(body.timeMs ?? 0);
+        // Optional reasoning capture (see docs/FRAMEWORK.md "Reasoning capture").
+        // Captured verbatim and stored; NEVER graded or used to decide correctness.
+        const EXPLANATION_MAX_LEN = 2000;
+        const explanation =
+          typeof body.explanation === "string"
+            ? body.explanation.trim().slice(0, EXPLANATION_MAX_LEN)
+            : "";
+        const secondMethod =
+          typeof body.secondMethod === "string"
+            ? body.secondMethod.trim().slice(0, EXPLANATION_MAX_LEN)
+            : "";
+        const hasExplanation = explanation.length > 0 || secondMethod.length > 0;
         const puzzle = body.puzzle as Record<string, unknown>;
         const gameTypeId = String(puzzle?.gameTypeId ?? "");
         const seed = Number(puzzle?.seed ?? 0);
@@ -229,7 +241,10 @@ const server = createServer(async (req, res) => {
           usedHint: normalizedHints > 0,
           latencyBand,
           successScore,
-          skillTags
+          skillTags,
+          explanation,
+          secondMethod,
+          hasExplanation
         });
         const afterSummary = await progressStore.getProfileSummary(profileId);
         const beforeSkills = beforeSummary.bySkill || {};
