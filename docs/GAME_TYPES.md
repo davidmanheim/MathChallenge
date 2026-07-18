@@ -78,19 +78,19 @@ Each game type includes:
 
 See `NEW_GAMES_DESIGN.md` for full specifications.
 
-12. **Sum Blobs** (Grades 1-4)
+13. **Sum Blobs** (Grades 1-4)
    - Draw contiguous blobs on a number grid, each summing to a target.
 
-13. **Honeycomb Paths** (Grades 1-4)
+14. **Honeycomb Paths** (Grades 1-4)
     - Trace a path through a hex grid to hit a target sum or sequence.
 
-14. **Subtractiles** (Grades 2-5)
+15. **Subtractiles** (Grades 2-5)
     - Place number tiles so adjacent-cell differences match edge constraints.
 
-15. **Measure Mazes** (Grades 2-5)
+16. **Measure Mazes** (Grades 2-5)
     - Connect dots at exact distances across a grid.
 
-16. **Equation Paths** (Grades 3-7)
+17. **Equation Paths** (Grades 3-7)
     - Trace a path through a number/operator grid to build an expression hitting a target.
 
 ## Potential Games Backlog (By Grade Band)
