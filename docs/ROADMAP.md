@@ -51,18 +51,18 @@ Exit criteria:
 1. ~~Finish the **Story Logic Grids clue rewrite** across all 20 templates~~ — done: every
    template now has integrated clues (cross-category links, order chains, grouped exclusions,
    initial-letter constraints, bundles), validated across 1200 generated puzzles.
-2. ~~Build **Angle Chase Studio** (geometry/proof anchor)~~ — done, `angle-chase-studio`.
-   Follow-up: difficulty is currently capped at 6 (grade 5-9 ceiling); extend with a genuinely
-   hard tier (multi-triangle composites, isosceles/exterior-angle chains, denser parallel-line
-   transversal chains) for competition-prep-track kids.
-3. Build **Counting Lab** (combinatorics/counting anchor).
-4. Build **Proof Blocks** (formal reasoning/proof anchor).
-5. Design specs for `Chance Builder`, `Coordinate Quest 2D`, and `Graph Trails`.
+2. ~~Build **Angle Chase Studio** (geometry/proof anchor)~~ — done, `angle-chase-studio`,
+   including olympiad-prep difficulty tiers 7-8 (isosceles+exterior-angle chains, angle-bisected
+   cevian across two triangles, triangle-on-parallel-line) for grades 8-10.
+3. ~~Build **Counting Lab** (combinatorics/counting anchor)~~ — done, `counting-lab`.
+4. ~~Build **Proof Blocks** (formal reasoning/proof anchor)~~ — done, `proof-blocks`.
+5. ~~Design specs for `Chance Builder`, `Coordinate Quest 2D`, and `Graph Trails`~~ — done,
+   see `NEW_GAMES_DESIGN.md` sections 11-13 (specs only, not yet implemented).
 6. Add "two-method solve" and brief proof prompts to existing algebra/logic games.
 7. Define rubric-based scoring for explanation quality (not answer-only).
 
 Exit criteria:
-- Full 12-type active catalog usable across grades 1-10
+- Full 12-type active catalog usable across grades 1-10 [13 games now implemented]
 
 ## Phase 2.5: Metagame — Incentives and In-Game Prizes
 
