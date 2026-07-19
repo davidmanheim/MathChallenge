@@ -1816,3 +1816,50 @@ label[for="difficulty"] {
   margin: 0;
   font-size: 0.8rem;
 }
+
+/* Explanation-quality feedback: friendly, additive, never a grade/number. */
+.explanation-feedback {
+  margin-top: 12px;
+  border: 2px solid #cdeee9;
+  border-radius: 14px;
+  background: linear-gradient(180deg, #f2fbf9 0%, #e7f7f3 100%);
+  padding: 10px 14px;
+  animation: xf-pop 0.25s ease;
+}
+
+@keyframes xf-pop {
+  from { transform: scale(0.97); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+.explanation-feedback .xf-title {
+  font-weight: 800;
+  font-size: 0.85rem;
+  letter-spacing: 0.02em;
+  color: var(--accent);
+  text-transform: uppercase;
+}
+
+.explanation-feedback .xf-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 8px 0 2px;
+}
+
+.explanation-feedback .xf-badge {
+  display: inline-block;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--accent);
+  background: #ffffff;
+  border: 2px solid #b9e6de;
+  border-radius: 999px;
+  padding: 3px 10px;
+}
+
+.explanation-feedback .xf-note {
+  margin: 6px 0 0;
+  font-size: 0.9rem;
+  color: var(--ink);
+}

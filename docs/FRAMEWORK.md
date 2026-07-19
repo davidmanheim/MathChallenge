@@ -91,10 +91,14 @@ Rules:
   request byte-for-byte identical to the pre-existing contract (backward compatible).
 - The server trims each and caps length at 2000 chars. Non-string values are
   treated as absent (stored as `""`).
-- **Captured, never graded.** The presence, absence, or content of these fields
-  has zero effect on `isCorrect`, `successScore`, hints, or any grading. A
-  follow-up task will add rubric-based scoring of explanation quality on top of
-  the stored data — this layer only captures and persists it.
+- **Captured, never used to grade correctness.** The presence, absence, or
+  content of these fields has zero effect on `isCorrect`, `successScore`, hints,
+  or any grading. Rubric-based scoring of explanation *quality* is layered on top
+  (see `docs/EXPLANATION_RUBRIC.md`): when a non-empty explanation is submitted
+  for a reasoning-supporting game, the server computes an additive
+  `explanationScore` and returns it under `result.explanationScore`. That score
+  is **purely additive encouragement** — it never lowers the correctness result
+  or `successScore`, and a blank explanation is always fine.
 
 ### Stored attempt record (`Attempt` in `src/core/types.ts`)
 Every persisted attempt (in the `attempts` Firestore collection via

@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import { GameTypeRegistry } from "./core/registry.ts";
 import { generateCheckedPuzzle } from "./core/validation-gate.ts";
 import type { GradeBand } from "./core/types.ts";
+import { scoreExplanation, type ExplanationScore } from "./core/explanation-rubric.ts";
 import { numberBondsPlugin } from "./games/numberBonds/plugin.ts";
 import { factorNinjaPlugin } from "./games/factorNinja/plugin.ts";
 import { patternTrainPlugin } from "./games/patternTrain/plugin.ts";
@@ -228,6 +229,27 @@ const server = createServer(async (req, res) => {
         const latencyBand = latencyBandForTimeMs(timeMs);
         const normalizedHints = Number.isFinite(hintsUsed) ? Math.max(0, hintsUsed) : 0;
         const successScore = successScoreForAttempt(isCorrect, normalizedHints, latencyBand);
+
+        // --- Rubric scoring for explanation quality (purely additive) ---
+        // NON-PUNITIVE: computed AFTER (and completely independent of) the
+        // correctness result above. It never reads or mutates `isCorrect` or
+        // `successScore`. We only score when the game supports reasoning capture
+        // and the kid actually wrote an explanation; otherwise the field stays
+        // absent so the stored record and Firestore write are unchanged.
+        const puzzleReasoning = (puzzle as any)?.data?.reasoning;
+        const gameSupportsReasoning =
+          Boolean(puzzleReasoning?.supportsExplanation) ||
+          Boolean(puzzleReasoning?.supportsTwoMethod);
+        let explanationScore: ExplanationScore | undefined;
+        if (gameSupportsReasoning && (explanation.length > 0 || secondMethod.length > 0)) {
+          explanationScore = scoreExplanation({
+            explanation,
+            secondMethod,
+            puzzle: puzzle as any,
+            gameTypeId
+          });
+        }
+
         const beforeSummary = await progressStore.getProfileSummary(profileId);
         const saved = await progressStore.recordAttempt({
           profileId,
@@ -244,7 +266,10 @@ const server = createServer(async (req, res) => {
           skillTags,
           explanation,
           secondMethod,
-          hasExplanation
+          hasExplanation,
+          // Only include the key when a score exists, so Firestore never
+          // receives `undefined` and existing write behavior is unchanged.
+          ...(explanationScore ? { explanationScore } : {})
         });
         const afterSummary = await progressStore.getProfileSummary(profileId);
         const beforeSkills = beforeSummary.bySkill || {};
@@ -276,7 +301,10 @@ const server = createServer(async (req, res) => {
           result: {
             isCorrect,
             hints: plugin.buildHints(puzzle as any),
-            reinforcement
+            reinforcement,
+            // Additive encouragement only. Absent when no explanation was
+            // scored; presence/content never affects `isCorrect`.
+            ...(explanationScore ? { explanationScore } : {})
           },
           attempt: saved,
           progress: afterSummary

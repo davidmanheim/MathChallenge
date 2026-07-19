@@ -1,3 +1,5 @@
+import type { ExplanationScore } from "./explanation-rubric.ts";
+
 export type GradeBand =
   | "1-2"
   | "2-3"
@@ -88,4 +90,15 @@ export type Attempt = {
   secondMethod: string;
   /** Trivial presence check: true if either explanation or secondMethod is non-empty. */
   hasExplanation: boolean;
+  /**
+   * Optional rubric score for the explanation quality (see
+   * `src/core/explanation-rubric.ts` / `docs/EXPLANATION_RUBRIC.md`).
+   *
+   * Present ONLY when a non-empty explanation was submitted for a game that
+   * supports reasoning capture; absent otherwise (so existing stored attempts
+   * and the Firestore write path are unaffected — the field is never written as
+   * `undefined`). This is purely additive encouragement: it NEVER affects
+   * `isCorrect` or `successScore`.
+   */
+  explanationScore?: ExplanationScore;
 };
