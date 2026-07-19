@@ -167,16 +167,22 @@ function assignOperation(
 
 // ===== Solver =====
 
-// Backtracking solver for KenKen: fill grid so Latin square + cage constraints hold
-function solveKenKen(
+// Bounded backtracking solution COUNTER for KenKen. Searches for grids that
+// satisfy both the Latin-square and cage constraints, collecting up to `limit`
+// distinct solutions and then stopping early. This is what lets the validation
+// gate enforce uniqueness: if 2+ solutions exist the gate sees length !== 1 and
+// rerolls the seed. (Previously the solver stopped at the first solution, so
+// every puzzle looked "unique" and multi-solution puzzles shipped.)
+function findKenKenSolutions(
   size: number,
-  cages: Cage[]
-): number[][] | null {
+  cages: Cage[],
+  limit = 2
+): number[][][] {
   const grid: number[][] = Array.from({ length: size }, () =>
     Array(size).fill(0)
   );
 
-  // Map each cell to its cage index
+  // Map each cell to its cage index for O(1) lookup during search.
   const cellCage: number[][] = Array.from({ length: size }, () =>
     Array(size).fill(-1)
   );
@@ -216,19 +222,25 @@ function solveKenKen(
 
     if (allFilled) return cageSatisfied(ci);
 
-    // Partial check: sum/product shouldn't already exceed target
+    // Partial check: additive sum / product shouldn't already exceed target.
     if (cage.op === "+") return vals.reduce((a, b) => a + b, 0) < cage.target;
     if (cage.op === "*") return vals.reduce((a, b) => a * b, 1) <= cage.target;
     return true;
   }
 
-  function solve(pos: number): boolean {
-    if (pos === size * size) return true;
+  const solutions: number[][][] = [];
+
+  function search(pos: number): void {
+    if (solutions.length >= limit) return; // bounded: stop once we have enough
+    if (pos === size * size) {
+      solutions.push(grid.map((row) => [...row]));
+      return;
+    }
     const r = Math.floor(pos / size);
     const c = pos % size;
 
     for (let v = 1; v <= size; v++) {
-      // Latin square check: no duplicate in row or column
+      // Latin square check: no duplicate in row or column so far.
       let ok = true;
       for (let i = 0; i < c; i++) if (grid[r][i] === v) { ok = false; break; }
       if (!ok) continue;
@@ -236,13 +248,14 @@ function solveKenKen(
       if (!ok) continue;
 
       grid[r][c] = v;
-      if (cagePartialOk(cellCage[r][c]) && solve(pos + 1)) return true;
+      if (cagePartialOk(cellCage[r][c])) search(pos + 1);
       grid[r][c] = 0;
+      if (solutions.length >= limit) return;
     }
-    return false;
   }
 
-  return solve(0) ? grid.map((row) => [...row]) : null;
+  search(0);
+  return solutions;
 }
 
 // ===== Difficulty Mapping =====
@@ -380,9 +393,12 @@ export const kenkenPlugin: GameTypePlugin = {
       target: c.target as number
     }));
 
-    const result = solveKenKen(size, cages);
-    if (!result) return [];
-    return [gridToAnswer(result)];
+    // Return up to 2 solutions so the validation gate can enforce uniqueness:
+    // a puzzle with 2+ consistent completions yields length !== 1 and is
+    // rerolled. Each returned grid is genuinely consistent with the cages, so
+    // it also passes the gate's grader-consistency check.
+    const results = findKenKenSolutions(size, cages, 2);
+    return results.map(gridToAnswer);
   },
 
   validatePuzzle(candidate: PuzzleCandidate): ValidationResult {
