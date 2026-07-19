@@ -49,6 +49,7 @@ const el = {
   reasoningSecondMethodField: document.getElementById("reasoningSecondMethodField"),
   reasoningSecondMethodPrompt: document.getElementById("reasoningSecondMethodPrompt"),
   reasoningSecondMethod: document.getElementById("reasoningSecondMethod"),
+  explanationFeedback: document.getElementById("explanationFeedback"),
   fnZone: document.getElementById("factorNinjaZone"),
   fnStreak: document.getElementById("fnStreak"),
   fnSubLabel: document.getElementById("fnSubLabel"),
@@ -193,6 +194,7 @@ function applyReasoningPanel(puzzle) {
   if (el.reasoningExplanation) el.reasoningExplanation.value = "";
   if (el.reasoningSecondMethod) el.reasoningSecondMethod.value = "";
   el.reasoningPanel.open = false;
+  clearExplanationFeedback();
 
   if (!supportsExplanation && !supportsTwoMethod) {
     el.reasoningPanel.style.display = "none";
@@ -225,6 +227,55 @@ function collectReasoning() {
   if (explanation) out.explanation = explanation;
   if (secondMethod) out.secondMethod = secondMethod;
   return out;
+}
+
+// ----- Optional explanation-quality feedback (purely additive encouragement) -----
+// Surfaces the server's rubric result as friendly "badges earned" + a note.
+// It is NEVER shown as a grade/number and never appears when no explanation was
+// written. Nothing here changes the correctness result.
+function clearExplanationFeedback() {
+  if (!el.explanationFeedback) return;
+  el.explanationFeedback.hidden = true;
+  el.explanationFeedback.replaceChildren();
+}
+
+function applyExplanationFeedback(response) {
+  const box = el.explanationFeedback;
+  if (!box) return;
+  const score = response?.result?.explanationScore;
+  const badges = Array.isArray(score?.badges) ? score.badges : [];
+  const notes = Array.isArray(score?.feedback) ? score.feedback : [];
+  if (!score || (badges.length === 0 && notes.length === 0)) {
+    clearExplanationFeedback();
+    return;
+  }
+  box.replaceChildren();
+
+  const title = document.createElement("div");
+  title.className = "xf-title";
+  title.textContent = "Reasoning bonus";
+  box.appendChild(title);
+
+  if (badges.length > 0) {
+    const row = document.createElement("div");
+    row.className = "xf-badges";
+    for (const b of badges) {
+      const chip = document.createElement("span");
+      chip.className = "xf-badge";
+      chip.textContent = `⭐ ${b}`;
+      row.appendChild(chip);
+    }
+    box.appendChild(row);
+  }
+
+  for (const n of notes) {
+    const p = document.createElement("p");
+    p.className = "xf-note";
+    p.textContent = n;
+    box.appendChild(p);
+  }
+
+  box.hidden = false;
 }
 
 function applyReinforcementMessage(response, fallback) {
@@ -1387,6 +1438,8 @@ async function kkCheckSolution() {
     })
   });
 
+  applyExplanationFeedback(response);
+
   if (response.result.isCorrect) {
     el.kkBanner.textContent = "SOLVED!";
     // Color all cells green
@@ -1631,6 +1684,8 @@ async function bsSubmit() {
       ...collectReasoning()
     })
   });
+
+  applyExplanationFeedback(response);
 
   if (response.result.isCorrect) {
     el.bsBanner.textContent = "BALANCED!";
@@ -2520,6 +2575,8 @@ async function submitCurrent() {
       ...collectReasoning()
     })
   });
+
+  applyExplanationFeedback(response);
 
   if (response.result.isCorrect) {
     if (puzzle.gameTypeId === "number-bonds-sprint") {
