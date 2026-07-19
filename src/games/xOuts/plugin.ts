@@ -394,16 +394,32 @@ export const xOutsPlugin: GameTypePlugin = {
       }
     }
 
-    let revealed = "(0,0)";
+    const ordinal = (n: number): string => {
+      const words = [
+        "first",
+        "second",
+        "third",
+        "fourth",
+        "fifth",
+        "sixth",
+        "seventh",
+        "eighth"
+      ];
+      return words[n - 1] ?? `${n}th`;
+    };
+
+    let revealedRow = 0;
+    let revealedCol = 0;
     if (expected && expected.size > 0) {
-      revealed = [...expected][0];
-      revealed = `(${revealed})`;
+      const [r, c] = [...expected][0].split(",").map(Number);
+      revealedRow = r;
+      revealedCol = c;
     }
 
     return [
       "Find a row or column where only one set of cross-outs can hit the target.",
-      `Row ${bestRow + 1} must remove ${biggestDrop} total points.`,
-      `One crossed cell is at ${revealed}.`
+      `In the ${ordinal(bestRow + 1)} row (counting from the top), the numbers you cross out must add up to ${biggestDrop}.`,
+      `One cell to cross out is in the ${ordinal(revealedRow + 1)} row from the top and the ${ordinal(revealedCol + 1)} column from the left.`
     ];
   }
 };
