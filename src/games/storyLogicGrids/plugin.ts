@@ -699,6 +699,27 @@ function buildCandidateClues(
         : `For ${role}, ${joinList(parts)}.`;
       out.push({ kind: usePossessive ? "compound" : "bundle", text, constraints });
     }
+
+    // Same-column combo clues. Every part is a fact about ONE category across a
+    // few rows — just as related as a same-row combo — again with at most one
+    // positive part so the column isn't handed over wholesale.
+    for (const category of categories) {
+      const chosenRoles = shuffle(rng, roles).slice(0, Math.min(3, Math.max(2, roles.length - 1)));
+      const positiveIndex = rng.int(0, chosenRoles.length);
+      const parts: string[] = [];
+      const constraints: Constraint[] = [];
+      chosenRoles.forEach((role, idx) => {
+        if (idx === positiveIndex) {
+          parts.push(`${role}'s is ${solution[role][category.id]}`);
+          constraints.push({ type: "is", role, categoryId: category.id, value: solution[role][category.id] });
+        } else {
+          const wrong = rng.pick(category.values.filter((value) => value !== solution[role][category.id]));
+          parts.push(`${role}'s is not ${wrong}`);
+          constraints.push({ type: "not", role, categoryId: category.id, value: wrong });
+        }
+      });
+      out.push({ kind: "compound", text: `For the ${category.label}, ${joinList(parts)}.`, constraints });
+    }
   }
 
   const unique = new Map<string, LogicClue>();
@@ -706,10 +727,11 @@ function buildCandidateClues(
   return [...unique.values()];
 }
 
-// Ranks clue *kinds* so the assembler prefers strong, self-contained clues
-// (links pin a pairing; combos/groups narrow a row) over weak relative-order
-// hints, and treats plain "direct" givens as a last resort. This only sets the
-// round-robin order across kinds; clue count is still driven by uniqueness.
+// Ranks clue *kinds* for the round-robin that assembles the clue set. Strong,
+// self-contained clues (links pin a pairing; combos/groups narrow things) come
+// first. Direct "given" clues are handled separately (see generateClues) so
+// their placement can depend on difficulty. This only sets ordering; the clue
+// count is still driven by what it takes to force a unique solution.
 function kindPriority(kind: LogicClue["kind"]): number {
   switch (kind) {
     case "link": return 95;
@@ -733,18 +755,31 @@ function generateClues(
   complexClues: boolean
 ): LogicClue[] {
   const candidates = buildCandidateClues(roles, categories, solution, rng, complexClues);
-  const directs = shuffle(rng, candidates.filter((clue) => clue.kind === "direct"));
+  const allDirects = shuffle(rng, candidates.filter((clue) => clue.kind === "direct"));
 
-  // Interleave the non-direct candidates by kind (round-robin), so the clue set
-  // pulls a variety of clue types instead of, say, five order chains in a row.
+  // Direct "given" clues are welcome as anchors — a concrete starting fact is
+  // genuinely helpful, especially on easy puzzles — but capped so they can
+  // never hand over enough cells to remove the deduction. Any directs beyond
+  // the cap are held in reserve to guarantee a unique solution is reachable.
+  const directCap = complexClues ? 2 : Math.max(2, roles.length - 1);
+  const directPool = allDirects.slice(0, directCap);
+  const directReserve = allDirects.slice(directCap);
+
+  // Interleave candidates by kind (round-robin), so the clue set pulls a variety
+  // of clue types instead of, say, five order chains in a row.
   const buckets = new Map<string, LogicClue[]>();
   for (const clue of shuffle(rng, candidates)) {
     if (clue.kind === "direct") continue;
     (buckets.get(clue.kind) ?? buckets.set(clue.kind, []).get(clue.kind)!).push(clue);
   }
-  const kindOrder = [...buckets.keys()].sort(
-    (a, b) => kindPriority(b as LogicClue["kind"]) - kindPriority(a as LogicClue["kind"])
-  );
+  if (directPool.length > 0) buckets.set("direct", directPool);
+
+  // Easy puzzles surface a couple of givens early (helpful anchors); harder
+  // puzzles keep them late so the deduction-rich clues drive the solve.
+  const priorityOf = (kind: string): number =>
+    kind === "direct" ? (complexClues ? 20 : 92) : kindPriority(kind as LogicClue["kind"]);
+  const kindOrder = [...buckets.keys()].sort((a, b) => priorityOf(b) - priorityOf(a));
+
   const rich: LogicClue[] = [];
   let progressed = true;
   while (progressed) {
@@ -763,26 +798,27 @@ function generateClues(
   const selected: LogicClue[] = [];
   const isUnique = (): boolean => solveAssignments(roles, categories, selected, 2).length === 1;
 
-  // Phase 1: build from deduction-rich clues only.
+  // Phase 1: assemble from the interleaved pool (deduction-rich clues plus the
+  // capped anchor givens).
   for (const candidate of rich) {
     if (selected.length >= minClues && isUnique()) break;
     selected.push(candidate);
   }
-  // Phase 2: only if the rich clues alone can't pin the solution, add the
-  // minimum number of plain givens needed. Guarantees a unique solution because
-  // the full set of direct clues fully determines every cell.
+  // Phase 2: if the capped pool still can't pin the solution, add reserve givens
+  // until it does. Guaranteed to terminate — the full direct set fixes every cell.
   if (!isUnique()) {
-    for (const candidate of directs) {
+    for (const candidate of directReserve) {
       selected.push(candidate);
       if (isUnique()) break;
     }
   }
 
-  // Minimize: drop any clue whose removal still leaves a unique solution. We
-  // sweep from the end, where the last-resort direct givens live, so redundant
-  // givens are shed first and the deduction-rich clues are what remain.
+  // Minimize: drop any clue whose removal still leaves a unique solution. On
+  // easy puzzles the anchor givens are kept even when technically removable, so
+  // young solvers still get their concrete starting facts.
   const minimized = [...selected];
   for (let i = minimized.length - 1; i >= 0; i -= 1) {
+    if (!complexClues && minimized[i].kind === "direct") continue;
     const test = minimized.filter((_, idx) => idx !== i);
     if (test.length > 0 && solveAssignments(roles, categories, test, 2).length === 1) {
       minimized.splice(i, 1);
