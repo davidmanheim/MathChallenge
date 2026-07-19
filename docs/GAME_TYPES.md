@@ -47,7 +47,11 @@ Each game type includes:
    - Interactive tap-path board with immediate path validation.
 
 10. **Story Logic Grids** (Grades 1-10) — `story-logic-grids`
-   - Story-based one-to-one matching logic puzzles generated from YAML templates.
+   - Story-based one-to-one matching logic puzzles generated from templates in
+     `src/games/storyLogicGrids/templates.yaml`. Note: despite the `.yaml`
+     extension, that file contains **JSON** and is parsed with `JSON.parse(...)`
+     (see `plugin.ts` `loadTemplates()`); the file is not renamed for
+     compatibility.
    - Includes 20 story variants; difficulty scales by role count, category count, and clue structure.
    - Uses fewer integrated clues at higher levels: cross-category links, order chains (either
      from literally ordered roles like "Tank 1" or from an intrinsically ordered category such
@@ -369,8 +373,10 @@ identify where to expand puzzle/topic coverage.
 ## Pending Removal
 
 - **Number Bonds Sprint** — Superseded by Balance Scale (identical underlying
-  math with better progression). Will be removed once the remaining 5 games
-  above are implemented, bringing the active catalog to 12.
+  math with better progression). Its removal was conditioned on the active
+  catalog reaching 12 games; the catalog now has 13 registered plugins, so that
+  condition is met and removal is **outstanding**. The plugin is still registered
+  pending a separate decision to actually remove it.
 
 ## Content Generation Notes
 - Use seeded generation for reproducibility

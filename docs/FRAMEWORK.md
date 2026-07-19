@@ -12,8 +12,10 @@
 - `src/core/types.ts`: shared types (`GradeBand`, `PuzzleCandidate`, etc.).
 - `src/games/*/plugin.ts`: one plugin per game type.
 - `src/server.ts`: HTTP API and static file serving.
-- `src/services/profile-store.ts`: JSON-backed profile persistence.
-- `src/services/progress-store.ts`: JSON-backed attempt/progress persistence.
+- `src/services/profile-store.ts`: Firestore-backed profile persistence (`@google-cloud/firestore`, `profiles` collection).
+- `src/services/progress-store.ts`: Firestore-backed attempt/progress persistence (`@google-cloud/firestore`, `attempts` collection).
+
+> Note: `src/services/json-store.ts` and any `data/*.json` files are stale, unused artifacts from an earlier local-JSON prototype. Persistence is Firestore-only; the JSON files are not read or written at runtime.
 
 ## Plugin Contract
 Every game must implement:
@@ -66,7 +68,6 @@ across all puzzles in a set and re-rolls duplicates (up to 50 attempts per slot)
 
 ## API (Alpha)
 - `POST /api/profiles/login` — create/retrieve profile
-- `GET  /api/profiles` — list profiles
 - `GET  /api/games` — list registered game types
 - `POST /api/puzzles/next` — generate puzzle set (`gameTypeId`, `difficulty`, `setSize`)
 - `POST /api/puzzles/hints` — get hints for a puzzle
@@ -113,18 +114,31 @@ never see `undefined`. `hasExplanation` is a convenience flag only — it is a
 non-empty check, NOT any judgement of quality.
 
 ## Current Game Coverage
-8 registered plugins (see `GAME_TYPES.md` for details):
+13 registered plugins (see `GAME_TYPES.md` for details; order matches
+`registry.register(...)` in `src/server.ts`):
+- `number-bonds-sprint` (removal now outstanding — see note below)
 - `pattern-train`
+- `factor-ninja`
 - `mismo`
 - `x-outs`
-- `shikaku`
 - `kenken`
-- `factor-ninja`
 - `balance-scale`
-- `number-bonds-sprint` (pending removal)
+- `shikaku`
+- `number-paths`
+- `story-logic-grids`
+- `angle-chase-studio`
+- `counting-lab`
+- `proof-blocks`
 
-5 additional games designed: Sum Blobs, Honeycomb Paths, Subtractiles,
-Measure Mazes, Equation Paths (see `NEW_GAMES_DESIGN.md`).
+Designed but not yet implemented: 3 newly-spec'd games — Chance Builder,
+Coordinate Quest 2D, Graph Trails (`NEW_GAMES_DESIGN.md` §11-13) — plus the
+5 older designs: Sum Blobs, Honeycomb Paths, Subtractiles, Measure Mazes,
+Equation Paths.
+
+> `number-bonds-sprint` was slated for removal once the catalog reached 12
+> games. The catalog now has 13 registered plugins, so that condition is met
+> and its removal is outstanding — it is still registered pending a separate
+> decision to remove it.
 
 ## Server
 - Fixed port: `http://localhost:5678`
