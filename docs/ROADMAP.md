@@ -58,11 +58,18 @@ Exit criteria:
 4. ~~Build **Proof Blocks** (formal reasoning/proof anchor)~~ — done, `proof-blocks`.
 5. ~~Design specs for `Chance Builder`, `Coordinate Quest 2D`, and `Graph Trails`~~ — done,
    see `NEW_GAMES_DESIGN.md` sections 11-13 (specs only, not yet implemented).
-6. Add "two-method solve" and brief proof prompts to existing algebra/logic games.
-7. Define rubric-based scoring for explanation quality (not answer-only).
+6. ~~Add "two-method solve" and brief proof prompts to existing algebra/logic games~~ — done:
+   optional, non-blocking explanation/second-method capture on Balance Scale, Mismo, and KenKen
+   (see `FRAMEWORK.md` reasoning-capture contract).
+7. ~~Define rubric-based scoring for explanation quality (not answer-only)~~ — done: deterministic,
+   offline, strictly non-punitive rubric scorer (`src/core/explanation-rubric.ts`,
+   `docs/EXPLANATION_RUBRIC.md`) that adds encouraging "reasoning bonus" feedback without ever
+   affecting correctness.
+
+All Phase 2 "Next Steps" items are now complete.
 
 Exit criteria:
-- Full 12-type active catalog usable across grades 1-10 [13 games now implemented]
+- Full 12-type active catalog usable across grades 1-10 [MET — 13 games implemented]
 
 ## Phase 2.5: Metagame — Incentives and In-Game Prizes
 
