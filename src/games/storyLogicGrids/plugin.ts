@@ -162,9 +162,32 @@ function isNameLikeCategory(category: CategoryTemplate): boolean {
 
 function pluralLabel(label: string): string {
   const lower = label.toLowerCase();
-  if (lower.endsWith("y")) return `${lower.slice(0, -1)}ies`;
+  // consonant + y -> -ies (city -> cities), but vowel + y -> +s (display -> displays, day -> days)
+  if (lower.endsWith("y") && !/[aeiou]y$/.test(lower)) return `${lower.slice(0, -1)}ies`;
+  if (/(s|x|z|ch|sh)$/.test(lower)) return `${lower}es`;
   if (lower.endsWith("s")) return lower;
   return `${lower}s`;
+}
+
+function allNumericValues(values: string[]): boolean {
+  return values.length > 0 && values.every((value) => /^\d+(\.\d+)?$/.test(value.trim()));
+}
+
+// Ascending-sense comparative for an intrinsically-ordered category: the first
+// value is "less" than the second. Numeric categories (platform, number, score)
+// read as "lower"; sequential ones (time, day, era, order) read as "earlier".
+function orderComparative(category: CategoryTemplate): string {
+  return allNumericValues(category.values) ? "lower" : "earlier";
+}
+
+// Comparatives for intrinsically-ordered ROLE names (Tank 1..5, Case A..E),
+// so an order clue can name the direction the way the row labels actually read.
+function orderedRoleWords(roles: string[]): { earlier: string; later: string } {
+  const noun = roleNoun(roles);
+  if (roles.every((role) => /\d/.test(role))) {
+    return { earlier: `a lower-numbered ${noun}`, later: `a higher-numbered ${noun}` };
+  }
+  return { earlier: `an earlier ${noun}`, later: `a later ${noun}` };
 }
 
 function roleNoun(roles: string[]): string {
@@ -321,19 +344,35 @@ function candidatePermutations(
   clues: LogicClue[]
 ): string[][] {
   const values = category.values.slice(0, roles.length);
-  const simpleClues = clues.filter((clue) =>
-    clue.constraints.every((constraint) => {
+  // Prune this column with EVERY single-category constraint touching it — even
+  // ones embedded in a multi-category clue (a bundle's "is"/"not", a group's
+  // "notAny", an ordered-role "order"). Each conjunct of a clue must hold in any
+  // solution, so filtering the column by them independently is sound, and it
+  // shrinks the per-column search from n! toward the handful that survive.
+  const singleCategoryConstraints: Constraint[] = [];
+  for (const clue of clues) {
+    for (const constraint of clue.constraints) {
       const ids = constraintCategoryIds(constraint);
-      return ids.length === 1 && ids[0] === category.id;
-    })
-  );
+      if (ids.length === 1 && ids[0] === category.id) singleCategoryConstraints.push(constraint);
+    }
+  }
   return permutations(values).filter((perm) => {
     const partial: Assignment = {};
     for (let i = 0; i < roles.length; i += 1) {
       partial[roles[i]] = { [category.id]: perm[i] };
     }
-    return simpleClues.every((clue) => cluePasses(roles, categories, partial, clue));
+    return singleCategoryConstraints.every((constraint) =>
+      constraintPasses(roles, categories, partial, constraint)
+    );
   });
+}
+
+function applyPerm(roles: string[], assignment: Assignment, categoryId: string, perm: string[]): Assignment {
+  const next: Assignment = {};
+  for (let i = 0; i < roles.length; i += 1) {
+    next[roles[i]] = { ...assignment[roles[i]], [categoryId]: perm[i] };
+  }
+  return next;
 }
 
 function solveAssignments(
@@ -342,36 +381,55 @@ function solveAssignments(
   clues: LogicClue[],
   limit = 2
 ): Assignment[] {
-  const options = categories
-    .map((category) => ({ category, perms: candidatePermutations(roles, categories, category, clues) }))
-    .sort((a, b) => a.perms.length - b.perms.length);
+  // Base per-column domains, already pruned by single-column constraints.
+  const baseDomains = new Map<string, string[][]>();
+  for (const category of categories) {
+    baseDomains.set(category.id, candidatePermutations(roles, categories, category, clues));
+  }
   const solutions: Assignment[] = [];
+  const assigned = new Set<string>();
 
-  function backtrack(index: number, assignment: Assignment): void {
+  // Perms of a still-unassigned column that stay consistent with everything
+  // placed so far — this is where link/order clues across columns finally bite,
+  // collapsing the domain instead of waiting until the whole grid is filled.
+  const consistentPerms = (category: CategoryTemplate, assignment: Assignment): string[][] =>
+    (baseDomains.get(category.id) ?? []).filter((perm) => {
+      const next = applyPerm(roles, assignment, category.id, perm);
+      return clues.every((clue) => cluePasses(roles, categories, next, clue));
+    });
+
+  function backtrack(assignment: Assignment): void {
     if (solutions.length >= limit) return;
-    if (index === options.length) {
-      if (clues.every((clue) => cluePasses(roles, categories, assignment, clue))) {
-        solutions.push(JSON.parse(JSON.stringify(assignment)) as Assignment);
-      }
+    if (assigned.size === categories.length) {
+      solutions.push(assignment);
       return;
     }
-
-    const { category, perms } = options[index];
-    for (const perm of perms) {
-      const next: Assignment = JSON.parse(JSON.stringify(assignment)) as Assignment;
-      for (let i = 0; i < roles.length; i += 1) {
-        next[roles[i]] = { ...(next[roles[i]] ?? {}), [category.id]: perm[i] };
+    // Most-constrained-column-first: pick the unassigned column with the fewest
+    // surviving perms, which keeps the branching factor near its minimum.
+    let bestCategory: CategoryTemplate | null = null;
+    let bestPerms: string[][] | null = null;
+    for (const category of categories) {
+      if (assigned.has(category.id)) continue;
+      const perms = consistentPerms(category, assignment);
+      if (perms.length === 0) return; // dead end, backtrack
+      if (bestPerms === null || perms.length < bestPerms.length) {
+        bestCategory = category;
+        bestPerms = perms;
       }
-      if (clues.every((clue) => cluePasses(roles, categories, next, clue))) {
-        backtrack(index + 1, next);
-      }
-      if (solutions.length >= limit) return;
     }
+    if (!bestCategory || !bestPerms) return;
+
+    assigned.add(bestCategory.id);
+    for (const perm of bestPerms) {
+      backtrack(applyPerm(roles, assignment, bestCategory.id, perm));
+      if (solutions.length >= limit) break;
+    }
+    assigned.delete(bestCategory.id);
   }
 
   const empty: Assignment = {};
   for (const role of roles) empty[role] = {};
-  backtrack(0, empty);
+  backtrack(empty);
   return solutions;
 }
 
@@ -393,6 +451,21 @@ function negativeText(role: string, category: CategoryTemplate, value: string, r
   ]);
 }
 
+// A cross-category "link" clue ties two attribute-values to the same row
+// ("The cottage home goes with the 9 AM visit time."). Using valueLabel on both
+// sides keeps the story flavor and — crucially — never leans on jargon like
+// "for <Category>"; the sentence stands on its own.
+function linkText(
+  a: CategoryTemplate,
+  aValue: string,
+  b: CategoryTemplate,
+  bValue: string,
+  relation: "is" | "not"
+): string {
+  const connector = relation === "is" ? "goes with" : "does not go with";
+  return `The ${valueLabel(a, aValue)} ${connector} the ${valueLabel(b, bValue)}.`;
+}
+
 function buildCandidateClues(
   roles: string[],
   categories: CategoryTemplate[],
@@ -401,7 +474,6 @@ function buildCandidateClues(
   complexClues: boolean
 ): LogicClue[] {
   const out: LogicClue[] = [];
-  const noun = roleNoun(roles);
 
   for (const category of categories) {
     const values = category.values.slice(0, roles.length);
@@ -423,50 +495,108 @@ function buildCandidateClues(
       }
     }
 
+    // Grouped exclusions. The group's members are enumerated in-line so the
+    // solver never has to guess which values count as (e.g.) a "cold side".
+    const groups = (category.groups ?? []).filter((group) => group.values.length > 0);
+    for (const group of groups) {
+      const eligible = roles.filter((role) => !group.values.includes(solution[role][category.id]));
+      const inGroup = roles.length - eligible.length;
+      if (inGroup === 0) continue; // no chosen value is in the group -> vacuous
+      const pairs = [eligible.slice(0, 2), eligible.slice(-2)]
+        .filter((pair) => pair.length >= 2)
+        .filter((pair, idx, arr) => idx === 0 || pair.join("|") !== arr[0].join("|"));
+      for (const selected of pairs) {
+        const owners = joinList(selected.map((role) => `${role}'s`));
+        const members = joinList(group.values, "or");
+        out.push({
+          kind: "group",
+          text: `${owners} ${pluralLabel(category.label)} are not ${group.label} (not ${members}).`,
+          constraints: selected.map((role) => ({
+            type: "notAny",
+            role,
+            categoryId: category.id,
+            values: group.values
+          }))
+        });
+      }
+    }
+
     if (!complexClues) continue;
 
+    // Order chains. Two sources: roles that are intrinsically sequenced
+    // (Tank 1..5, Case A..E) and categories flagged `ordered`. Either way the
+    // clue names its ordered dimension and its direction in plain words.
     if (hasOrderedRoles(roles)) {
-      const roleOrderClues = values
+      const words = orderedRoleWords(roles);
+      const ranked = values
         .map((value) => {
           const role = roles.find((r) => solution[r][category.id] === value);
           return role ? { value, rank: roleOrderRank(role) } : null;
         })
         .filter((entry): entry is { value: string; rank: number } => entry !== null)
-        .sort((a, b) => b.rank - a.rank);
-      for (let i = 0; i + 2 < roleOrderClues.length; i += 1) {
-        const chain = roleOrderClues.slice(i, i + 3);
+        .sort((a, b) => a.rank - b.rank);
+      for (let i = 0; i + 1 < ranked.length; i += 1) {
+        const pair = ranked.slice(i, i + 2);
         out.push({
           kind: "order",
-          text: `The ${valueLabel(category, chain[0].value)} is in a higher-numbered ${noun} than ${chain[1].value}, which is higher-numbered than ${chain[2].value}.`,
+          text: `The ${valueLabel(category, pair[0].value)} is in ${words.earlier} than the ${valueLabel(category, pair[1].value)}.`,
           constraints: [{
             type: "order",
             categoryId: category.id,
-            values: chain.map((entry) => entry.value).reverse(),
+            values: pair.map((entry) => entry.value),
+            direction: "ascending"
+          }]
+        });
+      }
+      for (let i = 0; i + 2 < ranked.length; i += 1) {
+        const chain = ranked.slice(i, i + 3);
+        out.push({
+          kind: "order",
+          text: `The ${valueLabel(category, chain[0].value)} is in ${words.earlier} than the ${valueLabel(category, chain[1].value)}, which is in ${words.earlier} than the ${valueLabel(category, chain[2].value)}.`,
+          constraints: [{
+            type: "order",
+            categoryId: category.id,
+            values: chain.map((entry) => entry.value),
             direction: "ascending"
           }]
         });
       }
     } else if (category.ordered) {
-      // For templates whose roles are plain names (no embedded numbering), an
-      // intrinsically-ordered category (day, score, platform, ...) still lets
-      // us build an integrated order chain, naming the roles via a *different*
-      // category's value so the clue actually conveys information.
+      // Roles are plain names, so we rank them by an intrinsically-ordered
+      // category and name each row by a *different* category's value. The clue
+      // states the ordered dimension (this category's label) and the direction
+      // ("earlier"/"lower"), so a child can act on it without any convention.
+      const comparative = orderComparative(category);
       const orderRankOf = (role: string): number => category.values.indexOf(solution[role][category.id]);
       for (const identifyCategory of categories) {
         if (identifyCategory.id === category.id) continue;
         const identifyValues = identifyCategory.values.slice(0, roles.length);
-        const chainEntries = identifyValues
+        const ranked = identifyValues
           .map((value) => {
             const role = roles.find((r) => solution[r][identifyCategory.id] === value);
             return role ? { value, rank: orderRankOf(role) } : null;
           })
           .filter((entry): entry is { value: string; rank: number } => entry !== null)
           .sort((a, b) => a.rank - b.rank);
-        for (let i = 0; i + 2 < chainEntries.length; i += 1) {
-          const chain = chainEntries.slice(i, i + 3);
+        for (let i = 0; i + 1 < ranked.length; i += 1) {
+          const pair = ranked.slice(i, i + 2);
           out.push({
             kind: "order",
-            text: `The ${noun} with ${valueLabel(identifyCategory, chain[0].value)} comes before the ${noun} with ${chain[1].value} in ${category.label}, which comes before the ${noun} with ${chain[2].value}.`,
+            text: `The ${valueLabel(identifyCategory, pair[0].value)}'s ${category.label} is ${comparative} than the ${valueLabel(identifyCategory, pair[1].value)}'s ${category.label}.`,
+            constraints: [{
+              type: "categoryOrder",
+              identifyCategoryId: identifyCategory.id,
+              identifyValues: pair.map((entry) => entry.value),
+              orderCategoryId: category.id,
+              direction: "ascending"
+            }]
+          });
+        }
+        for (let i = 0; i + 2 < ranked.length; i += 1) {
+          const chain = ranked.slice(i, i + 3);
+          out.push({
+            kind: "order",
+            text: `The ${valueLabel(identifyCategory, chain[0].value)}'s ${category.label} is ${comparative} than the ${valueLabel(identifyCategory, chain[1].value)}'s, which is ${comparative} than the ${valueLabel(identifyCategory, chain[2].value)}'s.`,
             constraints: [{
               type: "categoryOrder",
               identifyCategoryId: identifyCategory.id,
@@ -476,23 +606,6 @@ function buildCandidateClues(
             }]
           });
         }
-      }
-    }
-
-    const groups = category.groups ?? [];
-    for (const group of groups) {
-      const eligible = roles.filter((role) => !group.values.includes(solution[role][category.id]));
-      for (const selected of [eligible.slice(0, 2), eligible.slice(-2)].filter((x) => x.length >= 2)) {
-        out.push({
-          kind: "group",
-          text: `The ${pluralLabel(category.label)} in ${joinList(selected)} are not ${group.label}.`,
-          constraints: selected.map((role) => ({
-            type: "notAny",
-            role,
-            categoryId: category.id,
-            values: group.values
-          }))
-        });
       }
     }
 
@@ -518,93 +631,73 @@ function buildCandidateClues(
     }
   }
 
-  if (complexClues) {
-    for (const role of roles) {
-      const pickedCategories = shuffle(rng, categories);
-      const directCategories = pickedCategories.slice(0, Math.min(2, categories.length));
-      const negativeCategory = pickedCategories.find((category) => !directCategories.includes(category));
-      const parts = directCategories.map((category) =>
-        `${category.label} is ${solution[role][category.id]}`
-      );
-      const constraints: Constraint[] = directCategories.map((category) => ({
-        type: "is",
-        role,
-        categoryId: category.id,
-        value: solution[role][category.id]
-      }));
-      if (negativeCategory) {
-        const wrongValue = rng.pick(negativeCategory.values.filter((value) =>
-          value !== solution[role][negativeCategory.id]
-        ));
-        parts.push(`${negativeCategory.label} is not ${wrongValue}`);
-        constraints.push({
-          type: "not",
-          role,
-          categoryId: negativeCategory.id,
-          value: wrongValue
+  // Cross-category link clues (one direction per pair to avoid near-duplicates).
+  // Available at every difficulty: a link is the classic, self-contained logic
+  // clue and keeps even easy puzzles from being a wall of "X is not Y".
+  for (let i = 0; i < categories.length; i += 1) {
+    for (let j = i + 1; j < categories.length; j += 1) {
+      const a = categories[i];
+      const b = categories[j];
+      for (const role of roles) {
+        const aValue = solution[role][a.id];
+        const bValue = solution[role][b.id];
+        out.push({
+          kind: "link",
+          text: linkText(a, aValue, b, bValue, "is"),
+          constraints: [{
+            type: "link",
+            categoryId: a.id,
+            value: aValue,
+            otherCategoryId: b.id,
+            otherValue: bValue,
+            relation: "is"
+          }]
         });
-      }
-      out.push({
-        kind: "bundle",
-        text: `For ${role}, ${joinList(parts)}.`,
-        constraints
-      });
-    }
 
-    for (let i = 0; i < categories.length; i += 1) {
-      for (let j = 0; j < categories.length; j += 1) {
-        if (i === j) continue;
-        const a = categories[i];
-        const b = categories[j];
-        for (const role of roles) {
-          const aValue = solution[role][a.id];
-          const bValue = solution[role][b.id];
+        const wrongValues = shuffle(rng, b.values.filter((value) => value !== bValue)).slice(0, 2);
+        for (const wrongValue of wrongValues) {
           out.push({
             kind: "link",
-            text: `The ${valueLabel(a, aValue)} goes with ${bValue} for ${b.label}.`,
+            text: linkText(a, aValue, b, wrongValue, "not"),
             constraints: [{
               type: "link",
               categoryId: a.id,
               value: aValue,
               otherCategoryId: b.id,
-              otherValue: bValue,
-              relation: "is"
+              otherValue: wrongValue,
+              relation: "not"
             }]
           });
-
-          const wrongValues = shuffle(rng, b.values.filter((value) => value !== bValue)).slice(0, 2);
-          for (const wrongValue of wrongValues) {
-            out.push({
-              kind: "link",
-              text: `The ${valueLabel(a, aValue)} does not go with ${wrongValue} for ${b.label}.`,
-              constraints: [{
-                type: "link",
-                categoryId: a.id,
-                value: aValue,
-                otherCategoryId: b.id,
-                otherValue: wrongValue,
-                relation: "not"
-              }]
-            });
-          }
         }
       }
     }
+  }
 
-    const facts = out.filter((clue) =>
-      clue.kind === "direct" || clue.kind === "negative" || clue.kind === "link"
-    );
-    for (let i = 0; i < Math.min(roles.length * categories.length, facts.length - 1); i += 1) {
-      const a = facts[i];
-      const b = facts[facts.length - 1 - i];
-      if (clueKey(a) === clueKey(b)) continue;
-      const aText = a.text.replace(/\.$/, "");
-      const bText = b.text.replace(/\.$/, "");
-      out.push({
-        kind: "compound",
-        text: `${aText}, and ${bText}.`,
-        constraints: [...a.constraints, ...b.constraints]
+  if (complexClues) {
+    // Same-row combo clues. Every part of a combo is about ONE row, so unrelated
+    // facts never get glued together, and at most one part is a positive so the
+    // clue can't hand over most of a row at once.
+    for (const role of roles) {
+      const picked = shuffle(rng, categories).slice(0, Math.min(3, Math.max(2, categories.length - 1)));
+      // positiveIndex === picked.length means "no positive part": all negatives.
+      const positiveIndex = rng.int(0, picked.length);
+      const parts: string[] = [];
+      const constraints: Constraint[] = [];
+      picked.forEach((category, idx) => {
+        if (idx === positiveIndex) {
+          parts.push(`the ${category.label} is ${solution[role][category.id]}`);
+          constraints.push({ type: "is", role, categoryId: category.id, value: solution[role][category.id] });
+        } else {
+          const wrong = rng.pick(category.values.filter((value) => value !== solution[role][category.id]));
+          parts.push(`the ${category.label} is not ${wrong}`);
+          constraints.push({ type: "not", role, categoryId: category.id, value: wrong });
+        }
       });
+      const usePossessive = rng.int(0, 1) === 0;
+      const text = usePossessive
+        ? `${role}'s row: ${joinList(parts)}.`
+        : `For ${role}, ${joinList(parts)}.`;
+      out.push({ kind: usePossessive ? "compound" : "bundle", text, constraints });
     }
   }
 
@@ -613,16 +706,22 @@ function buildCandidateClues(
   return [...unique.values()];
 }
 
-function cluePriority(clue: LogicClue): number {
-  const base = clue.constraints.length * 2;
-  if (clue.kind === "order") return base + 8;
-  if (clue.kind === "initial") return base + 12;
-  if (clue.kind === "group") return base + 8;
-  if (clue.kind === "link") return base + 7;
-  if (clue.kind === "bundle") return base + 6;
-  if (clue.kind === "compound") return base + 6;
-  if (clue.kind === "negative") return base - 1;
-  return base;
+// Ranks clue *kinds* so the assembler prefers strong, self-contained clues
+// (links pin a pairing; combos/groups narrow a row) over weak relative-order
+// hints, and treats plain "direct" givens as a last resort. This only sets the
+// round-robin order across kinds; clue count is still driven by uniqueness.
+function kindPriority(kind: LogicClue["kind"]): number {
+  switch (kind) {
+    case "link": return 95;
+    case "bundle": return 88;
+    case "compound": return 86;
+    case "group": return 80;
+    case "order": return 70;
+    case "initial": return 62;
+    case "negative": return 50;
+    case "direct": return 10;
+    default: return 40;
+  }
 }
 
 function generateClues(
@@ -633,23 +732,55 @@ function generateClues(
   targetClues: number,
   complexClues: boolean
 ): LogicClue[] {
-  const allCandidates = buildCandidateClues(roles, categories, solution, rng, complexClues)
-    .sort((a, b) => cluePriority(b) - cluePriority(a));
-  const selected: LogicClue[] = [];
-  const minCluesBeforeStop = complexClues
-    ? Math.max(3, Math.floor(targetClues * 0.65))
-    : targetClues;
+  const candidates = buildCandidateClues(roles, categories, solution, rng, complexClues);
+  const directs = shuffle(rng, candidates.filter((clue) => clue.kind === "direct"));
 
-  for (const candidate of allCandidates) {
-    selected.push(candidate);
-    if (
-      selected.length >= minCluesBeforeStop &&
-      solveAssignments(roles, categories, selected, 2).length === 1
-    ) {
-      break;
+  // Interleave the non-direct candidates by kind (round-robin), so the clue set
+  // pulls a variety of clue types instead of, say, five order chains in a row.
+  const buckets = new Map<string, LogicClue[]>();
+  for (const clue of shuffle(rng, candidates)) {
+    if (clue.kind === "direct") continue;
+    (buckets.get(clue.kind) ?? buckets.set(clue.kind, []).get(clue.kind)!).push(clue);
+  }
+  const kindOrder = [...buckets.keys()].sort(
+    (a, b) => kindPriority(b as LogicClue["kind"]) - kindPriority(a as LogicClue["kind"])
+  );
+  const rich: LogicClue[] = [];
+  let progressed = true;
+  while (progressed) {
+    progressed = false;
+    for (const kind of kindOrder) {
+      const bucket = buckets.get(kind)!;
+      if (bucket.length > 0) {
+        rich.push(bucket.shift()!);
+        progressed = true;
+      }
     }
   }
 
+  const minClues = complexClues ? Math.max(3, Math.floor(targetClues * 0.6)) : Math.max(3, targetClues - 1);
+
+  const selected: LogicClue[] = [];
+  const isUnique = (): boolean => solveAssignments(roles, categories, selected, 2).length === 1;
+
+  // Phase 1: build from deduction-rich clues only.
+  for (const candidate of rich) {
+    if (selected.length >= minClues && isUnique()) break;
+    selected.push(candidate);
+  }
+  // Phase 2: only if the rich clues alone can't pin the solution, add the
+  // minimum number of plain givens needed. Guarantees a unique solution because
+  // the full set of direct clues fully determines every cell.
+  if (!isUnique()) {
+    for (const candidate of directs) {
+      selected.push(candidate);
+      if (isUnique()) break;
+    }
+  }
+
+  // Minimize: drop any clue whose removal still leaves a unique solution. We
+  // sweep from the end, where the last-resort direct givens live, so redundant
+  // givens are shed first and the deduction-rich clues are what remain.
   const minimized = [...selected];
   for (let i = minimized.length - 1; i >= 0; i -= 1) {
     const test = minimized.filter((_, idx) => idx !== i);
@@ -818,16 +949,56 @@ export const storyLogicGridsPlugin: GameTypePlugin = {
 
   buildHints(candidate: PuzzleCandidate): string[] {
     const data = candidate.data as unknown as PuzzleData;
-    const orderClue = data.clues?.find((c) => c.kind === "order")?.text;
-    const firstCategory = data.categories?.[0];
-    const firstRole = data.roles?.[0];
-    const solvedValue = firstRole && firstCategory ? data.solution?.[firstRole]?.[firstCategory.id] : "";
+    const clues = Array.isArray(data.clues) ? data.clues : [];
+    const roles = Array.isArray(data.roles) ? data.roles : [];
+    const categories = Array.isArray(data.categories) ? data.categories : [];
+    const solution = data.solution ?? {};
+
+    // Cells that some clue states outright (a positive "is"): these are the
+    // toeholds. Everything else has to be deduced.
+    const given = new Set<string>();
+    for (const clue of clues) {
+      for (const constraint of clue.constraints) {
+        if (constraint.type === "is") given.add(`${constraint.role}|${constraint.categoryId}`);
+      }
+    }
+
+    // Hint 1: a concrete starting move for THIS puzzle. Prefer a clue that
+    // pins a cell directly; fall back to the first clue.
+    const anchor =
+      clues.find((c) => c.kind === "direct") ||
+      clues.find((c) => c.constraints.some((x) => x.type === "is")) ||
+      clues[0];
+    const anchorPins = Boolean(anchor && anchor.constraints.some((x) => x.type === "is"));
+    const hint1 = anchor
+      ? anchorPins
+        ? `Start with "${anchor.text}" Fill that cell in first, then cross the same value out of the other rows.`
+        : `Start with "${anchor.text}" Cross that option off, which narrows what the other rows can be.`
+      : "Give each row exactly one value from every column, and use each value once.";
+
+    // Hint 2: a second, different clue that narrows things by elimination.
+    const relational = clues.find(
+      (c) => c !== anchor && ["link", "order", "group", "negative", "initial"].includes(c.kind)
+    ) || clues.find((c) => c !== anchor);
+    const hint2 = relational
+      ? `Now use "${relational.text}" Cross out every cell it rules out, then see what is forced.`
+      : "Cross out the cells your clues forbid; when a row has one choice left, it must be the answer.";
+
+    // Hint 3: reveal one DERIVED cell (solved but never stated by a clue).
+    let derived = "";
+    for (const role of roles) {
+      for (const category of categories) {
+        if (!given.has(`${role}|${category.id}`) && solution[role]?.[category.id]) {
+          derived = `Working it through, ${role}'s ${category.label} must be ${solution[role][category.id]}.`;
+          break;
+        }
+      }
+      if (derived) break;
+    }
     return [
-      "Treat each sentence as one or more marks on the grid; a comma or 'and' often carries a second constraint.",
-      orderClue || "Use each value exactly once in each category, then combine exclusions across rows.",
-      firstRole && firstCategory && solvedValue
-        ? `${firstRole}'s ${firstCategory.label} is ${solvedValue}.`
-        : "Each row should have one choice from every category."
+      hint1,
+      hint2,
+      derived || "Each row ends with exactly one value from every column — fill the last cells by elimination."
     ];
   }
 };

@@ -53,13 +53,22 @@ Each game type includes:
      (see `plugin.ts` `loadTemplates()`); the file is not renamed for
      compatibility.
    - Includes 20 story variants; difficulty scales by role count, category count, and clue structure.
-   - Uses fewer integrated clues at higher levels: cross-category links, order chains (either
-     from literally ordered roles like "Tank 1" or from an intrinsically ordered category such
-     as day/score/platform paired with a second category to name the rows), grouped exclusions,
-     initial-letter constraints, and partial row bundles. Every template defines at least a
-     grouped-exclusion category, and most also define an ordered category or ordered roles, so
-     the integrated clue mix is not limited to one story.
-   - Validation checks that each structured clue set has a unique solution before serving.
+   - Uses a mix of self-contained clue types: cross-category links ("The cottage home goes with
+     the 9 AM visit time."), order chains, grouped exclusions, initial-letter constraints, and
+     same-row combo clues. Order chains state their ordered dimension and direction in plain
+     words — for literally ordered roles ("The mask artifact is in an earlier case than the coin
+     artifact.") and for an intrinsically ordered category such as day/score/platform, naming
+     each row by a second category's value ("The cottage home's Visit Time is earlier than the
+     farm home's."). Grouped exclusions enumerate their members inline so the solver never has to
+     guess which values belong to the group ("...are not cold sides (not slaw, fruit, or pickles).").
+   - Clue selection favors deduction over disclosure: deduction-rich clue types are interleaved
+     for variety, plain "given" clues are only added as a last resort, and the set is minimized so
+     no clue is redundant. Combo clues bundle only facts about a single row (never unrelated facts)
+     and reveal at most one cell outright, so even easy puzzles require real deduction.
+   - The hint ladder is puzzle-specific: hint 1 cites a concrete opening clue, hint 2 cites a second
+     clue to apply, and hint 3 reveals one *derived* cell (one no clue states directly).
+   - Validation re-solves each structured clue set with a bounded (2-solution) search and requires
+     exactly one solution before serving.
 
 11. **Angle Chase Studio** (Grades 5-10) — `angle-chase-studio`
     - Find an unknown angle in a generated SVG diagram using vertical
