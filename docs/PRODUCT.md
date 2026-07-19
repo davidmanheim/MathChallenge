@@ -37,7 +37,10 @@ Build a web-based, TypeScript-first math puzzle experience for kids in grades 1-
 ## Scope
 In scope:
 - Single household/classroom deployment
-- 12 active game types (8 implemented, 5 designed, 1 pending removal)
+- Game types: 13 implemented (including Number Bonds Sprint, whose removal is now
+  outstanding — see `docs/GAME_TYPES.md`) plus 8 designed but not yet implemented
+  (3 newly-spec'd: Chance Builder, Coordinate Quest 2D, Graph Trails; and 5 older:
+  Sum Blobs, Honeycomb Paths, Subtractiles, Measure Mazes, Equation Paths)
 - Adaptive difficulty
 - Metagame incentives and cosmetic rewards (designed, not yet implemented)
 - Coverage expansion plan for advanced strands:

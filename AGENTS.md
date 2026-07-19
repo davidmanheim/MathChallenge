@@ -12,7 +12,11 @@ This is a online math challenge game to do beast-academy and competitive math st
 - Minimal complexity: avoid heavy frameworks; keep back end simple.
 - Strict layer separation: game logic, server logic, and display logic must be isolated.
 - Checkable games: puzzle engines only generate cleanly solvable problems or puzzles.
-- YAML is authoritative for puzzle mechanics; keep YAML and code in sync.
+- Data-driven puzzle templates are authoritative for puzzle mechanics; keep the
+  template data and code in sync. (Note: the one templates file that exists,
+  `src/games/storyLogicGrids/templates.yaml`, has a `.yaml` extension but
+  actually contains **JSON** and is loaded via `JSON.parse(...)`, not a YAML
+  parser.)
 
 ## Current Status
 

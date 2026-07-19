@@ -2,32 +2,42 @@
 
 ## Overview
 
-This document specifies 5 puzzle games yet to be implemented, plus preserves the
-design specs for 2 games (Mismo, X-Outs) that have already been built.
+This document specifies 8 puzzle games yet to be implemented, plus preserves the
+design specs for 5 games (X-Outs, Mismo, Angle Chase Studio, Counting Lab, Proof
+Blocks) that have already been built. Section numbers below (`## 1`–`## 13`) are
+the doc's own section indices; the `#` columns in the two tables are just row
+counters.
 
 ### Games Not Yet Implemented
 
-| #  | Game             | Grades | Core Math                        | Interaction Model         |
-|----|------------------|--------|----------------------------------|---------------------------|
-| 1  | Sum Blobs        | 1-4    | Addition, decomposition          | Click cells to grow blobs |
-| 2  | Honeycomb Paths  | 1-4    | Addition, number sequences       | Click hexes to trace path |
-| 3  | Subtractiles     | 2-5    | Subtraction, negative numbers    | Place tiles on a grid     |
-| 4  | Measure Mazes    | 2-5    | Measurement, distance, fractions | Click dots at distance    |
-| 5  | Equation Paths   | 3-7    | Order of operations, algebra     | Trace path through grid   |
+| #  | Game                | Grades | Core Math                                            | Interaction Model              |
+|----|---------------------|--------|------------------------------------------------------|--------------------------------|
+| 1  | Sum Blobs           | 1-4    | Addition, decomposition                              | Click cells to grow blobs      |
+| 2  | Honeycomb Paths     | 1-4    | Addition, number sequences                           | Click hexes to trace path      |
+| 3  | Subtractiles        | 2-5    | Subtraction, negative numbers                        | Place tiles on a grid          |
+| 4  | Measure Mazes       | 2-5    | Measurement, distance, fractions                     | Click dots at distance         |
+| 5  | Equation Paths      | 3-7    | Order of operations, algebra                         | Trace path through grid        |
+| 6  | Chance Builder      | 5-9    | Probability, expected value                          | Count a highlighted sample space |
+| 7  | Coordinate Quest 2D | 5-9    | Plotting, distance, midpoint, slope, transformations | Click-to-plot on a coordinate grid |
+| 8  | Graph Trails        | 6-10   | Euler paths/circuits, parity, graph coloring         | Trace edges of a graph         |
 
 ### Already Implemented (specs preserved for reference)
 
 | #  | Game               | Grades | Status      |
 |----|--------------------|--------|-------------|
-| 6  | Mismo              | 1-6    | Implemented |
-| 7  | X-Outs             | 2-5    | Implemented |
-| 8  | Angle Chase Studio | 5-9    | Implemented |
+| 9  | Mismo              | 1-6    | Implemented |
+| 10 | X-Outs             | 2-5    | Implemented |
+| 11 | Angle Chase Studio | 5-10   | Implemented |
+| 12 | Counting Lab       | 6-9    | Implemented |
+| 13 | Proof Blocks       | 6-10   | Implemented |
 
 ### Pending Removal
 
 **Number Bonds Sprint** — Superseded by Balance Scale (identical underlying math
-with better progression). Will be removed once the 5 games above are implemented,
-bringing the active catalog to 12.
+with better progression). Removal was conditioned on the active catalog reaching
+12 games; the catalog now has 13 registered plugins, so that condition is met and
+removal is **outstanding** — the plugin remains registered pending a separate
+decision to remove it.
 
 ---
 

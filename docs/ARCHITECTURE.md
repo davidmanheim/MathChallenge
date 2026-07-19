@@ -7,7 +7,7 @@ Current alpha runtime endpoint: `http://localhost:5678` (fixed port).
 - Language: TypeScript (type-stripped at runtime, no separate compilation)
 - Frontend: Vanilla HTML + CSS + JS (`public/` directory, served statically)
 - Backend: Single-file HTTP server (`src/server.ts`) using `node:http`
-- Data: JSON files on disk (`data/profiles.json`, `data/progress.json`)
+- Data: Google Cloud Firestore (`@google-cloud/firestore`) — `profiles` and `attempts` collections
 - Styling: Hand-written CSS with per-game themed sections
 
 ## Project Structure
@@ -26,19 +26,21 @@ src/
   games/
     <gameId>/plugin.ts  One plugin per game type
   services/
-    profile-store.ts    JSON-backed profile persistence
-    progress-store.ts   JSON-backed attempt and progress persistence
-data/
-  profiles.json      Player profiles
-  progress.json      Attempt history and mastery data
+    profile-store.ts    Firestore-backed profile persistence (`profiles` collection)
+    progress-store.ts   Firestore-backed attempt/progress persistence (`attempts` collection)
+    json-store.ts       Stale/unused artifact from an earlier local-JSON prototype (not imported anywhere)
 docs/
   *.md               Design documents
 ```
 
+> Persistence is Firestore-only. The `data/` directory and any `data/*.json`
+> files are stale leftovers from an earlier local-JSON prototype; they are not
+> read or written at runtime.
+
 ## Modules
 - **Profile Service** (`ProfileStore`)
   - Create/select profile by name + grade band
-  - JSON file persistence
+  - Firestore persistence (`profiles` collection)
 - **Puzzle Engine**
   - Plugin-based registry of game types (`GameTypePlugin`)
   - Deterministic puzzle generation by `(gameType, difficulty, seed)`
@@ -75,7 +77,6 @@ data within a set and re-rolls duplicates.
 
 ## API Surface
 - `POST /api/profiles/login` — create or retrieve profile by name + grade band
-- `GET  /api/profiles` — list all profiles
 - `GET  /api/games` — list registered game types
 - `POST /api/puzzles/next` — generate a puzzle set (accepts `gameTypeId`, `difficulty`, `setSize`)
 - `POST /api/puzzles/hints` — get hint ladder for a puzzle
@@ -83,8 +84,9 @@ data within a set and re-rolls duplicates.
 - `GET  /api/progress?profileId=...` — progress summary for a profile
 
 ## Current Game Coverage
-8 registered plugins:
-- `number-bonds-sprint` (pending removal)
+13 registered plugins (order matches `registry.register(...)` in `src/server.ts`):
+- `number-bonds-sprint` (removal outstanding — the catalog has reached 13, so the
+  stated removal condition is met, but the plugin is still registered)
 - `pattern-train`
 - `factor-ninja`
 - `mismo`
@@ -92,8 +94,15 @@ data within a set and re-rolls duplicates.
 - `kenken`
 - `balance-scale`
 - `shikaku`
+- `number-paths`
+- `story-logic-grids`
+- `angle-chase-studio`
+- `counting-lab`
+- `proof-blocks`
 
-5 additional games designed but not yet implemented (see `NEW_GAMES_DESIGN.md`).
+Designed but not yet implemented: 3 newly-spec'd (Chance Builder, Coordinate
+Quest 2D, Graph Trails) plus 5 older designs (Sum Blobs, Honeycomb Paths,
+Subtractiles, Measure Mazes, Equation Paths). See `NEW_GAMES_DESIGN.md`.
 
 ## Difficulty Model
 Inputs:

@@ -15,7 +15,7 @@ Web-accessible TypeScript math puzzle platform for kids (grades 1-10), with ligh
 - Alpha framework implemented:
   - TypeScript Node server (no build step, uses `--experimental-strip-types`)
   - Plugin-based puzzle engine with generation-time validation gate
-  - Name-based profile login + JSON-persisted progress
+  - Name-based profile login + Firestore-persisted progress
   - Set-level deduplication (no repeated puzzles within a set)
   - Playable games (13 implemented):
     - `Pattern Train` — interactive multiple-choice pattern puzzles
@@ -45,6 +45,9 @@ Web-accessible TypeScript math puzzle platform for kids (grades 1-10), with ligh
 
 The server always runs on port **5678**.
 
-Data is stored in:
-- `data/profiles.json`
-- `data/progress.json`
+Data is stored in Google Cloud Firestore (`@google-cloud/firestore`):
+- `profiles` collection — player profiles
+- `attempts` collection — attempt history and mastery data
+
+(The `data/` directory and any `data/*.json` files are stale leftovers from an
+earlier local-JSON prototype and are not used at runtime.)
