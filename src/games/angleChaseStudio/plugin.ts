@@ -63,12 +63,20 @@ type AngleMark = {
 // never part of the deduction — so it does not affect the answer or the chain.
 type PointLabel = { x: number; y: number; label: string };
 
+// A circle primitive (introduced for the tier 9-10 circle-geometry strand).
+// Purely presentational geometry: the renderer draws it BEFORE segments/arcs/
+// labels so chords, radii, tangents, and point letters sit on top. Points that
+// lie on the circle are still labeled through the existing `pointLabels`
+// mechanism — the circle itself carries no labels.
+type Circle = { cx: number; cy: number; r: number };
+
 type Diagram = {
   width: number;
   height: number;
   segments: Seg[];
   angleMarks: AngleMark[];
   pointLabels?: PointLabel[];
+  circles?: Circle[];
 };
 
 type ChainStep = {
@@ -166,6 +174,31 @@ function triangleApex(angleB: number, angleC: number, B: Pt, C: Pt): Pt {
 
 function finitePt(p: Pt): boolean {
   return Number.isFinite(p.x) && Number.isFinite(p.y);
+}
+
+// The (non-reflex) angle in degrees between rays vertex→p1 and vertex→p2,
+// computed straight from raw (x, y) coordinates. Used by the circle-geometry
+// generators' selfCheck to re-derive every marked angle from the drawn figure
+// independently of the theorem arithmetic that produced it — catching the
+// class of bug where the chain and solve() agree but are both wrong.
+function angleAt(vertex: Pt, p1: Pt, p2: Pt): number {
+  const a1 = Math.atan2(-(p1.y - vertex.y), p1.x - vertex.x);
+  const a2 = Math.atan2(-(p2.y - vertex.y), p2.x - vertex.x);
+  let d = (Math.abs(a1 - a2) * 180) / Math.PI;
+  if (d > 180) d = 360 - d;
+  return d;
+}
+
+// True when a to-scale figure's drawn angle matches its theorem value within a
+// half-degree — the tolerance the grader itself uses.
+function angleMatches(vertex: Pt, p1: Pt, p2: Pt, expected: number): boolean {
+  return Math.abs(angleAt(vertex, p1, p2) - expected) < 0.5;
+}
+
+// A point on a circle centered at O, at standard-math direction `dirDeg`
+// (counter-clockwise from +x; screen y grows downward, handled by dirPoint).
+function circlePt(O: Pt, dirDeg: number, r: number): Pt {
+  return dirPoint(O, dirDeg, r);
 }
 
 // Place a vertex label opposite the average direction of the edges leaving
@@ -1457,10 +1490,874 @@ function genTriangleOnParallel(rng: Rng): GenResult {
   };
 }
 
+// ===== Circle-geometry strand (difficulty tiers 9-10) =====
+//
+// Every circle generator draws a genuinely to-scale figure: points are placed
+// on the circle by direction so that the theorem-claimed angles are the actual
+// drawn angles. Each selfCheck re-derives the marked angles from the raw
+// coordinates via angleAt() (an independent path from the theorem arithmetic
+// stored in the chain), and confirms all geometry sits inside the viewBox.
+
+const CIRCLE_W = 440;
+const CIRCLE_H = 340;
+const CIRCLE_O: Pt = { x: 220, y: 168 };
+const CIRCLE_R = 108;
+
+// Every drawn point/label must sit inside the canvas with a small margin so
+// nothing clips the SVG edge.
+function inBounds(p: Pt, w: number, h: number, margin = 6): boolean {
+  return p.x >= margin && p.x <= w - margin && p.y >= margin && p.y <= h - margin;
+}
+
+// Place a letter for a point that lies ON the circle: push it radially outward
+// from the centre so it never sits on top of a chord or arc.
+function circleLabel(O: Pt, p: Pt, out: number, label: string): PointLabel {
+  const dx = p.x - O.x;
+  const dy = p.y - O.y;
+  const len = Math.hypot(dx, dy) || 1;
+  return { x: p.x + (dx / len) * out, y: p.y + (dy / len) * out, label };
+}
+
+// ===== Template 13 (tier 9): inscribed angle theorem / central = 2 × inscribed
+
+// A chord AB subtends a central angle AOB at the centre and an inscribed angle
+// APB at a point P on the major arc. The inscribed angle is exactly half the
+// central angle (both subtend the same minor arc AB). Two variants: given the
+// central angle find the inscribed one, or given the inscribed angle find the
+// central one.
+function genInscribedCentral(rng: Rng): GenResult {
+  const O = CIRCLE_O;
+  const R = CIRCLE_R;
+
+  // central is even so the inscribed half is an integer.
+  let central = 80;
+  let phi = 90;
+  let delta = 0;
+  let A: Pt = circlePt(O, 130, R);
+  let B: Pt = circlePt(O, 50, R);
+  let P: Pt = circlePt(O, 270, R);
+  let ok = false;
+  for (let tries = 0; tries < 80; tries++) {
+    central = rng.int(20, 74) * 2; // 40..148, even
+    phi = rng.int(0, 359);
+    delta = rng.int(-45, 45);
+    A = circlePt(O, phi + central / 2, R);
+    B = circlePt(O, phi - central / 2, R);
+    P = circlePt(O, phi + 180 + delta, R);
+    const inscribed = central / 2;
+    if (
+      inBounds(A, CIRCLE_W, CIRCLE_H, 24) &&
+      inBounds(B, CIRCLE_W, CIRCLE_H, 24) &&
+      inBounds(P, CIRCLE_W, CIRCLE_H, 24) &&
+      angleMatches(O, A, B, central) &&
+      angleMatches(P, A, B, inscribed)
+    ) {
+      ok = true;
+      break;
+    }
+  }
+  if (!ok) {
+    central = 80;
+    phi = 90;
+    delta = 0;
+    A = circlePt(O, phi + central / 2, R);
+    B = circlePt(O, phi - central / 2, R);
+    P = circlePt(O, phi + 180 + delta, R);
+  }
+  const inscribed = central / 2;
+
+  const findInscribed = rng.pick([true, false]);
+  const answer = findInscribed ? inscribed : central;
+
+  const chain: ChainStep[] = findInscribed
+    ? [
+        {
+          theorem: "Inscribed Angle Theorem",
+          text: `The central angle AOB and the inscribed angle APB both sit on the same arc AB. The inscribed angle is always half the central angle, so angle APB = ${central} ÷ 2 = ${inscribed}°.`,
+          resultValue: inscribed
+        }
+      ]
+    : [
+        {
+          theorem: "Inscribed Angle Theorem",
+          text: `The inscribed angle APB and the central angle AOB both stand on the same arc AB. The central angle is always twice the inscribed angle, so angle AOB = 2 × ${inscribed} = ${central}°.`,
+          resultValue: central
+        }
+      ];
+
+  const segments: Seg[] = [
+    { a: O, b: A },
+    { a: O, b: B },
+    { a: P, b: A },
+    { a: P, b: B }
+  ];
+
+  const centralMark = angleMarkFromVertex(
+    O,
+    A,
+    B,
+    central,
+    findInscribed ? `${central}°` : "?",
+    !findInscribed,
+    findInscribed,
+    26
+  );
+  const inscribedMark = angleMarkFromVertex(
+    P,
+    A,
+    B,
+    inscribed,
+    findInscribed ? "?" : `${inscribed}°`,
+    findInscribed,
+    !findInscribed,
+    30
+  );
+
+  const pointLabels: PointLabel[] = [
+    circleLabel(O, A, 16, "A"),
+    circleLabel(O, B, 16, "B"),
+    circleLabel(O, P, 16, "P"),
+    labelAwayFromEdges(O, [A, B], 16, "O")
+  ];
+
+  const selfCheck =
+    central === inscribed * 2 &&
+    angleMatches(O, A, B, central) &&
+    angleMatches(P, A, B, inscribed) &&
+    pointLabels.every((l) => inBounds(l, CIRCLE_W, CIRCLE_H));
+
+  return {
+    promptText: findInscribed
+      ? 'O is the centre of the circle. The central angle AOB is given. Find the inscribed angle marked "?" at P.'
+      : 'O is the centre of the circle. The inscribed angle at P is given. Find the central angle marked "?" at O.',
+    diagram: {
+      width: CIRCLE_W,
+      height: CIRCLE_H,
+      segments,
+      angleMarks: [centralMark, inscribedMark],
+      pointLabels,
+      circles: [{ cx: O.x, cy: O.y, r: R }]
+    },
+    answer,
+    targetLabel: findInscribed ? "the inscribed angle" : "the central angle",
+    chain,
+    skillTags: [
+      "geometry",
+      "angles",
+      "circle_theorems",
+      "inscribed_angle",
+      "angle_chasing"
+    ],
+    variant: findInscribed ? "inscribed-angle" : "central-angle",
+    selfCheck
+  };
+}
+
+// ===== Template 14 (tier 9): angle in a semicircle (Thales) =====
+
+// Triangle ABC inscribed in a circle with BC a diameter through the centre O.
+// The angle at A (subtended by the diameter) is a right angle. Two variants:
+// name the right angle directly (single-theorem Thales), or combine Thales
+// with the triangle angle sum to find the remaining acute angle.
+function genThalesSemicircle(rng: Rng): GenResult {
+  const O = CIRCLE_O;
+  const R = CIRCLE_R;
+
+  let beta = 40;
+  let phi = 0;
+  let A: Pt = circlePt(O, 90, R);
+  let B: Pt = circlePt(O, 0, R);
+  let C: Pt = circlePt(O, 180, R);
+  let ok = false;
+  for (let tries = 0; tries < 80; tries++) {
+    beta = rng.int(28, 62);
+    phi = rng.int(0, 359);
+    // A at phi, B & C diametrically opposite (BC is the diameter through O).
+    A = circlePt(O, phi, R);
+    B = circlePt(O, phi + 180 - 2 * beta, R);
+    C = circlePt(O, phi - 2 * beta, R);
+    if (
+      inBounds(A, CIRCLE_W, CIRCLE_H, 22) &&
+      inBounds(B, CIRCLE_W, CIRCLE_H, 22) &&
+      inBounds(C, CIRCLE_W, CIRCLE_H, 22) &&
+      angleMatches(A, B, C, 90) &&
+      angleMatches(B, A, C, beta) &&
+      angleMatches(C, A, B, 90 - beta)
+    ) {
+      ok = true;
+      break;
+    }
+  }
+  if (!ok) {
+    beta = 40;
+    phi = 0;
+    A = circlePt(O, phi, R);
+    B = circlePt(O, phi + 180 - 2 * beta, R);
+    C = circlePt(O, phi - 2 * beta, R);
+  }
+  const gamma = 90 - beta;
+
+  const targetIsRight = rng.pick([true, false]);
+
+  const chain: ChainStep[] = targetIsRight
+    ? [
+        {
+          theorem: "Angle in a Semicircle (Thales)",
+          text: `BC is a diameter, so it passes through the centre O. Any angle inscribed in a semicircle — standing on a diameter — is a right angle, so the angle at A = 90°.`,
+          resultValue: 90
+        }
+      ]
+    : [
+        {
+          theorem: "Angle in a Semicircle (Thales)",
+          text: `BC is a diameter, so the angle at A stands on a semicircle and is therefore a right angle: angle BAC = 90°.`,
+          resultValue: 90
+        },
+        {
+          theorem: "Triangle Angle Sum",
+          text: `The three angles of triangle ABC add to 180°, so angle ACB = 180 − 90 − ${beta} = ${gamma}°.`,
+          resultValue: gamma
+        }
+      ];
+
+  const answer = targetIsRight ? 90 : gamma;
+
+  const segments: Seg[] = [
+    { a: B, b: C },
+    { a: A, b: B },
+    { a: A, b: C }
+  ];
+
+  const marks: AngleMark[] = [
+    angleMarkFromVertex(A, B, C, 90, targetIsRight ? "?" : "90°", targetIsRight, !targetIsRight, 24),
+    angleMarkFromVertex(B, A, C, beta, `${beta}°`, false, true, 28)
+  ];
+  if (!targetIsRight) {
+    marks.push(angleMarkFromVertex(C, A, B, gamma, "?", true, false, 28));
+  }
+
+  const pointLabels: PointLabel[] = [
+    circleLabel(O, A, 16, "A"),
+    circleLabel(O, B, 16, "B"),
+    circleLabel(O, C, 16, "C"),
+    labelAwayFromEdges(O, [B, C, A], 14, "O")
+  ];
+
+  const selfCheck =
+    beta + gamma === 90 &&
+    angleMatches(A, B, C, 90) &&
+    angleMatches(B, A, C, beta) &&
+    angleMatches(C, A, B, gamma) &&
+    // B, O, C collinear (BC really is a diameter).
+    Math.abs(angleAt(O, B, C) - 180) < 0.5 &&
+    pointLabels.every((l) => inBounds(l, CIRCLE_W, CIRCLE_H));
+
+  return {
+    promptText: targetIsRight
+      ? 'BC is a diameter of the circle (it passes through the centre O). Find the angle marked "?" at A.'
+      : 'BC is a diameter of the circle (it passes through the centre O). Find the angle marked "?" at C.',
+    diagram: {
+      width: CIRCLE_W,
+      height: CIRCLE_H,
+      segments,
+      angleMarks: marks,
+      pointLabels,
+      circles: [{ cx: O.x, cy: O.y, r: R }]
+    },
+    answer,
+    targetLabel: targetIsRight ? "the right angle" : "angle ACB",
+    chain,
+    skillTags: [
+      "geometry",
+      "angles",
+      "circle_theorems",
+      "inscribed_angle",
+      "thales",
+      "triangle_angle_sum"
+    ],
+    variant: "thales-semicircle",
+    selfCheck
+  };
+}
+
+// ===== Template 15 (tier 9): cyclic quadrilateral opposite angles =====
+
+// Quadrilateral ABCD inscribed in a circle. Opposite interior angles sum to
+// 180°. Given one vertex angle, find the opposite one.
+function genCyclicQuad(rng: Rng): GenResult {
+  const O = CIRCLE_O;
+  const R = CIRCLE_R;
+
+  // Arc measures w1..w4 (A→B, B→C, C→D, D→A), even, summing 360.
+  let w: number[] = [90, 90, 90, 90];
+  let phi = 0;
+  let A: Pt = circlePt(O, 45, R);
+  let B: Pt = circlePt(O, 135, R);
+  let C: Pt = circlePt(O, 225, R);
+  let D: Pt = circlePt(O, 315, R);
+  let angA = 90;
+  let angB = 90;
+  let angC = 90;
+  let angD = 90;
+  let ok = false;
+
+  for (let tries = 0; tries < 120; tries++) {
+    const raw: number[] = [];
+    let remaining = 360;
+    for (let i = 0; i < 3; i++) {
+      const roomLeft = (3 - i) * 44;
+      const maxV = Math.min(150, remaining - roomLeft);
+      raw.push(rng.int(22, Math.max(22, Math.floor(maxV / 2))) * 2);
+      remaining -= raw[i];
+    }
+    raw.push(remaining);
+    if (raw[3] < 44 || raw[3] > 150 || raw[3] % 2 !== 0) continue;
+    phi = rng.int(0, 359);
+    const dA = phi;
+    const dB = phi + raw[0];
+    const dC = phi + raw[0] + raw[1];
+    const dD = phi + raw[0] + raw[1] + raw[2];
+    A = circlePt(O, dA, R);
+    B = circlePt(O, dB, R);
+    C = circlePt(O, dC, R);
+    D = circlePt(O, dD, R);
+    angA = (raw[1] + raw[2]) / 2;
+    angB = (raw[2] + raw[3]) / 2;
+    angC = (raw[3] + raw[0]) / 2;
+    angD = (raw[0] + raw[1]) / 2;
+    if ([angA, angB, angC, angD].some((v) => v < 45 || v > 135)) continue;
+    if (
+      inBounds(A, CIRCLE_W, CIRCLE_H, 22) &&
+      inBounds(B, CIRCLE_W, CIRCLE_H, 22) &&
+      inBounds(C, CIRCLE_W, CIRCLE_H, 22) &&
+      inBounds(D, CIRCLE_W, CIRCLE_H, 22) &&
+      angleMatches(A, B, D, angA) &&
+      angleMatches(C, B, D, angC)
+    ) {
+      w = raw;
+      ok = true;
+      break;
+    }
+  }
+  if (!ok) {
+    w = [90, 90, 90, 90];
+    phi = 0;
+    A = circlePt(O, 0, R);
+    B = circlePt(O, 90, R);
+    C = circlePt(O, 180, R);
+    D = circlePt(O, 270, R);
+    angA = angB = angC = angD = 90;
+  }
+
+  // Pick which opposite pair and direction: given one, find the opposite.
+  const pair = rng.pick([
+    { g: "B", t: "D", gv: angB, tv: angD },
+    { g: "D", t: "B", gv: angD, tv: angB },
+    { g: "A", t: "C", gv: angA, tv: angC },
+    { g: "C", t: "A", gv: angC, tv: angA }
+  ]);
+
+  const chain: ChainStep[] = [
+    {
+      theorem: "Cyclic Quadrilateral",
+      text: `ABCD is a cyclic quadrilateral (all four vertices lie on the circle). Opposite angles of a cyclic quadrilateral add up to 180°, so angle ${pair.t} = 180 − ${pair.gv} = ${pair.tv}°.`,
+      resultValue: pair.tv
+    }
+  ];
+
+  const segments: Seg[] = [
+    { a: A, b: B },
+    { a: B, b: C },
+    { a: C, b: D },
+    { a: D, b: A }
+  ];
+
+  const vmap: Record<string, { p: Pt; adj: [Pt, Pt]; val: number }> = {
+    A: { p: A, adj: [B, D], val: angA },
+    B: { p: B, adj: [A, C], val: angB },
+    C: { p: C, adj: [B, D], val: angC },
+    D: { p: D, adj: [C, A], val: angD }
+  };
+
+  const angleMarks: AngleMark[] = (["A", "B", "C", "D"] as const).map((name) => {
+    const v = vmap[name];
+    const isG = name === pair.g;
+    const isT = name === pair.t;
+    return angleMarkFromVertex(
+      v.p,
+      v.adj[0],
+      v.adj[1],
+      v.val,
+      isG ? `${v.val}°` : isT ? "?" : "",
+      isT,
+      isG,
+      24
+    );
+  });
+
+  const pointLabels: PointLabel[] = [
+    circleLabel(O, A, 15, "A"),
+    circleLabel(O, B, 15, "B"),
+    circleLabel(O, C, 15, "C"),
+    circleLabel(O, D, 15, "D")
+  ];
+
+  const selfCheck =
+    angA + angC === 180 &&
+    angB + angD === 180 &&
+    pair.gv + pair.tv === 180 &&
+    angleMatches(A, B, D, angA) &&
+    angleMatches(B, A, C, angB) &&
+    angleMatches(C, B, D, angC) &&
+    angleMatches(D, C, A, angD) &&
+    pointLabels.every((l) => inBounds(l, CIRCLE_W, CIRCLE_H));
+
+  return {
+    promptText:
+      'ABCD is a quadrilateral with all four corners on the circle. Find the angle marked "?".',
+    diagram: {
+      width: CIRCLE_W,
+      height: CIRCLE_H,
+      segments,
+      angleMarks,
+      pointLabels,
+      circles: [{ cx: O.x, cy: O.y, r: R }]
+    },
+    answer: pair.tv,
+    targetLabel: `angle ${pair.t}`,
+    chain,
+    skillTags: [
+      "geometry",
+      "angles",
+      "circle_theorems",
+      "cyclic_quadrilateral",
+      "angle_chasing"
+    ],
+    variant: "cyclic-quad",
+    selfCheck
+  };
+}
+
+// ===== Template 16 (tier 10): triangle inscribed in a circle (composite) =====
+
+// Triangle ABC inscribed in a circle centred O. Two radii OB and OC are drawn,
+// showing the central angle BOC. Because the central angle on arc BC is twice
+// the inscribed angle at A, the player recovers angle A, then uses the triangle
+// angle sum to reach the third angle. A genuine circle + triangle interaction.
+function genTriangleInCircle(rng: Rng): GenResult {
+  const O = CIRCLE_O;
+  const R = CIRCLE_R;
+
+  let A = 50;
+  let B = 60;
+  let C = 70;
+  let phi = 0;
+  let Ap: Pt = circlePt(O, 0, R);
+  let Bp: Pt = circlePt(O, 120, R);
+  let Cp: Pt = circlePt(O, 240, R);
+  let ok = false;
+
+  for (let tries = 0; tries < 120; tries++) {
+    A = rng.int(28, 82); // < 90 so central angle BOC = 2A is non-reflex
+    B = rng.int(28, 110);
+    C = 180 - A - B;
+    if (C < 28 || C > 110) continue;
+    phi = rng.int(0, 359);
+    // Arc opposite each vertex = twice that vertex's angle.
+    Ap = circlePt(O, phi, R);
+    Bp = circlePt(O, phi + 2 * C, R);
+    Cp = circlePt(O, phi + 2 * C + 2 * A, R);
+    if (
+      inBounds(Ap, CIRCLE_W, CIRCLE_H, 22) &&
+      inBounds(Bp, CIRCLE_W, CIRCLE_H, 22) &&
+      inBounds(Cp, CIRCLE_W, CIRCLE_H, 22) &&
+      angleMatches(Ap, Bp, Cp, A) &&
+      angleMatches(Bp, Ap, Cp, B) &&
+      angleMatches(Cp, Ap, Bp, C) &&
+      angleMatches(O, Bp, Cp, 2 * A)
+    ) {
+      ok = true;
+      break;
+    }
+  }
+  if (!ok) {
+    A = 50;
+    B = 60;
+    C = 70;
+    phi = 0;
+    Ap = circlePt(O, phi, R);
+    Bp = circlePt(O, phi + 2 * C, R);
+    Cp = circlePt(O, phi + 2 * C + 2 * A, R);
+  }
+  const central = 2 * A;
+
+  // Given the central angle and angle B, find angle C; or given central + C,
+  // find B. Either way angle A comes from the inscribed-angle theorem.
+  const targetIsC = rng.pick([true, false]);
+  const givenVal = targetIsC ? B : C;
+  const targetVal = targetIsC ? C : B;
+  const targetVertex = targetIsC ? "C" : "B";
+  const givenVertex = targetIsC ? "B" : "C";
+
+  const chain: ChainStep[] = [
+    {
+      theorem: "Inscribed Angle Theorem",
+      text: `OB and OC are radii, so angle BOC is the central angle on arc BC. The inscribed angle at A stands on the same arc, so it is half the central angle: angle A = ${central} ÷ 2 = ${A}°.`,
+      resultValue: A
+    },
+    {
+      theorem: "Triangle Angle Sum",
+      text: `The three angles of triangle ABC add to 180°, so angle ${targetVertex} = 180 − ${A} − ${givenVal} = ${targetVal}°.`,
+      resultValue: targetVal
+    }
+  ];
+
+  const segments: Seg[] = [
+    { a: Ap, b: Bp },
+    { a: Bp, b: Cp },
+    { a: Cp, b: Ap },
+    { a: O, b: Bp },
+    { a: O, b: Cp }
+  ];
+
+  const angleMarks: AngleMark[] = [
+    angleMarkFromVertex(O, Bp, Cp, central, `${central}°`, false, true, 24),
+    angleMarkFromVertex(
+      Bp,
+      Ap,
+      Cp,
+      B,
+      givenVertex === "B" ? `${B}°` : targetVertex === "B" ? "?" : "",
+      targetVertex === "B",
+      givenVertex === "B",
+      26
+    ),
+    angleMarkFromVertex(
+      Cp,
+      Ap,
+      Bp,
+      C,
+      givenVertex === "C" ? `${C}°` : targetVertex === "C" ? "?" : "",
+      targetVertex === "C",
+      givenVertex === "C",
+      26
+    )
+  ];
+
+  const pointLabels: PointLabel[] = [
+    circleLabel(O, Ap, 16, "A"),
+    circleLabel(O, Bp, 16, "B"),
+    circleLabel(O, Cp, 16, "C"),
+    labelAwayFromEdges(O, [Bp, Cp], 15, "O")
+  ];
+
+  const selfCheck =
+    A + B + C === 180 &&
+    central === 2 * A &&
+    angleMatches(Ap, Bp, Cp, A) &&
+    angleMatches(O, Bp, Cp, central) &&
+    angleMatches(Bp, Ap, Cp, B) &&
+    angleMatches(Cp, Ap, Bp, C) &&
+    pointLabels.every((l) => inBounds(l, CIRCLE_W, CIRCLE_H));
+
+  return {
+    promptText:
+      'Triangle ABC is inscribed in the circle with centre O; the two radii OB and OC are drawn. Find the angle marked "?".',
+    diagram: {
+      width: CIRCLE_W,
+      height: CIRCLE_H,
+      segments,
+      angleMarks,
+      pointLabels,
+      circles: [{ cx: O.x, cy: O.y, r: R }]
+    },
+    answer: targetVal,
+    targetLabel: `angle ${targetVertex}`,
+    chain,
+    skillTags: [
+      "geometry",
+      "angles",
+      "circle_theorems",
+      "inscribed_angle",
+      "triangle_angle_sum",
+      "angle_chasing"
+    ],
+    variant: "triangle-in-circle",
+    selfCheck
+  };
+}
+
+// ===== Template 17 (tier 10): tangent-chord (alternate segment) composite =====
+
+// A tangent touches the circle at A; triangle ABC is inscribed. The angle
+// between the tangent and chord AB equals the inscribed angle in the alternate
+// segment (angle ACB) — the alternate segment theorem. Combined with the given
+// angle at B and the triangle angle sum, the player reaches angle A. A genuine
+// tangent-line + inscribed-triangle interaction.
+function genTangentAlternate(rng: Rng): GenResult {
+  const O = CIRCLE_O;
+  const R = CIRCLE_R;
+
+  let A = 60;
+  let B = 60;
+  let C = 60;
+  let phi = 0;
+  let Ap: Pt = circlePt(O, 0, R);
+  let Bp: Pt = circlePt(O, 120, R);
+  let Cp: Pt = circlePt(O, 240, R);
+  let T1: Pt = { x: 0, y: 0 };
+  let T2: Pt = { x: 0, y: 0 };
+  let tanEnd: Pt = { x: 0, y: 0 };
+  let ok = false;
+
+  for (let tries = 0; tries < 160; tries++) {
+    B = rng.int(35, 85);
+    C = rng.int(35, 85);
+    A = 180 - B - C;
+    if (A < 35 || A > 110) continue;
+    phi = rng.int(0, 359);
+    Ap = circlePt(O, phi, R);
+    Bp = circlePt(O, phi + 2 * C, R);
+    Cp = circlePt(O, phi + 2 * C + 2 * A, R);
+    // Tangent at A is perpendicular to radius OA (direction phi): dirs phi±90.
+    const tanLen = 78;
+    T1 = dirPoint(Ap, phi + 90, tanLen);
+    T2 = dirPoint(Ap, phi - 90, tanLen);
+    // The tangent ray whose angle to chord AB equals C is the alternate-segment
+    // side; pick it by direct measurement.
+    tanEnd = Math.abs(angleAt(Ap, T1, Bp) - C) < Math.abs(angleAt(Ap, T2, Bp) - C) ? T1 : T2;
+    if (
+      inBounds(Ap, CIRCLE_W, CIRCLE_H, 20) &&
+      inBounds(Bp, CIRCLE_W, CIRCLE_H, 20) &&
+      inBounds(Cp, CIRCLE_W, CIRCLE_H, 20) &&
+      inBounds(T1, CIRCLE_W, CIRCLE_H, 8) &&
+      inBounds(T2, CIRCLE_W, CIRCLE_H, 8) &&
+      angleMatches(Ap, Bp, Cp, A) &&
+      angleMatches(Bp, Ap, Cp, B) &&
+      angleMatches(Cp, Ap, Bp, C) &&
+      angleMatches(Ap, tanEnd, Bp, C)
+    ) {
+      ok = true;
+      break;
+    }
+  }
+  if (!ok) {
+    B = 60;
+    C = 60;
+    A = 60;
+    phi = 0;
+    Ap = circlePt(O, phi, R);
+    Bp = circlePt(O, phi + 2 * C, R);
+    Cp = circlePt(O, phi + 2 * C + 2 * A, R);
+    T1 = dirPoint(Ap, phi + 90, 78);
+    T2 = dirPoint(Ap, phi - 90, 78);
+    tanEnd = Math.abs(angleAt(Ap, T1, Bp) - C) < Math.abs(angleAt(Ap, T2, Bp) - C) ? T1 : T2;
+  }
+
+  const chain: ChainStep[] = [
+    {
+      theorem: "Alternate Segment Theorem",
+      text: `The angle between the tangent at A and the chord AB equals the inscribed angle in the alternate segment. So angle ACB = ${C}°.`,
+      resultValue: C
+    },
+    {
+      theorem: "Triangle Angle Sum",
+      text: `The three angles of triangle ABC add to 180°, so angle BAC = 180 − ${B} − ${C} = ${A}°.`,
+      resultValue: A
+    }
+  ];
+
+  const segments: Seg[] = [
+    { a: T1, b: T2 },
+    { a: Ap, b: Bp },
+    { a: Bp, b: Cp },
+    { a: Cp, b: Ap }
+  ];
+
+  const angleMarks: AngleMark[] = [
+    angleMarkFromVertex(Ap, tanEnd, Bp, C, `${C}°`, false, true, 22),
+    angleMarkFromVertex(Bp, Ap, Cp, B, `${B}°`, false, true, 26),
+    angleMarkFromVertex(Ap, Bp, Cp, A, "?", true, false, 34)
+  ];
+
+  const pointLabels: PointLabel[] = [
+    circleLabel(O, Ap, 16, "A"),
+    circleLabel(O, Bp, 16, "B"),
+    circleLabel(O, Cp, 16, "C")
+  ];
+
+  const selfCheck =
+    A + B + C === 180 &&
+    angleMatches(Ap, Bp, Cp, A) &&
+    angleMatches(Bp, Ap, Cp, B) &&
+    angleMatches(Cp, Ap, Bp, C) &&
+    angleMatches(Ap, tanEnd, Bp, C) &&
+    inBounds(T1, CIRCLE_W, CIRCLE_H) &&
+    inBounds(T2, CIRCLE_W, CIRCLE_H) &&
+    pointLabels.every((l) => inBounds(l, CIRCLE_W, CIRCLE_H));
+
+  return {
+    promptText:
+      'The straight line through A is a tangent to the circle at A, and triangle ABC is inscribed. The tangent–chord angle at A and the angle at B are given. Find the angle marked "?" (angle BAC).',
+    diagram: {
+      width: CIRCLE_W,
+      height: CIRCLE_H,
+      segments,
+      angleMarks,
+      pointLabels,
+      circles: [{ cx: O.x, cy: O.y, r: R }]
+    },
+    answer: A,
+    targetLabel: "angle BAC",
+    chain,
+    skillTags: [
+      "geometry",
+      "angles",
+      "circle_theorems",
+      "tangent",
+      "alternate_segment",
+      "triangle_angle_sum",
+      "angle_chasing"
+    ],
+    variant: "tangent-chord",
+    selfCheck
+  };
+}
+
+// ===== Template 18 (tier 10): triangle sharing a side with a square =====
+
+// A square ABCD sits with its top side AB shared by a triangle ABE built above
+// it. Given the triangle's apex angle at E and its base angle at B, the player
+// finds the base angle at A (triangle sum), notes the square's right angle at
+// A, and adds them to reach angle DAE. A real two-shape composite: no circle,
+// but a genuine interaction between a square's 90° corner and a triangle.
+function genTriangleSquare(rng: Rng): GenResult {
+  const W = 440;
+  const H = 340;
+  const side = 116;
+  const cx = 220;
+  const topY = 176;
+
+  let p = 55; // base angle at A
+  let q = 55; // base angle at B
+  let apex = 70;
+  let A: Pt = { x: cx - side / 2, y: topY };
+  let B: Pt = { x: cx + side / 2, y: topY };
+  let D: Pt = { x: cx - side / 2, y: topY + side };
+  let C: Pt = { x: cx + side / 2, y: topY + side };
+  let E: Pt = { x: cx, y: 60 };
+  let ok = false;
+
+  for (let tries = 0; tries < 100; tries++) {
+    p = rng.int(40, 72);
+    q = rng.int(40, 72);
+    apex = 180 - p - q;
+    if (apex < 40 || apex > 92) continue;
+    E = triangleApex(p, q, A, B); // apex above AB, angle p at A, angle q at B
+    // Require a tall-enough triangle so the apex angle's arc label at E stays
+    // well clear of the base-angle arc labels at A and B.
+    if (topY - E.y < 84) continue;
+    if (
+      finitePt(E) &&
+      inBounds(E, W, H, 22) &&
+      angleMatches(A, B, E, p) &&
+      angleMatches(B, A, E, q) &&
+      angleMatches(A, D, B, 90) &&
+      angleMatches(A, D, E, 90 + p)
+    ) {
+      ok = true;
+      break;
+    }
+  }
+  if (!ok) {
+    p = 58;
+    q = 58;
+    apex = 64;
+    E = triangleApex(p, q, A, B);
+  }
+
+  const target = 90 + p;
+
+  const chain: ChainStep[] = [
+    {
+      theorem: "Triangle Angle Sum",
+      text: `In triangle ABE the angles add to 180°, so the base angle at A = 180 − ${apex} − ${q} = ${p}°.`,
+      resultValue: p
+    },
+    {
+      theorem: "Square (right angle)",
+      text: `ABCD is a square, so its corner angle DAB = 90°.`,
+      resultValue: 90
+    },
+    {
+      theorem: "Adjacent Angles",
+      text: `The marked angle DAE is made of the square's corner DAB and the triangle's base angle BAE side by side: angle DAE = 90 + ${p} = ${target}°.`,
+      resultValue: target
+    }
+  ];
+
+  const segments: Seg[] = [
+    { a: A, b: B },
+    { a: B, b: C },
+    { a: C, b: D },
+    { a: D, b: A },
+    { a: A, b: E },
+    { a: B, b: E }
+  ];
+
+  const angleMarks: AngleMark[] = [
+    angleMarkFromVertex(E, A, B, apex, `${apex}°`, false, true, 24),
+    angleMarkFromVertex(B, A, E, q, `${q}°`, false, true, 22),
+    angleMarkFromVertex(A, D, E, target, "?", true, false, 30)
+  ];
+
+  const pointLabels: PointLabel[] = [
+    labelAwayFromEdges(A, [B, D, E], 16, "A"),
+    labelAwayFromEdges(B, [A, C, E], 16, "B"),
+    labelAwayFromEdges(C, [B, D], 15, "C"),
+    labelAwayFromEdges(D, [A, C], 15, "D"),
+    labelAwayFromEdges(E, [A, B], 15, "E")
+  ];
+
+  const selfCheck =
+    p + q + apex === 180 &&
+    target === 90 + p &&
+    angleMatches(A, B, E, p) &&
+    angleMatches(B, A, E, q) &&
+    angleMatches(A, D, B, 90) &&
+    angleMatches(A, D, E, target) &&
+    pointLabels.every((l) => inBounds(l, W, H)) &&
+    segments.every((s) => finitePt(s.a) && finitePt(s.b));
+
+  return {
+    promptText:
+      'Square ABCD has an isosceles-looking triangle ABE built on its top side AB. The triangle\'s apex angle at E and base angle at B are given. Find the angle marked "?" (angle DAE).',
+    diagram: {
+      width: W,
+      height: H,
+      segments,
+      angleMarks,
+      pointLabels
+    },
+    answer: target,
+    targetLabel: "angle DAE",
+    chain,
+    skillTags: [
+      "geometry",
+      "angles",
+      "square",
+      "triangle_angle_sum",
+      "angle_chasing"
+    ],
+    variant: "triangle-square",
+    selfCheck
+  };
+}
+
 // ===== Difficulty dispatch =====
 
 function generatePuzzleData(rng: Rng, difficulty: number): GenResult {
-  const d = Math.max(1, Math.min(8, Math.round(difficulty)));
+  const d = Math.max(1, Math.min(10, Math.round(difficulty)));
   const branch = rng.int(0, 1);
   switch (d) {
     case 1:
@@ -1477,8 +2374,27 @@ function generatePuzzleData(rng: Rng, difficulty: number): GenResult {
       return branch === 0 ? genParallel(rng, 3) : genPolygon(rng);
     case 7:
       return branch === 0 ? genIsoscelesExterior(rng) : genTriangleOnParallel(rng);
-    default:
+    case 8:
       return branch === 0 ? genCevianTwoTriangles(rng) : genIsoscelesAlgebraic(rng);
+    case 9: {
+      // Circle geometry, direct single-theorem: inscribed-angle / central,
+      // angle in a semicircle (Thales), cyclic-quadrilateral opposite angles.
+      const fam = rng.int(0, 2);
+      return fam === 0
+        ? genInscribedCentral(rng)
+        : fam === 1
+        ? genThalesSemicircle(rng)
+        : genCyclicQuad(rng);
+    }
+    default: {
+      // Tier 10: multi-step / composite circle & multi-shape figures.
+      const fam = rng.int(0, 2);
+      return fam === 0
+        ? genTriangleInCircle(rng)
+        : fam === 1
+        ? genTangentAlternate(rng)
+        : genTriangleSquare(rng);
+    }
   }
 }
 
@@ -1490,7 +2406,7 @@ export const angleChaseStudioPlugin: GameTypePlugin = {
   minGrade: 5,
   maxGrade: 10,
   description:
-    "Chase down an unknown angle using vertical angles, angles on a line, triangle and polygon angle sums, and parallel-line angle theorems. At the hardest tiers, composite figures (isosceles triangles with exterior angles, angle bisectors splitting two shared-cevian triangles, and triangles sitting on parallel lines) push toward olympiad-style angle chasing. Enter the degree measure of the marked angle.",
+    "Chase down an unknown angle using vertical angles, angles on a line, triangle and polygon angle sums, and parallel-line angle theorems. At the hardest tiers, composite figures (isosceles triangles with exterior angles, angle bisectors splitting two shared-cevian triangles, and triangles sitting on parallel lines) and a full circle-geometry strand (inscribed-angle theorem, angle in a semicircle, cyclic quadrilaterals, tangent–chord/alternate-segment, and multi-shape composites) push toward olympiad-style angle chasing. Enter the degree measure of the marked angle.",
 
   generate(input) {
     const rng = new Rng(input.seed);

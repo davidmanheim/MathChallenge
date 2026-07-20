@@ -1987,6 +1987,17 @@ function renderAngleChase(puzzle) {
   svg.setAttribute("viewBox", `0 0 ${diagram.width} ${diagram.height}`);
   svg.innerHTML = "";
 
+  // Circles first, so chords, radii, tangents, arcs, and point letters sit on
+  // top of the circle outline (used by the tier 9-10 circle-geometry strand).
+  for (const circle of diagram.circles || []) {
+    const c = document.createElementNS(ns, "circle");
+    c.setAttribute("cx", circle.cx);
+    c.setAttribute("cy", circle.cy);
+    c.setAttribute("r", circle.r);
+    c.setAttribute("class", "acs-circle");
+    svg.appendChild(c);
+  }
+
   for (const seg of diagram.segments || []) {
     const line = document.createElementNS(ns, "line");
     line.setAttribute("x1", seg.a.x);
@@ -2418,6 +2429,15 @@ function pbDrawAngleDiagram(svg, diagram) {
   const ns = "http://www.w3.org/2000/svg";
   svg.setAttribute("viewBox", `0 0 ${diagram.width} ${diagram.height}`);
   svg.innerHTML = "";
+
+  for (const circle of diagram.circles || []) {
+    const c = document.createElementNS(ns, "circle");
+    c.setAttribute("cx", circle.cx);
+    c.setAttribute("cy", circle.cy);
+    c.setAttribute("r", circle.r);
+    c.setAttribute("class", "acs-circle");
+    svg.appendChild(c);
+  }
 
   for (const seg of diagram.segments || []) {
     const line = document.createElementNS(ns, "line");
