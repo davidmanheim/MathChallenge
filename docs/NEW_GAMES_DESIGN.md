@@ -843,10 +843,40 @@ correct, which it does).
 |------------|-------|-------------------------------------------------|-----------|-------------|-------|
 | 1          | 6     | Algebra 2-step (`ax + c = r`); logic 2-link if-then chain | Linear | 0 | Pure "what order do these go in" — no distractors yet |
 | 2          | 6-7   | Algebra 2-step; logic 2-link chain | Linear | 1 | First distractor (wrong-inverse-operation / converse error) |
-| 3          | 7     | Algebra 3-step (`k(x+p) = r`: distribute → subtract → divide); parity "sum of two evens is even" | Linear / branching | 1 | First branching DAG (two independent definition steps) |
-| 4          | 7-8   | Parity "sum of two odds"/"even + odd"; geometry "vertical angles are equal" | Branching | 1-2 | Branching in both domains |
-| 5          | 8-9   | Geometry solve-for-x (complementary/supplementary + substitution); parity "even × integer is even" | Branching | 2 | Longer chains, 2 distractors |
-| 6          | 9-10  | Geometry vertical-angles (2 distractors); algebra 3-step (2 distractors) | Branching / linear | 2 | Maximum distractor load |
+| 3          | 7     | Algebra 3-step (`k(x+p) = r`: distribute → subtract → divide); parity **additive-even** (even±even or odd±odd ⇒ even) | Linear / branching | 1 | First branching DAG (two independent definition steps) |
+| 4          | 7-8   | Parity **additive-odd** (even±odd or odd±even ⇒ odd); geometry **vertical angles** (abstract "∠A = ∠C" or measured "given ∠A = m°, prove ∠C = m°") | Branching | 1-2 | Branching in both domains; geometry now carries a figure |
+| 5          | 8-9   | Geometry **solve-for-x** (complementary/supplementary + substitution, with figure); parity **product** (even × integer ⇒ even, or odd × odd ⇒ odd) | Branching | 2 | Longer chains, 2 distractors |
+| 6          | 9-10  | Geometry vertical-angles (2 distractors, with figure); algebra 3-step (2 distractors) | Branching / linear | 2 | Maximum distractor load |
+
+### Per-tier variety (each tier generates ≥ 100 structurally-distinct problems)
+
+Each tier draws genuine variety from three orthogonal levers so different seeds
+produce genuinely different problems (not just a reshuffled block order):
+
+1. **Multiple templates per domain.** Parity is a *family*: the two operands can
+   each be even or odd, the operator can be `+` or `−` (7-node branching additive
+   proofs), or the puzzle can be a product proof (even × integer, or odd × odd).
+   The tier picks the pedagogically-appropriate sub-family (even-result vs.
+   odd-result vs. product) and varies freely within it. Geometry is likewise a
+   family: abstract vertical-angles, measured vertical-angles (numeric), and
+   solve-for-x with either the complementary or supplementary relationship.
+2. **Numeric parameters.** Algebra varies its coefficients/roots/constants;
+   solve-for-x varies its coefficient, `x`, and the known angle; measured
+   vertical-angles varies the given measure; logic picks from 16 themed
+   if-then stories.
+3. **Symbol variation.** Parity proofs draw the two number letters and the two
+   witness letters from disjoint pools; algebra picks the solved-for variable
+   name; geometry picks the four-angle label scheme (∠1–∠4, ∠a–∠d, ∠w–∠z,
+   ∠p–∠s) and which vertical pair to prove.
+
+This lifted the worst tier (difficulty 4) from **3 distinct problems** to **150+**,
+and every tier from 1–6 now yields **≥ 100** structurally-distinct puzzles.
+
+Because a served puzzle's `data` is a **pure function of its structure** (see
+Generation Algorithm step 3), the server's per-set `JSON.stringify(data)` dedup
+(which re-rolls on a match) is effectively structural, so a full 12-puzzle set at
+any single difficulty is guaranteed to contain 12 distinct problems with zero
+repeats.
 
 ### Generation Algorithm
 1. Pick the difficulty tier's two domain variants and flip the seeded coin
@@ -857,9 +887,19 @@ correct, which it does).
    a bad puzzle. Distractors are added separately with a plausible statement and
    a (deliberately invalid) justification.
 3. The assembler assigns ids, derives the **canonical order** directly from the
-   builder's insertion order (topologically valid by construction), records the
-   derivation **chain** (steps + goal, for hints), and **shuffles** all blocks
-   (proof nodes + distractors) with a Fisher-Yates draw for presentation.
+   builder's insertion order (topologically valid by construction), and records
+   the derivation **chain** (steps + goal, for hints). Blocks are stored in a
+   deterministic order (proof nodes in construction order, then distractors) —
+   the generator does **not** shuffle, so the served `data` is a pure function of
+   the puzzle's structure and structurally-identical puzzles serialize
+   identically (which lets the server's set-dedup reject them). The
+   player-facing scramble happens in the frontend (`pbSeededShuffle`, seeded by
+   the puzzle seed so re-renders are stable). For geometry proofs the assembler
+   also attaches a **diagram** payload (see below); any cosmetic geometry choice
+   that the proof does not reference (e.g. the crossing angle in an abstract
+   vertical-angles figure) is derived deterministically from the structural
+   choices rather than rolled independently, preserving the pure-function
+   property.
 4. Every generator computes a structural `selfCheck` via `verifyProof()`, which
    re-verifies: deps precede in the canonical order; exactly one goal, which is
    the last node; ≥1 given and ≥1 step; and the goal's reverse-dependency
@@ -885,9 +925,20 @@ ordering is accepted.
 - **Theme:** Deep indigo/violet "logic workshop" panel — distinct from Angle
   Chase Studio's blueprint indigo and Counting Lab's teal lab. Given blocks are
   tinted green, the goal block magenta, ordinary steps violet.
-- **Layout:** A goal banner ("Prove: …") over two columns: an **Available
-  blocks** bank (all blocks, shuffled) and **Your proof** (the ordered sequence
+- **Layout:** A goal banner ("Prove: …"), then — for geometry-domain proofs
+  only — a **figure** (SVG), then two columns: an **Available blocks** bank
+  (all blocks, shuffled client-side) and **Your proof** (the ordered sequence
   being assembled). Collapses to a single column under 640px.
+- **Geometry figure:** When the puzzle is in the geometry domain, `data` carries
+  a `diagram` payload (line segments + arc "angle marks") built with the same
+  model as Angle Chase Studio. `renderProofBlocks` draws it above the blocks via
+  `pbDrawAngleDiagram`, reusing Angle Chase's arc-drawing approach and its
+  `acs-*` stroke classes; the figure is omitted for non-geometry domains. The
+  diagram is geometrically consistent with the proof by construction (e.g. for a
+  vertical-angles proof the two angles proven equal are drawn with equal
+  measure, and each "linear pair" given corresponds to two adjacent arcs summing
+  to 180°). The given/target angles are highlighted (blue / amber) with a small
+  legend.
 - **Interaction:** Click-to-append — tapping a bank block moves it into the
   proof column at the end. Each placed block shows its position number and has
   ↑ / ↓ reorder buttons and a × remove button (a click-to-append-then-reorder

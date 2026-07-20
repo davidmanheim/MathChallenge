@@ -32,6 +32,65 @@ class Rng {
     }
     return a;
   }
+  // Pick `n` distinct elements from `pool` (order matters for the result).
+  pickDistinct<T>(pool: T[], n: number): T[] {
+    return this.shuffle(pool).slice(0, n);
+  }
+}
+
+// ===== Geometry primitives (diagram payload for geometry-domain proofs) =====
+//
+// Mirrors angleChaseStudio's diagram model so the frontend can reuse the same
+// SVG rendering approach: a set of line segments plus arc "angle marks". Every
+// value fed into a diagram is derived from the same numbers used in the proof
+// statements, so the figure is geometrically consistent with the proof by
+// construction (verified in each generator's selfCheck).
+
+type Pt = { x: number; y: number };
+type Seg = { a: Pt; b: Pt };
+type AngleMark = {
+  vertex: Pt;
+  dir1: number; // absolute start direction, degrees CCW from +x
+  value: number; // sweep, degrees CCW
+  label: string;
+  isTarget: boolean;
+  isGiven: boolean;
+  radius: number;
+};
+type Diagram = {
+  width: number;
+  height: number;
+  segments: Seg[];
+  angleMarks: AngleMark[];
+};
+
+function normDeg(d: number): number {
+  let x = d % 360;
+  if (x < 0) x += 360;
+  return x;
+}
+function dirPoint(v: Pt, dirDeg: number, dist: number): Pt {
+  const rad = (dirDeg * Math.PI) / 180;
+  return { x: v.x + dist * Math.cos(rad), y: v.y - dist * Math.sin(rad) };
+}
+function fullLine(v: Pt, dirDeg: number, halfLen: number): Seg {
+  return {
+    a: dirPoint(v, dirDeg, halfLen),
+    b: dirPoint(v, normDeg(dirDeg + 180), halfLen)
+  };
+}
+function finitePt(p: Pt): boolean {
+  return Number.isFinite(p.x) && Number.isFinite(p.y);
+}
+function diagramFinite(dg: Diagram): boolean {
+  if (!dg.segments.length || !dg.angleMarks.length) return false;
+  for (const s of dg.segments) if (!finitePt(s.a) || !finitePt(s.b)) return false;
+  for (const m of dg.angleMarks) {
+    if (!finitePt(m.vertex) || !Number.isFinite(m.dir1) || !Number.isFinite(m.value) || !(m.radius > 0)) {
+      return false;
+    }
+  }
+  return true;
 }
 
 // ===== Data model =====
@@ -65,6 +124,7 @@ type GenResult = {
   variant: string;
   skillTags: string[];
   selfCheck: boolean;
+  diagram?: Diagram; // present only for geometry-domain proofs
 };
 
 // ===== Proof builder =====
@@ -121,6 +181,7 @@ function assemble(
     domain: string;
     variant: string;
     skillTags: string[];
+    diagram?: Diagram;
   }
 ): GenResult {
   const proofBlocks: Block[] = b.nodes.map((n) => ({
@@ -148,7 +209,15 @@ function assemble(
     .filter((n) => n.kind !== "given")
     .map((n) => ({ statement: n.statement, reason: n.reason }));
 
-  const allBlocks = rng.shuffle([...proofBlocks, ...distractorBlocks]);
+  // Deterministic presentation order (proof nodes in construction order, then
+  // distractors). We deliberately do NOT shuffle here: keeping `data` a pure
+  // function of the puzzle's structure means two structurally-identical puzzles
+  // serialize identically, so the server's per-set JSON.stringify(data) dedup
+  // (which re-rolls on a match) becomes effectively structural — guaranteeing a
+  // 12-puzzle set has zero repeated problems. The player-facing shuffle happens
+  // in the frontend (renderProofBlocks), seeded per puzzle, so the bank still
+  // presents blocks in a scrambled order.
+  const allBlocks = [...proofBlocks, ...distractorBlocks];
 
   const selfCheck = verifyProof(proofBlocks, canonicalOrder, goalId);
 
@@ -163,7 +232,8 @@ function assemble(
     domain: meta.domain,
     variant: meta.variant,
     skillTags: meta.skillTags,
-    selfCheck
+    selfCheck,
+    diagram: meta.diagram
   };
 }
 
@@ -213,7 +283,7 @@ function verifyProof(proofBlocks: Block[], canonicalOrder: string[], goalId: str
   return true;
 }
 
-// ===== Word banks / helpers =====
+// ===== Word banks / helpers (variable-name pools drive parameter variety) =====
 
 function coeffTerm(k: number, varName = "x"): string {
   if (k === 1) return varName;
@@ -221,15 +291,37 @@ function coeffTerm(k: number, varName = "x"): string {
   return `${k}${varName}`;
 }
 
+// Letters used to name the two numbers in a parity proof (kept disjoint from
+// the witness pool so a proof never reuses a letter for two roles).
+const NUMBER_VARS = ["a", "b", "c", "d", "p", "q", "r", "s"];
+// Letters used for the "= 2·(witness)" integers.
+const WITNESS_VARS = ["m", "n", "j", "k", "t", "u"];
+// Variable a linear equation is solved for.
+const ALG_VARS = ["x", "y", "n", "t", "w", "p", "k", "z", "v", "h"];
+// Angle-name schemes (four labels each, in rotational order around a vertex).
+const ANGLE_LABEL_SCHEMES = [
+  ["∠1", "∠2", "∠3", "∠4"],
+  ["∠a", "∠b", "∠c", "∠d"],
+  ["∠w", "∠x", "∠y", "∠z"],
+  ["∠p", "∠q", "∠r", "∠s"]
+];
+// Two-angle name pairs for the solve-for-x geometry proofs.
+const ANGLE_PAIRS = [
+  ["∠A", "∠B"],
+  ["∠P", "∠Q"],
+  ["∠M", "∠N"],
+  ["∠1", "∠2"]
+];
+
 // ===== Domain 1: Algebraic equation solving (linear chain) =====
 
 function genAlgebra(rng: Rng, opts: { threeStep: boolean; distractors: number }): GenResult {
   const b = new ProofBuilder();
-  const varName = "x";
+  const varName = rng.pick(ALG_VARS);
   const skillTags = ["proof", "argument_structure", "algebra", "equations", "justification"];
 
   if (!opts.threeStep) {
-    // a*x + c = r  ->  subtract c, divide by a
+    // a*var + c = r  ->  subtract c, divide by a
     const a = rng.int(2, 6);
     const x = rng.int(2, 9);
     const c = rng.int(1, 9) * rng.pick([1, -1]);
@@ -249,7 +341,7 @@ function genAlgebra(rng: Rng, opts: { threeStep: boolean; distractors: number })
     }
 
     return assemble(rng, b, {
-      promptText: buildPrompt(`x = ${x}`),
+      promptText: buildPrompt(`${varName} = ${x}`),
       goalStatement: `${varName} = ${x}`,
       givensText: `the equation ${startEq}`,
       domain: "algebra",
@@ -258,7 +350,7 @@ function genAlgebra(rng: Rng, opts: { threeStep: boolean; distractors: number })
     });
   }
 
-  // 3-step: k(x + p) = r  ->  distribute, subtract, divide
+  // 3-step: k(var + p) = r  ->  distribute, subtract, divide
   const k = rng.int(2, 5);
   const x = rng.int(2, 9);
   const p = rng.int(1, 6);
@@ -278,7 +370,7 @@ function genAlgebra(rng: Rng, opts: { threeStep: boolean; distractors: number })
   }
 
   return assemble(rng, b, {
-    promptText: buildPrompt(`x = ${x}`),
+    promptText: buildPrompt(`${varName} = ${x}`),
     goalStatement: `${varName} = ${x}`,
     givensText: `the equation ${startEq}`,
     domain: "algebra",
@@ -290,11 +382,22 @@ function genAlgebra(rng: Rng, opts: { threeStep: boolean; distractors: number })
 // ===== Domain 2: Logic if-then chains (modus ponens) =====
 
 const LOGIC_STORIES: { facts: string[]; chain: string[] }[] = [
-  { facts: ["it is raining"], chain: ["the game is cancelled", "we watch a movie at home"] },
-  { facts: ["the alarm rings"], chain: ["the doors lock", "the guard is alerted"] },
-  { facts: ["Maya finishes her homework"], chain: ["she can play outside", "she feels happy"] },
-  { facts: ["the seeds get water"], chain: ["the plants grow", "the garden blooms"] },
-  { facts: ["the battery is charged"], chain: ["the robot turns on", "it starts cleaning"] }
+  { facts: ["it is raining"], chain: ["the game is cancelled", "we watch a movie at home", "we make popcorn"] },
+  { facts: ["the alarm rings"], chain: ["the doors lock", "the guard is alerted", "the report is filed"] },
+  { facts: ["Maya finishes her homework"], chain: ["she can play outside", "she feels happy", "she sleeps well"] },
+  { facts: ["the seeds get water"], chain: ["the plants grow", "the garden blooms", "the bees visit"] },
+  { facts: ["the battery is charged"], chain: ["the robot turns on", "it starts cleaning", "the floor gets tidy"] },
+  { facts: ["the bread is left out"], chain: ["it goes stale", "the birds are fed", "the birds return tomorrow"] },
+  { facts: ["Sam scores the goal"], chain: ["the team wins", "the fans cheer", "the coach smiles"] },
+  { facts: ["the river floods"], chain: ["the bridge closes", "traffic is diverted", "the trip takes longer"] },
+  { facts: ["the oven is preheated"], chain: ["the cake bakes", "the kitchen smells sweet", "everyone gathers"] },
+  { facts: ["the sun sets"], chain: ["the street lamps switch on", "the shops close", "the town grows quiet"] },
+  { facts: ["Priya practices daily"], chain: ["she masters the song", "she joins the recital", "her family is proud"] },
+  { facts: ["the volcano erupts"], chain: ["ash fills the sky", "the flights are grounded", "the tourists wait"] },
+  { facts: ["the code compiles"], chain: ["the tests run", "the build passes", "the app ships"] },
+  { facts: ["it snows overnight"], chain: ["school is closed", "the children sled", "the cocoa is poured"] },
+  { facts: ["the tide comes in"], chain: ["the sandcastle washes away", "the beach empties", "the gulls settle"] },
+  { facts: ["the magnet is switched on"], chain: ["the iron filings line up", "the pattern appears", "the class takes notes"] }
 ];
 
 function cap(s: string): string {
@@ -359,164 +462,343 @@ function genLogic(rng: Rng, opts: { links: 2 | 3; distractors: number }): GenRes
 
 // ===== Domain 3: Number-property (parity) proofs — branching DAG =====
 
-type ParityVariant = "sum-even" | "sum-odd" | "sum-mixed" | "product-even";
+type ParityWord = "even" | "odd";
+type ParityMode = "additive-even" | "additive-odd" | "product";
 
-function genParity(rng: Rng, opts: { variant: ParityVariant; distractors: number }): GenResult {
+// Factored form + result parity for (v1 op v2) given the two operand parities.
+function factorParity(
+  w1: string,
+  w2: string,
+  p1: ParityWord,
+  p2: ParityWord,
+  op: "+" | "−"
+): { factored: string; resultWord: ParityWord } {
+  const same = p1 === p2;
+  const resultWord: ParityWord = same ? "even" : "odd";
+  let factored: string;
+  if (op === "+") {
+    if (p1 === "even" && p2 === "even") factored = `2(${w1} + ${w2})`;
+    else if (p1 === "odd" && p2 === "odd") factored = `2(${w1} + ${w2} + 1)`;
+    else factored = `2(${w1} + ${w2}) + 1`;
+  } else {
+    if (same) factored = `2(${w1} − ${w2})`;
+    else if (p1 === "even") factored = `2(${w1} − ${w2} − 1) + 1`;
+    else factored = `2(${w1} − ${w2}) + 1`;
+  }
+  return { factored, resultWord };
+}
+
+const PARITY_SKILLS = ["proof", "argument_structure", "number_properties", "parity", "justification"];
+
+// Two-variable additive parity proof (7 nodes, branching: the two definition
+// steps are independent). `wantEven` selects the pedagogy tier: even result
+// (even±even, odd±odd) vs. odd result (even±odd, odd±even).
+function genParityAdditive(rng: Rng, wantEven: boolean, distractors: number): GenResult {
   const b = new ProofBuilder();
-  const skillTags = ["proof", "argument_structure", "number_properties", "parity", "justification"];
-  const v = opts.variant;
+  const [v1, v2] = rng.pickDistinct(NUMBER_VARS, 2);
+  const [w1, w2] = rng.pickDistinct(WITNESS_VARS, 2);
+  const op = rng.pick(["+", "−"] as ("+" | "−")[]);
+  // Choose operand parities consistent with the desired result parity.
+  const evenPairs: [ParityWord, ParityWord][] = [["even", "even"], ["odd", "odd"]];
+  const oddPairs: [ParityWord, ParityWord][] = [["even", "odd"], ["odd", "even"]];
+  const [p1, p2] = rng.pick(wantEven ? evenPairs : oddPairs);
 
-  if (v === "sum-even" || v === "sum-odd" || v === "sum-mixed") {
-    const aEven = v === "sum-even" || v === "sum-mixed";
-    const bEven = v === "sum-even";
-    // sum-mixed: a even, b odd -> odd. sum-odd: both odd -> even. sum-even: both even -> even.
-    const aWord = aEven ? "even" : "odd";
-    const bWord = bEven ? "even" : "odd";
-    b.given("ga", `a is an ${aWord} number.`);
-    b.given("gb", `b is an ${bWord} number.`);
-    // Independent definition steps — these two can be established in either
-    // order, which is what makes this a branching (not linear) proof.
-    b.step("sa", aEven ? "a = 2m for some integer m." : "a = 2m + 1 for some integer m.",
-      `Definition of an ${aWord} number.`, ["ga"]);
-    b.step("sb", bEven ? "b = 2n for some integer n." : "b = 2n + 1 for some integer n.",
-      `Definition of an ${bWord} number.`, ["gb"]);
-    const aExpr = aEven ? "2m" : "2m + 1";
-    const bExpr = bEven ? "2n" : "2n + 1";
-    b.step("ssum", `a + b = ${aExpr} + ${bExpr}.`, "Substitute the expressions for a and b.", ["sa", "sb"]);
+  const e1 = p1 === "even" ? `2${w1}` : `2${w1} + 1`;
+  const e2 = p2 === "even" ? `2${w2}` : `2${w2} + 1`;
+  const opWord = op === "+" ? "sum" : "difference";
 
-    // Simplify + factor to reveal parity.
-    const resultEven = aEven === bEven; // even+even or odd+odd -> even
-    if (resultEven) {
-      // both even: 2m+2n = 2(m+n); both odd: 2m+1+2n+1 = 2m+2n+2 = 2(m+n+1)
-      const inner = aEven ? "m + n" : "m + n + 1";
-      b.step("sfac", `a + b = 2(${inner}).`, "Combine like terms and factor out 2.", ["ssum"]);
-      b.goal("goal", "a + b is even.", "Definition of even: it equals 2 times an integer.", ["sfac"]);
+  b.given("ga", `${v1} is an ${p1} number.`);
+  b.given("gb", `${v2} is an ${p2} number.`);
+  b.step("sa", `${v1} = ${e1} for some integer ${w1}.`, `Definition of an ${p1} number.`, ["ga"]);
+  b.step("sb", `${v2} = ${e2} for some integer ${w2}.`, `Definition of an ${p2} number.`, ["gb"]);
+  b.step("scomb", `${v1} ${op} ${v2} = (${e1}) ${op} (${e2}).`, `Substitute the expressions for ${v1} and ${v2}.`, ["sa", "sb"]);
+
+  const { factored, resultWord } = factorParity(w1, w2, p1, p2, op);
+  const factorReason =
+    resultWord === "even"
+      ? "Combine like terms and factor out 2."
+      : "Combine like terms and group as 2·(integer) + 1.";
+  b.step("sfac", `${v1} ${op} ${v2} = ${factored}.`, factorReason, ["scomb"]);
+  const goalReason =
+    resultWord === "even"
+      ? "Definition of even: it equals 2 times an integer."
+      : "Definition of odd: it equals 2 times an integer, plus 1.";
+  b.goal("goal", `${v1} ${op} ${v2} is ${resultWord}.`, goalReason, ["sfac"]);
+
+  if (distractors >= 1) {
+    // Wrong combine step: add or drop a stray +1.
+    if (resultWord === "even") {
+      b.distractor(`${v1} ${op} ${v2} = 2(${w1} ${op} ${w2}) + 1.`, "Arithmetic slip: an extra +1 was introduced when combining.", ["scomb"]);
     } else {
-      // even + odd: 2m + 2n + 1 = 2(m+n) + 1
-      b.step("sfac", "a + b = 2(m + n) + 1.", "Combine like terms and group as 2·(integer) + 1.", ["ssum"]);
-      b.goal("goal", "a + b is odd.", "Definition of odd: it equals 2 times an integer, plus 1.", ["sfac"]);
+      b.distractor(`${v1} ${op} ${v2} = 2(${w1} ${op} ${w2}).`, "Substitution error: the +1 term cannot just be dropped.", ["scomb"]);
     }
-
-    if (opts.distractors >= 1) {
-      b.distractor("a + b = 2m + 2n (dropping the +1 terms).",
-        "Substitution error: the +1 terms cannot just be dropped.", ["sa", "sb"]);
-    }
-    if (opts.distractors >= 2) {
-      b.distractor(`a · b is ${resultEven ? "odd" : "even"}.`,
-        "Irrelevant claim about the product, not the sum being asked about.", []);
-    }
-
-    const goalWord = resultEven ? "even" : "odd";
-    return assemble(rng, b, {
-      promptText: buildPrompt(`a + b is ${goalWord}`),
-      goalStatement: `a + b is ${goalWord}.`,
-      givensText: `a is ${aWord} and b is ${bWord}`,
-      domain: "number-property",
-      variant: `parity-${v}`,
-      skillTags
-    });
   }
-
-  // product-even: a is even -> a·b is even for any integer b.
-  b.given("ga", "a is an even number.");
-  b.given("gb", "b is an integer.");
-  b.step("sa", "a = 2m for some integer m.", "Definition of an even number.", ["ga"]);
-  b.step("sprod", "a · b = (2m) · b = 2(mb).", "Substitute a = 2m and factor out 2.", ["sa", "gb"]);
-  b.goal("goal", "a · b is even.", "Definition of even: it equals 2 times an integer (here, m·b).", ["sprod"]);
-
-  if (opts.distractors >= 1) {
-    b.distractor("a · b = 2m + b.", "Algebra error: (2m)·b is 2mb, not 2m + b.", ["sa", "gb"]);
-  }
-  if (opts.distractors >= 2) {
-    b.distractor("b is even.", "Unsupported: b was only assumed to be an integer, not even.", ["gb"]);
+  if (distractors >= 2) {
+    b.distractor(`${v1} · ${v2} is ${resultWord === "even" ? "odd" : "even"}.`, `Irrelevant claim about the product, not the ${opWord} being asked about.`, []);
   }
 
   return assemble(rng, b, {
-    promptText: buildPrompt("a · b is even"),
-    goalStatement: "a · b is even.",
-    givensText: "a is even and b is any integer",
+    promptText: buildPrompt(`${v1} ${op} ${v2} is ${resultWord}`),
+    goalStatement: `${v1} ${op} ${v2} is ${resultWord}.`,
+    givensText: `${v1} is ${p1} and ${v2} is ${p2}`,
     domain: "number-property",
-    variant: "parity-product-even",
-    skillTags
+    variant: `parity-add-${p1}-${p2}-${op === "+" ? "sum" : "diff"}`,
+    skillTags: PARITY_SKILLS
   });
 }
 
-// ===== Domain 4: Geometry angle proofs — reuse Angle Chase vocabulary =====
-
-function genGeometry(rng: Rng, opts: { variant: "vertical" | "complement-x" | "supplement-x"; distractors: number }): GenResult {
+// Product parity proof. product-even: an even times any integer is even
+// (5 nodes, mostly linear). product-odd: odd times odd is odd (6 nodes,
+// branching). `wantOdd` selects between them.
+function genParityProduct(rng: Rng, wantOdd: boolean, distractors: number): GenResult {
   const b = new ProofBuilder();
-  const skillTags = ["proof", "argument_structure", "geometry", "angles", "justification"];
+  const [v1, v2] = rng.pickDistinct(NUMBER_VARS, 2);
+  const [w1, w2] = rng.pickDistinct(WITNESS_VARS, 2);
 
-  if (opts.variant === "vertical") {
-    // Prove vertical angles equal: two lines cross, ∠1 & ∠3 vertical.
-    b.given("g1", "∠1 and ∠2 form a linear pair (they lie on a straight line).");
-    b.given("g2", "∠2 and ∠3 form a linear pair (they lie on a straight line).");
-    b.step("s1", "∠1 + ∠2 = 180°.", "Linear Pair Postulate (angles on a line sum to 180°).", ["g1"]);
-    b.step("s2", "∠2 + ∠3 = 180°.", "Linear Pair Postulate (angles on a line sum to 180°).", ["g2"]);
-    b.step("s3", "∠1 + ∠2 = ∠2 + ∠3.", "Both sums equal 180°, so set them equal (substitution).", ["s1", "s2"]);
-    b.goal("goal", "∠1 = ∠3.", "Subtract ∠2 from both sides.", ["s3"]);
+  if (!wantOdd) {
+    b.given("ga", `${v1} is an even number.`);
+    b.given("gb", `${v2} is an integer.`);
+    b.step("sa", `${v1} = 2${w1} for some integer ${w1}.`, "Definition of an even number.", ["ga"]);
+    b.step("sprod", `${v1} · ${v2} = (2${w1}) · ${v2} = 2(${w1}${v2}).`, `Substitute ${v1} = 2${w1} and factor out 2.`, ["sa", "gb"]);
+    b.goal("goal", `${v1} · ${v2} is even.`, `Definition of even: it equals 2 times an integer (here, ${w1}${v2}).`, ["sprod"]);
 
-    if (opts.distractors >= 1) {
-      b.distractor("∠1 + ∠3 = 180°.", "Wrong pairing: ∠1 and ∠3 are vertical, not a linear pair.", ["g1"]);
+    if (distractors >= 1) {
+      b.distractor(`${v1} · ${v2} = 2${w1} + ${v2}.`, `Algebra error: (2${w1})·${v2} is 2${w1}${v2}, not 2${w1} + ${v2}.`, ["sa", "gb"]);
     }
-    if (opts.distractors >= 2) {
-      b.distractor("∠1 = ∠2.", "Adjacent angles in a linear pair are supplementary, not necessarily equal.", ["s1"]);
+    if (distractors >= 2) {
+      b.distractor(`${v2} is even.`, `Unsupported: ${v2} was only assumed to be an integer, not even.`, ["gb"]);
     }
 
     return assemble(rng, b, {
-      promptText: buildPrompt("∠1 = ∠3"),
-      goalStatement: "∠1 = ∠3.",
-      givensText: "two lines crossing so that ∠1–∠2 and ∠2–∠3 are linear pairs",
-      domain: "geometry",
-      variant: "geometry-vertical",
-      skillTags
+      promptText: buildPrompt(`${v1} · ${v2} is even`),
+      goalStatement: `${v1} · ${v2} is even.`,
+      givensText: `${v1} is even and ${v2} is any integer`,
+      domain: "number-property",
+      variant: "parity-product-even",
+      skillTags: PARITY_SKILLS
     });
   }
 
-  // complement-x / supplement-x: solve for x with an angle relationship.
-  const complementary = opts.variant === "complement-x";
+  // odd × odd is odd
+  b.given("ga", `${v1} is an odd number.`);
+  b.given("gb", `${v2} is an odd number.`);
+  b.step("sa", `${v1} = 2${w1} + 1 for some integer ${w1}.`, "Definition of an odd number.", ["ga"]);
+  b.step("sb", `${v2} = 2${w2} + 1 for some integer ${w2}.`, "Definition of an odd number.", ["gb"]);
+  b.step("sprod", `${v1} · ${v2} = (2${w1} + 1)(2${w2} + 1) = 4${w1}${w2} + 2${w1} + 2${w2} + 1.`, `Substitute and expand the product.`, ["sa", "sb"]);
+  b.step("sfac", `${v1} · ${v2} = 2(2${w1}${w2} + ${w1} + ${w2}) + 1.`, "Factor 2 out of every term except the +1.", ["sprod"]);
+  b.goal("goal", `${v1} · ${v2} is odd.`, "Definition of odd: it equals 2 times an integer, plus 1.", ["sfac"]);
+
+  if (distractors >= 1) {
+    b.distractor(`${v1} · ${v2} is even.`, "Wrong: an odd number times an odd number is odd, not even.", ["sfac"]);
+  }
+  if (distractors >= 2) {
+    b.distractor(`${v1} · ${v2} = 4${w1}${w2} + 1.`, `Dropped the 2${w1} + 2${w2} middle terms when expanding.`, ["sprod"]);
+  }
+
+  return assemble(rng, b, {
+    promptText: buildPrompt(`${v1} · ${v2} is odd`),
+    goalStatement: `${v1} · ${v2} is odd.`,
+    givensText: `${v1} is odd and ${v2} is odd`,
+    domain: "number-property",
+    variant: "parity-product-odd",
+    skillTags: PARITY_SKILLS
+  });
+}
+
+function genParity(rng: Rng, opts: { mode: ParityMode; distractors: number }): GenResult {
+  if (opts.mode === "additive-even") return genParityAdditive(rng, true, opts.distractors);
+  if (opts.mode === "additive-odd") return genParityAdditive(rng, false, opts.distractors);
+  // product: mix even and odd product proofs for variety.
+  return genParityProduct(rng, rng.pick([true, false]), opts.distractors);
+}
+
+// ===== Domain 4: Geometry angle proofs (with a rendered diagram) =====
+
+const GEO_SKILLS = ["proof", "argument_structure", "geometry", "angles", "justification"];
+
+// Build the diagram for a two-crossing-lines configuration. `da` is the acute
+// crossing angle; the four regions in rotational order from the +x axis are
+// [da, 180−da, da, 180−da], so opposite regions are genuinely equal (vertical
+// angles) — consistent with the proof. `labels` names them in that order;
+// `givenIdx`/`targetIdx` pick which arcs are highlighted.
+function crossingDiagram(
+  da: number,
+  labels: string[],
+  givenIdx: number,
+  targetIdx: number
+): Diagram {
+  const V: Pt = { x: 220, y: 150 };
+  const halfLen = 140;
+  const dirs = [0, da, 180, normDeg(180 + da)];
+  const values = [da, 180 - da, da, 180 - da];
+  const segments: Seg[] = [fullLine(V, 0, halfLen), fullLine(V, da, halfLen)];
+  const angleMarks: AngleMark[] = values.map((v, i) => ({
+    vertex: V,
+    dir1: dirs[i],
+    value: v,
+    label: labels[i],
+    isTarget: i === targetIdx,
+    isGiven: i === givenIdx,
+    radius: 34
+  }));
+  return { width: 440, height: 300, segments, angleMarks };
+}
+
+// Vertical-angles proof. Two lines cross; opposite ("vertical") angles A and C
+// are proven equal. `measured` mode gives A a numeric measure and derives C's.
+function genGeometryVertical(rng: Rng, distractors: number): GenResult {
+  const b = new ProofBuilder();
+  const schemeIdx = rng.int(0, ANGLE_LABEL_SCHEMES.length - 1);
+  const scheme = ANGLE_LABEL_SCHEMES[schemeIdx];
+  const i0 = rng.pick([0, 1]); // 0 -> prove L0=L2 (middle L1); 1 -> prove L1=L3 (middle L2)
+  const A = scheme[i0];
+  const B = scheme[(i0 + 1) % 4];
+  const C = scheme[(i0 + 2) % 4];
+  const measured = rng.pick([true, false]);
+
+  // Diagram crossing angle. For measured mode it equals A's measure so the
+  // figure is literally to scale. For abstract mode it is derived
+  // deterministically from the (structural) scheme/pair choice rather than
+  // rolled independently, so structurally-identical puzzles serialize
+  // identically (see the dedup note in assemble()).
+  let m = 0;
+  let da: number;
+  if (measured) {
+    m = rng.int(25, 155);
+    if (m === 90) m = 91;
+    // A is region i0. Region 0 has value da; region 1 has value 180−da. Choose
+    // da so that A's drawn value equals m, keeping the figure to scale.
+    da = i0 === 0 ? m : 180 - m;
+  } else {
+    da = 42 + i0 * 9 + schemeIdx * 3; // deterministic acute angle in [42, 72]
+  }
+
+  b.given("g1", `${A} and ${B} form a linear pair (their outer sides lie on a straight line).`);
+  b.given("g2", `${B} and ${C} form a linear pair (their outer sides lie on a straight line).`);
+
+  if (measured) {
+    b.given("g3", `${A} = ${m}°.`);
+    b.step("s1", `${A} + ${B} = 180°.`, "Linear Pair Postulate (angles on a line sum to 180°).", ["g1"]);
+    b.step("s2", `${B} = ${180 - m}°.`, `Substitute ${A} = ${m}° into ${A} + ${B} = 180° and subtract.`, ["s1", "g3"]);
+    b.step("s3", `${B} + ${C} = 180°.`, "Linear Pair Postulate (angles on a line sum to 180°).", ["g2"]);
+    b.goal("goal", `${C} = ${m}°.`, `Substitute ${B} = ${180 - m}° into ${B} + ${C} = 180° and subtract.`, ["s3", "s2"]);
+
+    if (distractors >= 1) {
+      b.distractor(`${A} + ${C} = 180°.`, `Wrong pairing: ${A} and ${C} are vertical angles, not a linear pair.`, ["g1"]);
+    }
+    if (distractors >= 2) {
+      b.distractor(`${C} = ${180 - m}°.`, `Confused the vertical angle with its supplement.`, ["s2"]);
+    }
+  } else {
+    b.step("s1", `${A} + ${B} = 180°.`, "Linear Pair Postulate (angles on a line sum to 180°).", ["g1"]);
+    b.step("s2", `${B} + ${C} = 180°.`, "Linear Pair Postulate (angles on a line sum to 180°).", ["g2"]);
+    b.step("s3", `${A} + ${B} = ${B} + ${C}.`, "Both sums equal 180°, so set them equal (substitution).", ["s1", "s2"]);
+    b.goal("goal", `${A} = ${C}.`, `Subtract ${B} from both sides.`, ["s3"]);
+
+    if (distractors >= 1) {
+      b.distractor(`${A} + ${C} = 180°.`, `Wrong pairing: ${A} and ${C} are vertical angles, not a linear pair.`, ["g1"]);
+    }
+    if (distractors >= 2) {
+      b.distractor(`${A} = ${B}.`, "Adjacent angles in a linear pair are supplementary, not necessarily equal.", ["s1"]);
+    }
+  }
+
+  const givenIdx = i0; // A's region
+  const targetIdx = (i0 + 2) % 4; // C's region
+  const diagram = crossingDiagram(da, scheme, givenIdx, targetIdx);
+
+  const goalStatement = measured ? `${C} = ${m}°.` : `${A} = ${C}.`;
+  const givensText = measured
+    ? `two lines crossing so that ${A}=${m}°, with ${A}–${B} and ${B}–${C} forming linear pairs`
+    : `two lines crossing so that ${A}–${B} and ${B}–${C} are linear pairs`;
+
+  const arithmeticOk = !measured || (m > 0 && m < 180 && m !== 90 && 180 - m > 0);
+  const geomOk = Math.abs((da + (180 - da) + da + (180 - da)) - 360) < 1e-9 && diagramFinite(diagram);
+
+  const result = assemble(rng, b, {
+    promptText: buildPrompt(goalStatement, true),
+    goalStatement,
+    givensText,
+    domain: "geometry",
+    variant: measured ? "geometry-vertical-measured" : "geometry-vertical",
+    skillTags: GEO_SKILLS,
+    diagram
+  });
+  return { ...result, selfCheck: result.selfCheck && arithmeticOk && geomOk };
+}
+
+// Solve-for-x with a complementary/supplementary angle pair, plus a diagram of
+// the two adjacent angles.
+function genGeometrySolveX(rng: Rng, complementary: boolean, distractors: number): GenResult {
+  const b = new ProofBuilder();
   const total = complementary ? 90 : 180;
   const rel = complementary ? "complementary" : "supplementary";
   const relSum = complementary ? "90°" : "180°";
+  const [nA, nB] = rng.pick(ANGLE_PAIRS);
   const coeff = rng.int(2, 4);
-  // choose x so that coeff*x < total and (total - coeff*x) is a positive integer angle
-  const maxX = Math.floor((total - 5) / coeff);
-  const x = rng.int(3, Math.max(3, maxX));
-  const known = total - coeff * x; // measure of second angle
-  const safeKnown = known;
+  const maxX = Math.floor((total - 10) / coeff);
+  const xVal = rng.int(2, Math.max(2, maxX));
+  const realA = coeff * xVal;
+  const known = total - realA;
 
-  b.given("g1", `∠A and ∠B are ${rel} angles.`);
-  b.given("g2", `∠A = ${coeffTerm(coeff, "x")}°.`);
-  b.given("g3", `∠B = ${safeKnown}°.`);
-  b.step("s1", `∠A + ∠B = ${relSum}.`, `Definition of ${rel} angles.`, ["g1"]);
-  b.step("s2", `${coeffTerm(coeff, "x")} + ${safeKnown} = ${total}.`, "Substitute the given angle measures.", ["s1", "g2", "g3"]);
-  b.step("s3", `${coeffTerm(coeff, "x")} = ${total - safeKnown}.`, `Subtract ${safeKnown} from both sides.`, ["s2"]);
-  const xVal = (total - safeKnown) / coeff;
+  b.given("g1", `${nA} and ${nB} are ${rel} angles.`);
+  b.given("g2", `${nA} = ${coeffTerm(coeff, "x")}°.`);
+  b.given("g3", `${nB} = ${known}°.`);
+  b.step("s1", `${nA} + ${nB} = ${relSum}.`, `Definition of ${rel} angles.`, ["g1"]);
+  b.step("s2", `${coeffTerm(coeff, "x")} + ${known} = ${total}.`, "Substitute the given angle measures.", ["s1", "g2", "g3"]);
+  b.step("s3", `${coeffTerm(coeff, "x")} = ${total - known}.`, `Subtract ${known} from both sides.`, ["s2"]);
   b.goal("goal", `x = ${xVal}.`, `Divide both sides by ${coeff}.`, ["s3"]);
 
-  if (opts.distractors >= 1) {
-    b.distractor(`${coeffTerm(coeff, "x")} = ${total + safeKnown}.`, `Add ${safeKnown} to both sides.`, ["s2"]);
+  if (distractors >= 1) {
+    b.distractor(`${coeffTerm(coeff, "x")} = ${total + known}.`, `Add ${known} to both sides.`, ["s2"]);
   }
-  if (opts.distractors >= 2) {
-    b.distractor(`∠A + ∠B = ${complementary ? "180°" : "90°"}.`, `Mixed up ${rel} with the other relationship.`, ["g1"]);
+  if (distractors >= 2) {
+    b.distractor(`${nA} + ${nB} = ${complementary ? "180°" : "90°"}.`, `Mixed up ${rel} with the other relationship.`, ["g1"]);
   }
 
-  const validXVal = Number.isInteger(xVal) && xVal > 0 && safeKnown > 0 && safeKnown < total;
+  // Diagram: two adjacent angles at V. Supplementary -> a straight line split
+  // by one ray; complementary -> a right angle split by one ray.
+  const V: Pt = { x: 210, y: 205 };
+  const halfLen = 150;
+  const segments: Seg[] = complementary
+    ? [
+        { a: V, b: dirPoint(V, 0, halfLen) },
+        { a: V, b: dirPoint(V, 90, halfLen) },
+        { a: V, b: dirPoint(V, realA, halfLen) }
+      ]
+    : [fullLine(V, 0, halfLen), { a: V, b: dirPoint(V, realA, halfLen) }];
+  const angleMarks: AngleMark[] = [
+    { vertex: V, dir1: 0, value: realA, label: `${coeffTerm(coeff, "x")}°`, isTarget: true, isGiven: false, radius: 40 },
+    { vertex: V, dir1: realA, value: known, label: `${known}°`, isTarget: false, isGiven: true, radius: 40 }
+  ];
+  const diagram: Diagram = { width: 420, height: 260, segments, angleMarks };
+
+  const arithmeticOk =
+    Number.isInteger(xVal) && xVal > 0 && known > 0 && known < total && realA > 0 && realA < total;
+  const geomOk = diagramFinite(diagram);
 
   const result = assemble(rng, b, {
-    promptText: buildPrompt(`x = ${xVal}`),
+    promptText: buildPrompt(`x = ${xVal}`, true),
     goalStatement: `x = ${xVal}.`,
-    givensText: `∠A and ∠B are ${rel}, with ∠A = ${coeffTerm(coeff, "x")}° and ∠B = ${safeKnown}°`,
+    givensText: `${nA} and ${nB} are ${rel}, with ${nA} = ${coeffTerm(coeff, "x")}° and ${nB} = ${known}°`,
     domain: "geometry",
-    variant: `geometry-${opts.variant}`,
-    skillTags
+    variant: `geometry-${complementary ? "complement" : "supplement"}-x`,
+    skillTags: GEO_SKILLS,
+    diagram
   });
-  // fold arithmetic sanity into selfCheck
-  return { ...result, selfCheck: result.selfCheck && validXVal };
+  return { ...result, selfCheck: result.selfCheck && arithmeticOk && geomOk };
 }
 
-function buildPrompt(goal: string): string {
-  return `Assemble a valid proof of: ${goal}. Click the statement blocks in the correct order — start from the givens and add each statement only once every statement its justification depends on is already in your proof. Leave out any block whose reasoning does not actually follow.`;
+function genGeometry(rng: Rng, opts: { family: "vertical" | "solve-x"; distractors: number }): GenResult {
+  if (opts.family === "vertical") return genGeometryVertical(rng, opts.distractors);
+  return genGeometrySolveX(rng, rng.pick([true, false]), opts.distractors);
+}
+
+function buildPrompt(goal: string, withFigure = false): string {
+  const figure = withFigure
+    ? " Use the figure above to see how the angles are arranged."
+    : "";
+  return `Assemble a valid proof of: ${goal}. Click the statement blocks in the correct order — start from the givens and add each statement only once every statement its justification depends on is already in your proof. Leave out any block whose reasoning does not actually follow.${figure}`;
 }
 
 // ===== Difficulty dispatch =====
@@ -536,21 +818,22 @@ function generatePuzzleData(rng: Rng, difficulty: number): GenResult {
     case 3:
       return branch === 0
         ? genAlgebra(rng, { threeStep: true, distractors: 1 })
-        : genParity(rng, { variant: "sum-even", distractors: 1 });
+        : genParity(rng, { mode: "additive-even", distractors: 1 });
     case 4:
       return branch === 0
-        ? genParity(rng, { variant: rng.pick(["sum-odd", "sum-mixed"] as ParityVariant[]), distractors: 2 })
-        : genGeometry(rng, { variant: "vertical", distractors: 1 });
+        ? genParity(rng, { mode: "additive-odd", distractors: 2 })
+        : genGeometry(rng, { family: "vertical", distractors: 1 });
     case 5:
       return branch === 0
-        ? genGeometry(rng, { variant: rng.pick(["complement-x", "supplement-x"]) as "complement-x" | "supplement-x", distractors: 2 })
-        : genParity(rng, { variant: "product-even", distractors: 2 });
+        ? genGeometry(rng, { family: "solve-x", distractors: 2 })
+        : genParity(rng, { mode: "product", distractors: 2 });
     default:
       return branch === 0
-        ? genGeometry(rng, { variant: "vertical", distractors: 2 })
+        ? genGeometry(rng, { family: "vertical", distractors: 2 })
         : genAlgebra(rng, { threeStep: true, distractors: 2 });
   }
 }
+
 
 // ===== Hint ladder =====
 
@@ -628,7 +911,9 @@ export const proofBlocksPlugin: GameTypePlugin = {
         blocks: result.blocks,
         canonicalOrder: result.canonicalOrder,
         chain: result.chain,
-        selfCheck: result.selfCheck
+        selfCheck: result.selfCheck,
+        // Geometry-domain proofs carry a figure; other domains omit it.
+        ...(result.diagram ? { diagram: result.diagram } : {})
       },
       metadata: {
         // Independent steps (e.g. two "definition of even" lines) make several
@@ -719,6 +1004,16 @@ export const proofBlocksPlugin: GameTypePlugin = {
 
     if (candidate.data.selfCheck !== true) {
       issues.push({ code: "self_check_failed", message: "Generator self-check failed." });
+    }
+
+    // Geometry proofs must carry a well-formed diagram; other domains must not.
+    const diagram = candidate.data.diagram as Diagram | undefined;
+    if (candidate.data.domain === "geometry") {
+      if (!diagram || !diagramFinite(diagram)) {
+        issues.push({ code: "bad_diagram", message: "Geometry proof is missing a valid diagram." });
+      }
+    } else if (diagram) {
+      issues.push({ code: "unexpected_diagram", message: "Non-geometry proof should not carry a diagram." });
     }
 
     return { ok: issues.length === 0, issues };
