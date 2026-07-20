@@ -2058,47 +2058,280 @@ function renderAngleChase(puzzle) {
 
 // ===== End Angle Chase Studio =====
 
-// ===== Counting Lab =====
+// ===== Counting Lab (interactive count builder) =====
 
 function hideCountingLab() {
   if (!el.clZone) return;
   el.clZone.style.display = "none";
   if (el.clDiagram) el.clDiagram.innerHTML = "";
+  state.cl = null;
 }
 
-function clMakeSlot(label, count) {
-  const box = document.createElement("div");
-  box.className = "cl-slot";
-  const num = document.createElement("div");
-  num.className = "cl-slot-count";
-  num.textContent = String(count);
-  const lab = document.createElement("div");
-  lab.className = "cl-slot-label";
-  lab.textContent = label;
-  box.appendChild(num);
-  box.appendChild(lab);
-  return box;
+function clEl(tag, className, text) {
+  const node = document.createElement(tag);
+  if (className) node.className = className;
+  if (text != null) node.textContent = String(text);
+  return node;
 }
 
 function clMakeOp(symbol) {
-  const op = document.createElement("div");
-  op.className = "cl-op";
-  op.textContent = symbol;
-  return op;
+  return clEl("div", "cl-op", symbol);
 }
 
-function clRenderChainRow(slots, divideBy) {
-  const row = document.createElement("div");
-  row.className = "cl-chain-row";
-  (slots || []).forEach((slot, i) => {
-    if (i > 0) row.appendChild(clMakeOp("×"));
-    row.appendChild(clMakeSlot(slot.label, slot.count));
-  });
-  if (divideBy) {
-    row.appendChild(clMakeOp("÷"));
-    row.appendChild(clMakeSlot("remove extra orderings", divideBy));
+// Push the built total into the standard answer field so the player can Submit.
+function clDeliverTotal(total) {
+  if (!state.cl) return;
+  state.cl.total = total;
+  el.answer.value = String(total);
+  if (state.cl.finishEl) {
+    state.cl.finishEl.innerHTML = "";
+    state.cl.finishEl.appendChild(
+      clEl("div", "cl-finish-total", `Total count you built: ${total}`)
+    );
+    const btn = clEl("button", "cl-finish-btn", "Submit this count");
+    btn.type = "button";
+    btn.addEventListener("click", () => submitCurrent());
+    state.cl.finishEl.appendChild(btn);
+    state.cl.finishEl.appendChild(
+      clEl("div", "cl-finish-note", "It's now in the answer box below — press Submit here or there.")
+    );
   }
-  return row;
+  el.result.textContent = "Count built. Press Submit when you're ready.";
+}
+
+// One interactive "station": pick one option to lock this step's factor in.
+function clMakeStation(slot, onCommit) {
+  const station = clEl("div", "cl-station");
+  station.appendChild(clEl("div", "cl-slot-label", slot.label));
+  const badge = clEl("div", "cl-slot-count", `${slot.count} option${slot.count === 1 ? "" : "s"}`);
+  station.appendChild(badge);
+
+  const chipWrap = clEl("div", "cl-chips");
+  const options =
+    Array.isArray(slot.options) && slot.options.length === slot.count
+      ? slot.options
+      : Array.from({ length: slot.count }, (_, i) => `#${i + 1}`);
+
+  let committed = false;
+  options.forEach((label) => {
+    const chip = clEl("button", "cl-chip", label);
+    chip.type = "button";
+    chip.addEventListener("click", () => {
+      if (committed) return;
+      committed = true;
+      station.classList.add("cl-station-done");
+      for (const c of chipWrap.children) {
+        c.disabled = true;
+        if (c !== chip) c.classList.add("cl-chip-dim");
+      }
+      chip.classList.add("cl-chip-picked");
+      onCommit(slot.count);
+    });
+    chipWrap.appendChild(chip);
+  });
+  station.appendChild(chipWrap);
+  return station;
+}
+
+// Build an interactive chain (product of station factors, optional grouping ÷).
+function clRenderChain(container, diagram, onTotal) {
+  const slots = Array.isArray(diagram.slots) ? diagram.slots : [];
+  const committed = new Array(slots.length).fill(0);
+  const needsGrouping = diagram.grouping === true && (diagram.divideBy || 1) > 1;
+
+  const bench = clEl("div", "cl-chain-row");
+  const runEl = clEl("div", "cl-runtotal", "Pick one option in each slot to build the count.");
+
+  const product = () => committed.reduce((p, c) => (c ? p * c : p), 1);
+  const allDone = () => committed.every((c) => c > 0);
+
+  let finalized = false;
+  const groupWrap = clEl("div", "cl-grouping");
+
+  const showGroupingCard = () => {
+    const ordered = product();
+    groupWrap.innerHTML = "";
+    groupWrap.appendChild(
+      clEl(
+        "div",
+        "cl-grouping-q",
+        `You've counted ${ordered} builds in order. If two builds come out identical (same items, just picked in a different order), should they count as one, or as separate builds?`
+      )
+    );
+    const once = clEl("button", "cl-group-btn", `Count identical builds once (÷ ${diagram.divideBy})`);
+    once.type = "button";
+    once.addEventListener("click", () => {
+      if (finalized) return;
+      finalized = true;
+      const total = ordered / diagram.divideBy;
+      groupWrap.innerHTML = "";
+      groupWrap.appendChild(
+        clEl("div", "cl-grouping-q", `Right — divide out the duplicates: ${ordered} ÷ ${diagram.divideBy} = ${total}.`)
+      );
+      onTotal(total);
+    });
+    const separate = clEl("button", "cl-group-btn cl-group-btn-alt", "Count them as separate");
+    separate.type = "button";
+    separate.addEventListener("click", () => {
+      if (finalized) return;
+      el.result.textContent =
+        "Not here — the order you pick them in doesn't create a new result, so identical builds must be grouped. Divide out the repeats.";
+    });
+    groupWrap.appendChild(once);
+    groupWrap.appendChild(separate);
+  };
+
+  const update = () => {
+    const parts = committed.filter((c) => c > 0);
+    if (parts.length === 0) {
+      runEl.textContent = "Pick one option in each slot to build the count.";
+    } else {
+      const expr = parts.join(" × ");
+      runEl.textContent = allDone()
+        ? `Running product: ${expr} = ${product()}`
+        : `So far: ${expr}${parts.length < slots.length ? " × …" : ""} = ${product()}`;
+    }
+    if (allDone() && !finalized) {
+      if (needsGrouping) {
+        showGroupingCard();
+      } else {
+        finalized = true;
+        onTotal(product());
+      }
+    }
+  };
+
+  slots.forEach((slot, i) => {
+    if (i > 0) bench.appendChild(clMakeOp("×"));
+    bench.appendChild(
+      clMakeStation(slot, (factor) => {
+        committed[i] = factor;
+        update();
+      })
+    );
+  });
+
+  container.appendChild(bench);
+  container.appendChild(runEl);
+  if (needsGrouping) container.appendChild(groupWrap);
+}
+
+// Interactive cases: build each case chain, then sum the case values.
+function clRenderCases(container, diagram, onTotal) {
+  const cases = Array.isArray(diagram.cases) ? diagram.cases : [];
+  const values = new Array(cases.length).fill(null);
+  const row = clEl("div", "cl-cases-row");
+  const runEl = clEl("div", "cl-runtotal", "Build each case, then the cases add together.");
+
+  const update = () => {
+    const done = values.filter((v) => v != null);
+    if (done.length === cases.length) {
+      const total = done.reduce((a, b) => a + b, 0);
+      runEl.textContent = `Sum of cases: ${done.join(" + ")} = ${total}`;
+      onTotal(total);
+    } else if (done.length > 0) {
+      runEl.textContent = `Cases built so far: ${done.join(" + ")} (+ …)`;
+    }
+  };
+
+  cases.forEach((caseSpec, ci) => {
+    if (ci > 0) row.appendChild(clMakeOp("+"));
+    const caseBox = clEl("div", "cl-case");
+    caseBox.appendChild(clEl("div", "cl-case-label", caseSpec.label));
+    // Each case is its own mini chain that reports its product.
+    clRenderChain(
+      caseBox,
+      { kind: "chain", slots: caseSpec.slots, result: caseSpec.value },
+      (val) => {
+        values[ci] = val;
+        caseBox.classList.add("cl-case-done");
+        update();
+      }
+    );
+    row.appendChild(caseBox);
+  });
+
+  container.appendChild(row);
+  container.appendChild(runEl);
+}
+
+// Interactive pigeonhole: construct the worst case one item at a time.
+function clRenderPigeonhole(container, diagram, onTotal) {
+  const C = diagram.categories || 0;
+  const M = diagram.guaranteeCount || 2;
+  const perColor = M - 1;
+  const labels = Array.isArray(diagram.categoryLabels) ? diagram.categoryLabels : [];
+  const noun = diagram.itemNoun || "items";
+  const counts = new Array(C).fill(0);
+  let plusOne = false;
+
+  const row = clEl("div", "cl-pigeonhole-row");
+  const runEl = clEl(
+    "div",
+    "cl-runtotal",
+    `Build the worst luck: add ${noun} without ever reaching ${M} of one color. Tap a color to add one.`
+  );
+  const finishWrap = clEl("div", "cl-grouping");
+
+  const total = () => counts.reduce((a, b) => a + b, 0) + (plusOne ? 1 : 0);
+  const worstFull = () => counts.every((c) => c >= perColor);
+
+  const bins = [];
+  const refresh = () => {
+    bins.forEach((bin, i) => {
+      bin.dot.textContent = "●".repeat(counts[i]) || "—";
+      bin.count.textContent = `${counts[i]} / ${perColor}`;
+    });
+    if (worstFull() && !plusOne) {
+      runEl.textContent = `Worst case reached: ${perColor} × ${C} = ${perColor * C} ${noun}, still no color at ${M}.`;
+      if (!finishWrap.dataset.shown) {
+        finishWrap.dataset.shown = "1";
+        const btn = clEl("button", "cl-group-btn", `Draw one more ${noun.replace(/s$/, "")} (forces a match!)`);
+        btn.type = "button";
+        btn.addEventListener("click", () => {
+          if (plusOne) return;
+          plusOne = true;
+          finishWrap.innerHTML = "";
+          finishWrap.appendChild(
+            clEl("div", "cl-grouping-q", `That ${noun.replace(/s$/, "")} must repeat a color: ${perColor * C} + 1 = ${total()}.`)
+          );
+          onTotal(total());
+        });
+        finishWrap.appendChild(btn);
+      }
+    } else if (!plusOne) {
+      runEl.textContent = `Placed ${counts.reduce((a, b) => a + b, 0)} ${noun}. Keep filling each color to ${perColor} to build the worst case.`;
+    }
+  };
+
+  for (let i = 0; i < C; i++) {
+    const bin = clEl("button", "cl-hole");
+    bin.type = "button";
+    const name = clEl("div", "cl-hole-name", labels[i] || `color ${i + 1}`);
+    const dot = clEl("div", "cl-hole-dots", "—");
+    const cnt = clEl("div", "cl-hole-count", `0 / ${perColor}`);
+    bin.appendChild(name);
+    bin.appendChild(dot);
+    bin.appendChild(cnt);
+    bin.addEventListener("click", () => {
+      if (plusOne) return;
+      if (counts[i] >= perColor) {
+        el.result.textContent = `That would give you ${M} of one color — the worst case stops at ${perColor} each.`;
+        bin.classList.add("cl-hole-flash");
+        setTimeout(() => bin.classList.remove("cl-hole-flash"), 260);
+        return;
+      }
+      counts[i] += 1;
+      refresh();
+    });
+    bins.push({ node: bin, dot, count: cnt });
+    row.appendChild(bin);
+  }
+
+  container.appendChild(row);
+  container.appendChild(runEl);
+  container.appendChild(finishWrap);
+  refresh();
 }
 
 function renderCountingLab(puzzle) {
@@ -2111,38 +2344,19 @@ function renderCountingLab(puzzle) {
   container.innerHTML = "";
   if (!diagram) return;
 
+  const finishEl = clEl("div", "cl-finish");
+  state.cl = { total: null, finishEl };
+
+  const onTotal = (total) => clDeliverTotal(total);
+
   if (diagram.kind === "chain") {
-    container.appendChild(clRenderChainRow(diagram.slots, diagram.divideBy));
+    clRenderChain(container, diagram, onTotal);
   } else if (diagram.kind === "cases") {
-    const row = document.createElement("div");
-    row.className = "cl-cases-row";
-    (diagram.cases || []).forEach((caseSpec, ci) => {
-      if (ci > 0) row.appendChild(clMakeOp("+"));
-      const caseBox = document.createElement("div");
-      caseBox.className = "cl-case";
-      const caseLabel = document.createElement("div");
-      caseLabel.className = "cl-case-label";
-      caseLabel.textContent = caseSpec.label;
-      caseBox.appendChild(caseLabel);
-      caseBox.appendChild(clRenderChainRow(caseSpec.slots));
-      row.appendChild(caseBox);
-    });
-    container.appendChild(row);
+    clRenderCases(container, diagram, onTotal);
   } else if (diagram.kind === "pigeonhole") {
-    const row = document.createElement("div");
-    row.className = "cl-pigeonhole-row";
-    for (let i = 0; i < (diagram.categories || 0); i++) {
-      const hole = document.createElement("div");
-      hole.className = "cl-hole";
-      hole.textContent = `color ${i + 1}`;
-      row.appendChild(hole);
-    }
-    container.appendChild(row);
-    const note = document.createElement("div");
-    note.className = "cl-pigeonhole-note";
-    note.textContent = `Goal: guarantee ${diagram.guaranteeCount} socks of the same color.`;
-    container.appendChild(note);
+    clRenderPigeonhole(container, diagram, onTotal);
   }
+  container.appendChild(finishEl);
 }
 
 // ===== End Counting Lab =====

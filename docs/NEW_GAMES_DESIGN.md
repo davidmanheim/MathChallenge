@@ -632,22 +632,31 @@ directly from that chain rather than hand-written per puzzle.
 
 ### Concept
 A concrete, countable scenario (an outfit combo, a shelf of books, a club
-election, a committee, a security code, a sock drawer, ...) is generated
-from one of nine scenario templates spanning seven counting-principle
-families: the multiplication counting principle, permutations (full and
-partial), combinations, counting principles with restrictions (no-repeat,
+election, a committee, a security code, a build-your-own pizza, a round
+table, a scrambled word, a sock drawer, ...) is generated from one of
+**thirteen** scenario templates spanning ten counting-principle families:
+the multiplication counting principle (with and without repetition allowed),
+permutations (full and partial), combinations, counting subsets (each item
+in-or-out → 2ⁿ), circular permutations, multiset arrangements (words with
+repeated letters), counting principles with restrictions (no-repeat,
 must-include, adjacency), casework (summing disjoint cases), and an intro
-flavor of the pigeonhole principle. A slot/case/pigeonhole diagram shows the
-scenario's raw structure (choice counts per step, or per-case category
-sizes, or category count) — never the computed answer — so the player can
-see *why* the counting principle applies, not just look up a formula. The
-player enters the single integer total count.
+flavor of the pigeonhole principle. Each template draws from several themed
+word banks and wide numeric ranges, so every difficulty level yields dozens
+of genuinely distinct problems and a full 12-puzzle set never repeats.
+
+Rather than reading the scenario and typing a number, the player **builds the
+count on an interactive bench**: filling each choice "slot" by picking an
+option, watching the running product/sum grow, making the "does order matter?"
+decision physical, or constructing the pigeonhole worst case one item at a
+time. The slot/case/pigeonhole structure shows *why* the counting principle
+applies (never pre-showing the answer); the player's construction produces
+the total, which drops into the answer box for submission.
 
 ### Rules
 1. Every scenario names concrete, distinct items (people, books, letters,
    digits, toppings, ...) drawn from small themed word banks, never bare
    variables.
-2. Exactly one of the seven principle families listed above applies to any
+2. Exactly one of the ten principle families listed above applies to any
    given puzzle; the diagram and hint ladder are keyed to that family so the
    support a player gets is technique-specific (e.g. a combination puzzle's
    first hint asks "does order matter here?", not a generic nudge).
@@ -664,20 +673,29 @@ player enters the single integer total count.
 
 ### Difficulty Scaling
 
-| Difficulty | Grade | Principle Family (2 variants per tier, chosen at random) | Steps/Cases | Notes |
+Each tier offers **three** variant templates, chosen at random by the seeded
+RNG; every template samples a themed word bank and wide numeric ranges, so a
+tier yields dozens of distinct structures (measured ~27-154 distinct
+variant+diagram structures per tier over 800 seeds, and far more once themed
+item names are counted).
+
+| Difficulty | Grade | Principle Family (3 variants per tier, chosen at random) | Steps/Cases | Notes |
 |------------|-------|------------------------------------------------------------|--------------|-------|
-| 1          | 6     | Multiplication principle, 2 independent slots; multiplication principle, 3 independent slots | 1 | Pure "multiply independent choice counts," no restriction |
-| 2          | 6-7   | Full permutation of 3-6 distinct items in a row (`N!`); multiplication principle, 3 slots with wider counts | 1 | Introduces the permutation-of-everything idea |
-| 3          | 7     | Counting principle with a no-repeat restriction (letters, then independent repeatable digits); partial permutation — choose and arrange K of N (`P(N,K)`) | 1-2 | First restriction; first "choose which K, in order" |
-| 4          | 7-8   | Combination — choose K of N, order doesn't matter (`C(N,K)`, contrasted explicitly against permutation); restricted combination — a specific item must be included (`C(N-1,K-1)`) | 2 | Combination debut; must-include restriction |
-| 5          | 8     | Restricted permutation — a specific pair must stand adjacent (`2·(N-1)!`); harder combination (wider N, K range) | 2 | Adjacency restriction via "block" trick |
-| 6          | 8-9   | Casework — split into 2 disjoint cases (by sub-group composition) and sum; pigeonhole principle intro — smallest pull to guarantee a match (`(M-1)·C + 1`) | 2-3 cases/steps | Longest reasoning chains; newest principle (pigeonhole) |
+| 1          | 6     | Multiplication principle: 2 independent slots; 3 independent slots; 2 slots with wider counts (9 themed contexts) | 1 | Pure "multiply independent choice counts," no restriction |
+| 2          | 6-7   | Full permutation of 3-6 distinct items in a row (`N!`, 5 contexts); multiplication, 3 slots, wider counts; strings **with repetition** allowed (`A^L`) | 1 | Permutation-of-everything vs. repeat-allowed multiplication |
+| 3          | 7     | No-repeat restriction (letters, then repeatable digits); partial permutation — choose and arrange K of N (`P(N,K)`, 3 contexts); counting **subsets** (each item in/out → `2^T`) | 1-2 | First restriction; first "choose which K, in order"; subsets |
+| 4          | 7-8   | Combination — choose K of N, order doesn't matter (`C(N,K)`, 4 contexts); must-include restriction (`C(N-1,K-1)`); harder subsets (`2^T`, T up to 8) | 2 | Combination debut; must-include; subsets scale-up |
+| 5          | 8     | Restricted permutation — a pair must stand adjacent (`2·(N-1)!`); harder combination (wider N,K); **circular** permutation (`(N-1)!`) | 2 | Adjacency via "block" trick; rotations-are-equal |
+| 6          | 8-9   | Casework — 2 disjoint cases summed (3 group themes); pigeonhole intro (`(M-1)·C + 1`, 4 item themes, M up to 4); **multiset** word arrangements (`n!/∏rₖ!`) | 2-3 cases/steps | Longest chains; pigeonhole; repeated-letter division |
 
 ### Generation Algorithm
-1. Pick one of the two principle-family templates for the requested
-   difficulty and flip a coin (via the seeded RNG) between its two variants,
-   exactly as `angleChaseStudio` dispatches between two theorem-family
-   templates per tier.
+1. Pick one of the three variant templates registered for the requested
+   difficulty (via `TIER_GENERATORS[d]`), chosen uniformly at random by the
+   seeded RNG, then pick a themed word bank for that template. Themes are
+   selected pool-size-aware (`pickWithPool`) so a scenario never lists fewer
+   concrete items than the count it claims, and the chosen theme key is baked
+   into the puzzle `variant` string so themed variants are counted as
+   genuinely distinct problems by the server's `JSON.stringify(data)` dedup.
 2. Build the scenario's ground truth directly from small integer ranges
    chosen so every downstream constraint is automatically satisfiable — no
    retry loop is needed (unlike `angleChaseStudio`'s continuous geometry,
@@ -726,27 +744,53 @@ since these are exact counts).
   notebook page, contrasting with Angle Chase Studio's indigo "blueprint"
   theme. Slot boxes render as rounded "beaker" shapes in teal with glowing
   amber operator symbols (`×`, `÷`, `+`) between them.
-- **Rendering:** A DOM-based (non-SVG) diagram is built client-side from the
-  structured `puzzle.data.diagram` payload. Because every template emits one
-  of three generic shapes (`chain`, `cases`, `pigeonhole`), the frontend
-  needs only one renderer per shape, not one per scenario template — the
-  same "generic payload, generic renderer" pattern `angleChaseStudio` uses
-  for its SVG diagram, just rendered as styled `<div>`s instead of an SVG,
-  since a slot/case row doesn't need true geometric drawing.
-- **Interaction:** The player reads the scenario and diagram, then types the
-  integer answer into the existing generic answer field and presses Submit
-  (or Enter) — matching the platform's standard pattern rather than
-  introducing a new input widget.
-- **Legend:** A short caption under the diagram reminds the player the
-  diagram shows the scenario's structure (the numbers to combine), not the
-  final count — they still have to do the multiply/divide/sum themselves.
+- **Rendering:** A DOM-based (non-SVG) *interactive* bench is built
+  client-side from the structured `puzzle.data.diagram` payload. Because every
+  template emits one of three generic shapes (`chain`, `cases`, `pigeonhole`),
+  the frontend needs only one interactive builder per shape, not one per
+  scenario template. Each chain `slot` optionally carries an `options: string[]`
+  array (real item names for multiplication/subset/repeat-string slots);
+  slots without it render generic numbered option chips equal to the slot's
+  count. The chain builder is reused inside the cases builder (each case is a
+  mini chain reporting its product).
+- **Interaction (the "count builder"):** The player actively *constructs* the
+  count instead of only typing it:
+  - **Chain (multiplication, permutations, combinations, restrictions,
+    subsets, circular, repeat-strings):** left-to-right "stations", one per
+    slot, each showing its option chips and a "N options" badge. Tapping one
+    chip locks that station's factor into a live **running product**
+    (`3 × 4 = 12 so far`), making the multiplication principle something you
+    manipulate. Shrinking pools (permutations) show as decreasing chip counts.
+  - **The "does order matter?" decision is physical:** for grouping templates
+    (combinations, must-include, multiset) a card appears after the ordered
+    product is built — *"if two builds come out identical, count them once or
+    separately?"* Choosing **"count once (÷ k)"** divides out the overcount
+    and finalizes; choosing "separately" gives corrective feedback and does
+    **not** finalize. This turns permutation-vs-combination into an action.
+  - **Cases:** each disjoint case is its own mini-chain bench; the player
+    builds each, and a running **sum** adds them (`10 + 6 = 16`).
+  - **Pigeonhole:** the player constructs the **worst case** one item at a
+    time, tapping color bins (each capped at `M-1`; over-filling is refused
+    with a nudge). Once every bin holds `M-1`, a highlighted *"draw one more —
+    forces a match!"* button adds the guaranteeing `+1`.
+  The interaction never auto-computes the answer out of thin air: nothing
+  appears until the player builds it, and a running partial count is the only
+  scaffolding. When the build completes, the total drops into the standard
+  answer field and a "Submit this count" button appears (the standard answer
+  row, with Hint, stays available), reusing the platform's normal
+  submit/grade path (`gradeAnswer` still checks an exact comma/whitespace-
+  tolerant integer).
+- **Legend:** A short caption tells the player to build the count by picking an
+  option in each slot (or filling the bins) and watching the running total, and
+  that finishing drops the total into the answer box.
 - **Auto-advance:** On a correct answer, the standard reinforcement message
   plays and the set advances to the next puzzle, consistent with every other
   game type.
 
 ### Skill Tags
 `combinatorics`, `counting_principle`, `multiplication_principle`,
-`permutations`, `factorial`, `combinations`, `no_repeat`, `must_include`,
+`permutations`, `factorial`, `combinations`, `subsets`, `with_repetition`,
+`circular_permutation`, `multiset_permutation`, `no_repeat`, `must_include`,
 `adjacency_restriction`, `casework`, `pigeonhole_principle`
 
 ### Hints

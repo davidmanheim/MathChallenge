@@ -1454,16 +1454,26 @@ label[for="difficulty"] {
 .cl-hole {
   background: #0a2e25;
   border: 2px solid #5eead4;
-  border-radius: 50%;
-  width: 64px;
-  height: 64px;
+  border-radius: 14px;
+  min-width: 78px;
+  padding: 8px 6px;
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: center;
+  gap: 4px;
   font-size: 0.65rem;
   text-align: center;
   color: #a7f3d0;
+  cursor: pointer;
+  transition: transform 0.08s ease, box-shadow 0.15s ease;
 }
+.cl-hole:hover { box-shadow: 0 0 10px rgba(94, 234, 212, 0.4); }
+.cl-hole:active { transform: scale(0.96); }
+.cl-hole-name { font-weight: 700; color: #a7f3d0; }
+.cl-hole-dots { font-size: 0.9rem; color: #5eead4; letter-spacing: 1px; min-height: 1em; }
+.cl-hole-count { color: #fde68a; font-weight: 700; }
+.cl-hole-flash { animation: cl-flash 0.26s ease; border-color: #fca5a5; }
+@keyframes cl-flash { 0%, 100% { background: #0a2e25; } 50% { background: #4c1d1d; } }
 
 .cl-pigeonhole-note {
   font-size: 0.85rem;
@@ -1478,6 +1488,114 @@ label[for="difficulty"] {
   text-align: center;
   max-width: 420px;
 }
+
+/* Interactive count builder */
+.cl-station {
+  background: radial-gradient(circle at 30% 20%, #134e3f 0%, #0a2e25 100%);
+  border: 2px solid #2dd4bf;
+  border-radius: 10px 10px 16px 16px;
+  min-width: 92px;
+  max-width: 150px;
+  padding: 8px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  box-shadow: 0 0 8px rgba(45, 212, 191, 0.2);
+}
+.cl-station-done {
+  border-color: #fbbf24;
+  box-shadow: 0 0 12px rgba(251, 191, 36, 0.45);
+}
+.cl-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  justify-content: center;
+}
+.cl-chip {
+  background: #0a2e25;
+  border: 1px solid #34d399;
+  color: #d1fae5;
+  border-radius: 999px;
+  padding: 3px 8px;
+  font-size: 0.72rem;
+  cursor: pointer;
+  transition: transform 0.08s ease, background 0.12s ease;
+}
+.cl-chip:hover { background: #145a49; }
+.cl-chip:active { transform: scale(0.94); }
+.cl-chip-picked {
+  background: #fbbf24;
+  color: #0a2e25;
+  border-color: #fbbf24;
+  font-weight: 800;
+}
+.cl-chip-dim { opacity: 0.35; }
+.cl-chip:disabled { cursor: default; }
+
+.cl-runtotal {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #fde68a;
+  text-align: center;
+  background: rgba(10, 46, 37, 0.7);
+  border-radius: 8px;
+  padding: 8px 12px;
+  min-width: 240px;
+}
+
+.cl-grouping {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  max-width: 460px;
+}
+.cl-grouping-q {
+  font-size: 0.85rem;
+  color: #d1fae5;
+  text-align: center;
+}
+.cl-group-btn {
+  background: #0d9488;
+  color: #ecfeff;
+  border: none;
+  border-radius: 999px;
+  padding: 8px 16px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.cl-group-btn:hover { background: #0f766e; }
+.cl-group-btn-alt { background: #334155; }
+.cl-group-btn-alt:hover { background: #475569; }
+
+.cl-case-done .cl-case-label { color: #fbbf24; }
+
+.cl-finish {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+.cl-finish-total {
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: #5eead4;
+}
+.cl-finish-btn {
+  background: #f59e0b;
+  color: #0a2e25;
+  border: none;
+  border-radius: 999px;
+  padding: 9px 22px;
+  font-size: 0.95rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+.cl-finish-btn:hover { background: #fbbf24; }
+.cl-finish-note { font-size: 0.75rem; color: #a7f3d0; }
 
 /* ===== Proof Blocks ===== */
 .pb-zone {
