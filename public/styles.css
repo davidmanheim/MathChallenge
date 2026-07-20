@@ -1313,6 +1313,12 @@ label[for="difficulty"] {
   stroke-linecap: round;
 }
 
+.acs-circle {
+  fill: none;
+  stroke: #64748b;
+  stroke-width: 2;
+}
+
 .acs-arc {
   fill: none;
   stroke: rgba(203, 213, 245, 0.28);

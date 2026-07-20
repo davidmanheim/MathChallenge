@@ -484,9 +484,12 @@ algebra-chasing.
 ### Concept
 A static SVG diagram shows a geometric figure (a line split by rays, two
 crossing lines, a triangle, two parallel lines cut by a transversal, a
-polygon, or, at the hardest tiers, a composite figure such as an isosceles
+polygon, at the hardest triangle tiers a composite figure such as an isosceles
 triangle with an exterior angle, two triangles sharing an angle-bisected
-cevian, or a triangle sitting on one of two parallel lines) with some
+cevian, or a triangle sitting on one of two parallel lines, and — in the
+circle-geometry strand at tiers 9-10 — a circle carrying inscribed/central
+angles, a semicircle, a cyclic quadrilateral, a tangent line, or a
+circle-plus-triangle / square-plus-triangle composite) with some
 angles labeled with their degree measure and exactly one angle marked with
 "?". The player enters the numeric degree measure of the marked angle.
 Unlike a pure answer-fetching drill, every puzzle carries an explicit
@@ -521,6 +524,8 @@ the actual proof reasoning rather than just revealing the number.
 | 6          | 8-9   | Parallel lines hardest chain (3 hops); polygon interior angle sum `(n−2)×180°`, n = 5-8 | 2-3 | Longest chains; newest theorem (polygons) |
 | 7          | 8-10  | Isosceles triangle + exterior angle (linear pair → isosceles base angles → triangle sum); triangle sitting on one of two parallel lines (alternate angles → triangle sum) | 2-3 | First composite figures: a new theorem (isosceles base angles) combined with an existing one, and a new figure shape (triangle spanning two parallel lines) that doesn't appear at any earlier tier |
 | 8          | 9-10  | Angle bisector splitting a triangle into two triangles that share a cevian (triangle sum → linear pair → angle-bisector equality → triangle sum); isosceles triangle whose two base angles are given as two *different-looking* algebraic expressions that must be set equal and solved before an optional final triangle-sum hop | 3-4 | Deepest chains: multi-triangle composites and a genuine two-expression equation (not a single substitution) — pitched at strong grades 8-10 kids heading toward AMC/AIME-style angle chasing |
+| 9          | 9-10  | **Circle geometry — direct single theorem** (3 families, chosen at random): inscribed-angle theorem / central = 2 × inscribed (given either, find the other); angle in a semicircle / Thales (angle on a diameter = 90°, optionally + triangle sum for the other acute angle); cyclic-quadrilateral opposite angles sum to 180° | 1-2 | First circle theorems; a circle primitive is drawn behind the figure. Points on the circle are labeled `A`, `B`, `C`, `D`, `P`; the centre is `O` |
+| 10         | 9-10  | **Circle & multi-shape composites** (3 families, chosen at random): triangle inscribed in a circle with two radii drawn — inscribed-angle theorem → triangle sum; tangent–chord (alternate-segment) angle on an inscribed triangle → triangle sum; a square with an isosceles-looking triangle built on one side — triangle sum → square's 90° corner → adjacent-angle addition | 2-3 | Genuine multi-shape interactions: circle + inscribed triangle, tangent line + inscribed triangle, and square + triangle (a real interaction between two different shapes, not just more triangles) |
 
 ### Generation Algorithm
 1. Pick a template pair for the requested difficulty and flip a coin (via
@@ -571,6 +576,29 @@ the actual proof reasoning rather than just revealing the number.
    between them is exact integer arithmetic (verified independently by
    direct direction/coordinate computation during development, not just
    by the generator's own self-check).
+9. Difficulty 9-10's **circle-geometry strand** places every point on the
+   circle by direction (`dirPoint(O, θ, R)`) so the theorem-claimed angles are
+   the *actual drawn* angles: e.g. a triangle inscribed with interior angles
+   `A, B, C` is built by walking arcs of `2C`, `2A`, `2B` around the circle
+   (the arc opposite each vertex equals twice that vertex's angle), which makes
+   the central angle on a side exactly twice the opposite inscribed angle by
+   construction. Inscribed/central figures pin the inscribed angle at `γ/2`
+   (central `γ` chosen even); Thales places the diameter's ends
+   diametrically opposite through `O`; cyclic quads choose four even arc
+   measures summing to 360° so every interior angle is a half-integer-free
+   integer and opposite pairs sum to 180° automatically; the tangent is drawn
+   perpendicular to the radius at the point of contact and its
+   alternate-segment angle read straight off the geometry. Each circle
+   generator's `selfCheck` **re-derives every marked angle from the raw
+   coordinates** with a generic `angleAt(vertex, p1, p2)` helper (an
+   independent path from the theorem arithmetic stored in the chain) and
+   confirms all points, labels, and the circle's bounding box sit inside the
+   viewBox — catching the class of bug where `solve()` and the chain agree but
+   are both wrong. The multi-shape composites (circle + inscribed triangle,
+   tangent + inscribed triangle, square + triangle) compose two shapes'
+   theorems: the square generator builds the triangle with `triangleApex()` on
+   the shared side and reaches the target by adding the square's 90° corner to
+   a triangle base angle.
 
 ### Per-tier Variety
 
@@ -588,7 +616,13 @@ so the answer and the deduction chain are unaffected while the figure's
 orientation varies freely from puzzle to puzzle. Triangle-based templates
 already vary orientation naturally through their apex position. Triangle apex
 positions are clamped to the drawable area (with a retry-then-fallback loop)
-so no vertex, arc, or label ever leaves the SVG viewBox.
+so no vertex, arc, or label ever leaves the SVG viewBox. The tier 9-10 circle
+figures vary by a random overall rotation of the whole configuration around the
+centre, the chosen angle values, which point is the target (e.g. inscribed vs.
+central, which opposite vertex of the cyclic quad, which triangle angle), and
+the sub-variant (find inscribed vs. find central; name the right angle vs. the
+other acute angle), so a full 12-puzzle set at difficulty 9 and at 10 each comes
+back 12/12 distinct.
 
 ### Point / Vertex Labels
 
@@ -621,7 +655,13 @@ A single number of degrees, e.g. `70` or `70°` (the grader strips `°`,
   degree labels) is rendered client-side from the structured
   `puzzle.data.diagram` payload — no per-template drawing code is needed in
   the frontend, since every template emits the same generic
-  `{segments, angleMarks}` shape.
+  `{segments, angleMarks, pointLabels?, circles?}` shape. The diagram model
+  carries an optional `circles: [{ cx, cy, r }]` array (added for the tier
+  9-10 circle-geometry strand); the renderer draws each circle **first**, with
+  the same `acs-*` stroke language as the segments, so chords, radii, tangents,
+  arcs, and point letters sit on top of the circle outline. Points lying on a
+  circle are labeled through the existing `pointLabels` mechanism (pushed
+  radially outward from the centre so they never sit on a chord).
 - **Interaction:** The player reads the diagram and types the numeric
   answer into the existing generic answer field, then presses Submit (or
   Enter) — matching the platform's standard "diagram + numeric entry"
@@ -637,7 +677,9 @@ A single number of degrees, e.g. `70` or `70°` (the grader strips `°`,
 `angles_on_a_line`, `angles_around_a_point`, `triangle_angle_sum`,
 `exterior_angle_theorem`, `parallel_lines`, `corresponding_angles`,
 `alternate_angles`, `co_interior_angles`, `polygon_angle_sum`, `algebra`,
-`equations`, `isosceles_triangle`, `angle_bisector`
+`equations`, `isosceles_triangle`, `angle_bisector`, `circle_theorems`,
+`inscribed_angle`, `thales`, `cyclic_quadrilateral`, `tangent`,
+`alternate_segment`, `square`
 
 ### Hints
 The hint ladder is generated directly from the puzzle's recorded deduction
