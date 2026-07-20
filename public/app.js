@@ -114,6 +114,8 @@ const el = {
   // Proof Blocks
   pbZone: document.getElementById("proofBlocksZone"),
   pbGoal: document.getElementById("proofBlocksGoal"),
+  pbDiagram: document.getElementById("proofBlocksDiagram"),
+  pbSvg: document.getElementById("proofBlocksSvg"),
   pbBank: document.getElementById("proofBlocksBank"),
   pbProof: document.getElementById("proofBlocksProof"),
   pbCheckBtn: document.getElementById("proofBlocksCheckBtn"),
@@ -2151,6 +2153,8 @@ function hideProofBlocks() {
   if (!el.pbZone) return;
   el.pbZone.style.display = "none";
   if (el.pbGoal) el.pbGoal.textContent = "";
+  if (el.pbDiagram) el.pbDiagram.style.display = "none";
+  if (el.pbSvg) el.pbSvg.innerHTML = "";
   if (el.pbBank) el.pbBank.innerHTML = "";
   if (el.pbProof) el.pbProof.innerHTML = "";
   if (el.pbBanner) el.pbBanner.textContent = "";
@@ -2163,6 +2167,97 @@ function pbKindLabel(kind) {
   return "Statement";
 }
 
+// Deterministic per-puzzle shuffle so the block bank is scrambled for the
+// player while the served puzzle data stays a pure function of its structure
+// (which lets the server dedup structurally-identical puzzles). Seeded by the
+// puzzle seed so re-renders of the same puzzle keep a stable order.
+function pbSeededShuffle(arr, seed) {
+  const a = arr.slice();
+  let s = (Number(seed) ^ 0x9e3779b9) >>> 0;
+  for (let i = a.length - 1; i > 0; i--) {
+    s = (Math.imul(s, 1103515245) + 12345) >>> 0;
+    const j = (s >>> 8) % (i + 1);
+    const t = a[i];
+    a[i] = a[j];
+    a[j] = t;
+  }
+  return a;
+}
+
+// Draw a geometry proof's figure into the Proof Blocks SVG, reusing Angle Chase
+// Studio's diagram model (segments + arc angle marks) and its acs- stroke
+// classes so the two games render angles the same way.
+function pbDrawAngleDiagram(svg, diagram) {
+  const ns = "http://www.w3.org/2000/svg";
+  svg.setAttribute("viewBox", `0 0 ${diagram.width} ${diagram.height}`);
+  svg.innerHTML = "";
+
+  for (const seg of diagram.segments || []) {
+    const line = document.createElementNS(ns, "line");
+    line.setAttribute("x1", seg.a.x);
+    line.setAttribute("y1", seg.a.y);
+    line.setAttribute("x2", seg.b.x);
+    line.setAttribute("y2", seg.b.y);
+    line.setAttribute("class", "acs-line");
+    svg.appendChild(line);
+  }
+
+  const vertexKeys = new Set();
+  for (const seg of diagram.segments || []) {
+    for (const p of [seg.a, seg.b]) {
+      vertexKeys.add(`${Math.round(p.x)},${Math.round(p.y)}`);
+    }
+  }
+
+  for (const mark of diagram.angleMarks || []) {
+    const steps = Math.max(2, Math.min(48, Math.round(Math.abs(mark.value) / 6)));
+    const pts = [];
+    for (let i = 0; i <= steps; i++) {
+      const t = mark.dir1 + (mark.value * i) / steps;
+      const rad = (t * Math.PI) / 180;
+      const x = mark.vertex.x + mark.radius * Math.cos(rad);
+      const y = mark.vertex.y - mark.radius * Math.sin(rad);
+      pts.push(`${x.toFixed(1)},${y.toFixed(1)}`);
+    }
+    const poly = document.createElementNS(ns, "polyline");
+    poly.setAttribute("points", pts.join(" "));
+    poly.setAttribute(
+      "class",
+      mark.isTarget ? "acs-arc-target" : mark.isGiven ? "acs-arc-given" : "acs-arc"
+    );
+    svg.appendChild(poly);
+
+    if (mark.label) {
+      const midDeg = mark.dir1 + mark.value / 2;
+      const midRad = (midDeg * Math.PI) / 180;
+      const labelR = mark.radius + 18;
+      const lx = mark.vertex.x + labelR * Math.cos(midRad);
+      const ly = mark.vertex.y - labelR * Math.sin(midRad);
+      const text = document.createElementNS(ns, "text");
+      text.setAttribute("x", lx.toFixed(1));
+      text.setAttribute("y", ly.toFixed(1));
+      text.setAttribute("text-anchor", "middle");
+      text.setAttribute("dominant-baseline", "middle");
+      text.setAttribute(
+        "class",
+        `acs-label ${mark.isTarget ? "acs-label-target" : mark.isGiven ? "acs-label-given" : ""}`
+      );
+      text.textContent = mark.label;
+      svg.appendChild(text);
+    }
+  }
+
+  for (const key of vertexKeys) {
+    const [x, y] = key.split(",").map(Number);
+    const dot = document.createElementNS(ns, "circle");
+    dot.setAttribute("cx", x);
+    dot.setAttribute("cy", y);
+    dot.setAttribute("r", 3);
+    dot.setAttribute("class", "acs-vertex-dot");
+    svg.appendChild(dot);
+  }
+}
+
 function renderProofBlocks(puzzle) {
   if (!el.pbZone) return;
   hideProofBlocks();
@@ -2170,8 +2265,10 @@ function renderProofBlocks(puzzle) {
   hideGenericInput();
 
   const data = puzzle.data || {};
-  const blocks = Array.isArray(data.blocks) ? data.blocks : [];
-  if (blocks.length === 0) return;
+  const rawBlocks = Array.isArray(data.blocks) ? data.blocks : [];
+  if (rawBlocks.length === 0) return;
+  // Scramble presentation order client-side (the served order is canonical).
+  const blocks = pbSeededShuffle(rawBlocks, puzzle.seed);
 
   state.pb = {
     blocks,
@@ -2181,6 +2278,18 @@ function renderProofBlocks(puzzle) {
   };
 
   el.pbGoal.textContent = `Prove: ${data.goalStatement || ""}`;
+
+  // Geometry proofs carry a figure; draw it above the blocks. Other domains
+  // omit it.
+  if (el.pbDiagram && el.pbSvg) {
+    if (data.diagram && Array.isArray(data.diagram.segments)) {
+      el.pbDiagram.style.display = "";
+      pbDrawAngleDiagram(el.pbSvg, data.diagram);
+    } else {
+      el.pbDiagram.style.display = "none";
+      el.pbSvg.innerHTML = "";
+    }
+  }
 
   el.pbCheckBtn.onclick = pbSubmit;
   el.pbClearBtn.onclick = () => {

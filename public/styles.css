@@ -1502,6 +1502,51 @@ label[for="difficulty"] {
   color: #f5f3ff;
 }
 
+.pb-diagram {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.pb-diagram-wrap {
+  width: 100%;
+  max-width: 440px;
+  border: 3px solid #4c4680;
+  border-radius: 10px;
+  background: radial-gradient(circle at 50% 0%, #241f45 0%, #12102a 100%);
+}
+
+.pb-svg {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.pb-diagram-legend {
+  display: flex;
+  gap: 18px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #c4b5fd;
+}
+
+.pb-diagram-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pb-diagram-legend .pb-swatch {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  display: inline-block;
+}
+
+.pb-diagram-legend .pb-swatch-given { background: #38bdf8; }
+.pb-diagram-legend .pb-swatch-target { background: #fbbf24; }
+
 .pb-columns {
   display: grid;
   grid-template-columns: 1fr 1fr;
