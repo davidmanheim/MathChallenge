@@ -56,11 +56,19 @@ type AngleMark = {
   radius: number;
 };
 
+// A small text label pinned to a named geometric point (a vertex or a named
+// point like the extension point E). Used whenever the prompt refers to a
+// point/vertex by letter (e.g. "point V", "triangle ABC", "the apex angle at
+// A") so the player can map the words onto the figure. Purely presentational —
+// never part of the deduction — so it does not affect the answer or the chain.
+type PointLabel = { x: number; y: number; label: string };
+
 type Diagram = {
   width: number;
   height: number;
   segments: Seg[];
   angleMarks: AngleMark[];
+  pointLabels?: PointLabel[];
 };
 
 type ChainStep = {
@@ -160,6 +168,55 @@ function finitePt(p: Pt): boolean {
   return Number.isFinite(p.x) && Number.isFinite(p.y);
 }
 
+// Place a vertex label opposite the average direction of the edges leaving
+// that vertex — i.e. into the widest open wedge around it, which is where the
+// interior angle's arc is NOT drawn. Robust even when three or more segments
+// (e.g. a triangle vertex whose side is also extended) meet at the point.
+function labelAwayFromEdges(
+  vertex: Pt,
+  neighbors: Pt[],
+  dist: number,
+  label: string
+): PointLabel {
+  let sx = 0;
+  let sy = 0;
+  for (const nb of neighbors) {
+    const dx = nb.x - vertex.x;
+    const dy = nb.y - vertex.y;
+    const len = Math.hypot(dx, dy) || 1;
+    sx += dx / len;
+    sy += dy / len;
+  }
+  const len = Math.hypot(sx, sy);
+  if (len < 1e-6) return { x: vertex.x, y: vertex.y - dist, label };
+  return { x: vertex.x - (sx / len) * dist, y: vertex.y - (sy / len) * dist, label };
+}
+
+// For a single-vertex "fan" figure (rays around a common point V), place the
+// V label a short distance from the vertex, aimed into the WIDEST angular gap
+// between rays so it never lands on a ray or an arc.
+function vertexLabelInWidestGap(
+  V: Pt,
+  dirs: number[],
+  dist: number,
+  label: string
+): PointLabel {
+  const sorted = [...dirs.map(normDeg)].sort((a, b) => a - b);
+  let bestMid = 90;
+  let bestGap = -1;
+  for (let i = 0; i < sorted.length; i++) {
+    const d1 = sorted[i];
+    const d2 = sorted[(i + 1) % sorted.length];
+    const gap = i === sorted.length - 1 ? 360 - d1 + d2 : d2 - d1;
+    if (gap > bestGap) {
+      bestGap = gap;
+      bestMid = normDeg(d1 + gap / 2);
+    }
+  }
+  const rad = (bestMid * Math.PI) / 180;
+  return { x: V.x + dist * Math.cos(rad), y: V.y - dist * Math.sin(rad), label };
+}
+
 // ===== Hint ladder builder (shared across all templates) =====
 
 function buildHintsFromChain(chain: ChainStep[], answer: number): string[] {
@@ -192,8 +249,13 @@ function buildHintsFromChain(chain: ChainStep[], answer: number): string[] {
 // ===== Template 1: angles on a straight line =====
 
 function genLine(rng: Rng, parts: 2 | 3): GenResult {
-  const V: Pt = { x: 220, y: 230 };
-  const halfLen = 170;
+  const V: Pt = { x: 220, y: 180 };
+  const halfLen = 150;
+  // Tilt the whole straight line by a random angle so the figure isn't always
+  // drawn flat. Region values are computed in unrotated (0°..180°) space, so
+  // `rot` only affects the drawn directions — the arithmetic and chain are
+  // orientation-independent.
+  const rot = rng.int(0, 359);
 
   let dirsBetween: number[];
   let values: number[];
@@ -245,16 +307,16 @@ function genLine(rng: Rng, parts: 2 | 3): GenResult {
     { theorem: "Angles on a Line", text: chainText, resultValue: targetVal }
   ];
 
-  const segments: Seg[] = [fullLine(V, 0, halfLen)];
+  const segments: Seg[] = [fullLine(V, rot, halfLen)];
   for (const d of dirsBetween) {
-    segments.push({ a: V, b: dirPoint(V, d, halfLen * 0.75) });
+    segments.push({ a: V, b: dirPoint(V, normDeg(d + rot), halfLen * 0.75) });
   }
 
   const angleMarks: AngleMark[] = [];
   for (let i = 0; i < sorted.length - 1; i++) {
     angleMarks.push({
       vertex: V,
-      dir1: sorted[i],
+      dir1: normDeg(sorted[i] + rot),
       value: sorted[i + 1] - sorted[i],
       label: i === hideIdx ? "?" : `${regionVals[i]}°`,
       isTarget: i === hideIdx,
@@ -263,12 +325,18 @@ function genLine(rng: Rng, parts: 2 | 3): GenResult {
     });
   }
 
+  // The line spans directions rot and rot+180; the reflex side (the empty half)
+  // is the widest gap, so V's label lands cleanly off the line there.
+  const pointLabels: PointLabel[] = [
+    vertexLabelInWidestGap(V, [rot, normDeg(rot + 180), ...dirsBetween.map((d) => normDeg(d + rot))], 20, "V")
+  ];
+
   const selfCheck = regionVals.reduce((s, v) => s + v, 0) === 180;
 
   return {
     promptText:
       'Rays split a straight line at point V. Find the measure of the angle marked "?".',
-    diagram: { width: 440, height: 300, segments, angleMarks },
+    diagram: { width: 440, height: 350, segments, angleMarks, pointLabels },
     answer: targetVal,
     targetLabel: "the marked angle",
     chain,
@@ -317,10 +385,14 @@ function genPoint(rng: Rng, parts: 3 | 4): GenResult {
     { theorem: "Angles Around a Point", text: chainText, resultValue: targetVal }
   ];
 
-  let cum = 0;
+  // Spin the whole fan of rays by a random offset so the configuration isn't
+  // always anchored to 0°. Every angle value between consecutive rays is
+  // unchanged, so the answer and chain are orientation-independent.
+  const rot = rng.int(0, 359);
+  let cum = rot;
   const dirsRaw: number[] = [];
   for (const v of vals) {
-    dirsRaw.push(cum);
+    dirsRaw.push(normDeg(cum));
     cum += v;
   }
 
@@ -339,12 +411,16 @@ function genPoint(rng: Rng, parts: 3 | 4): GenResult {
     radius: 38 + i * 16
   }));
 
+  const pointLabels: PointLabel[] = [
+    vertexLabelInWidestGap(V, dirsRaw, 18, "V")
+  ];
+
   const selfCheck = vals.reduce((s, v) => s + v, 0) === 360;
 
   return {
     promptText:
       'Several rays meet at point V. Find the measure of the angle marked "?".',
-    diagram: { width: 440, height: 340, segments, angleMarks },
+    diagram: { width: 440, height: 340, segments, angleMarks, pointLabels },
     answer: targetVal,
     targetLabel: "the marked angle",
     chain,
@@ -359,7 +435,11 @@ function genPoint(rng: Rng, parts: 3 | 4): GenResult {
 function genCross(rng: Rng): GenResult {
   const V: Pt = { x: 220, y: 170 };
   const a = rng.int(20, 160);
-  const dirs = [0, 180, a, normDeg(a + 180)];
+  // Rotate the whole "X" by a random offset so the crossing isn't always drawn
+  // with one line horizontal. `a` is the angle between the two lines, so all
+  // four region values are unchanged by the rotation.
+  const rot = rng.int(0, 179);
+  const dirs = [rot, normDeg(rot + 180), normDeg(rot + a), normDeg(rot + a + 180)];
   const regions = computeRegions(dirs);
 
   const gIdx = rng.int(0, 3);
@@ -388,7 +468,7 @@ function genCross(rng: Rng): GenResult {
       ];
 
   const halfLen = 150;
-  const segments: Seg[] = [fullLine(V, 0, halfLen), fullLine(V, a, halfLen)];
+  const segments: Seg[] = [fullLine(V, rot, halfLen), fullLine(V, normDeg(rot + a), halfLen)];
   const angleMarks: AngleMark[] = regions.map((r, i) => ({
     vertex: V,
     dir1: r.boundary[0],
@@ -403,10 +483,14 @@ function genCross(rng: Rng): GenResult {
     regions.reduce((s, r) => s + r.value, 0) === 360 &&
     regions[gIdx].value === (hopIsVertical ? regions[tIdx].value : 180 - regions[tIdx].value);
 
+  const pointLabels: PointLabel[] = [
+    vertexLabelInWidestGap(V, dirs, 18, "V")
+  ];
+
   return {
     promptText:
       'Two lines cross at point V. Find the measure of the angle marked "?".',
-    diagram: { width: 440, height: 340, segments, angleMarks },
+    diagram: { width: 440, height: 340, segments, angleMarks, pointLabels },
     answer: targetVal,
     targetLabel: "the marked angle",
     chain,
@@ -437,9 +521,9 @@ function genTriangleBasic(rng: Rng): GenResult {
     C = 180 - A - B;
     if (C < 20 || C > 130) continue;
     Ap = triangleApex(B, C, Bp, Cp);
-    if (finitePt(Ap) && Ap.y > -50 && Ap.y < 240) break;
+    if (finitePt(Ap) && Ap.y > 55 && Ap.y < 235 && Ap.x > 55 && Ap.x < 425) break;
   }
-  if (!finitePt(Ap)) {
+  if (!finitePt(Ap) || Ap.y <= 55 || Ap.y >= 235 || Ap.x <= 55 || Ap.x >= 425) {
     A = 60;
     B = 60;
     C = 60;
@@ -499,6 +583,10 @@ function genTriangleAlgebraic(rng: Rng): GenResult {
   let knownC = 110;
   let found = false;
 
+  const Bp: Pt = { x: 110, y: 250 };
+  const Cp: Pt = { x: 370, y: 250 };
+  let Ap: Pt = { x: 240, y: 100 };
+
   for (let tries = 0; tries < 100; tries++) {
     x = rng.int(6, 35);
     k1 = rng.int(1, 3);
@@ -514,8 +602,16 @@ function genTriangleAlgebraic(rng: Rng): GenResult {
       knownC >= 20 &&
       knownC <= 130
     ) {
-      found = true;
-      break;
+      const candApex = triangleApex(angle2, knownC, Bp, Cp);
+      if (
+        finitePt(candApex) &&
+        candApex.y > 55 && candApex.y < 235 &&
+        candApex.x > 55 && candApex.x < 425
+      ) {
+        Ap = candApex;
+        found = true;
+        break;
+      }
     }
   }
   if (!found) {
@@ -525,13 +621,7 @@ function genTriangleAlgebraic(rng: Rng): GenResult {
     angle1 = 40;
     angle2 = 30;
     knownC = 110;
-  }
-
-  const Bp: Pt = { x: 110, y: 250 };
-  const Cp: Pt = { x: 370, y: 250 };
-  let Ap = triangleApex(angle2, knownC, Bp, Cp);
-  if (!finitePt(Ap)) {
-    Ap = { x: 240, y: 100 };
+    Ap = triangleApex(angle2, knownC, Bp, Cp);
   }
 
   const targetIsAngle1 = rng.pick([true, false]);
@@ -607,9 +697,9 @@ function genTriangleExterior(rng: Rng): GenResult {
     C = 180 - A - B;
     if (C < 20 || C > 130) continue;
     Ap = triangleApex(B, C, Bp, Cp);
-    if (finitePt(Ap) && Ap.y > -50 && Ap.y < 240) break;
+    if (finitePt(Ap) && Ap.y > 55 && Ap.y < 235 && Ap.x > 45 && Ap.x < 360) break;
   }
-  if (!finitePt(Ap)) {
+  if (!finitePt(Ap) || Ap.y <= 55 || Ap.y >= 235 || Ap.x <= 45 || Ap.x >= 360) {
     A = 40;
     B = 50;
     C = 90;
@@ -636,9 +726,14 @@ function genTriangleExterior(rng: Rng): GenResult {
     }
   ];
 
+  // Draw the full triangle (including side CA) plus the extension C→D. The
+  // exterior angle at C sits in the wedge between the extension CD and side CA,
+  // so CA must be present for that arc — and for angle A's arc — to be bounded
+  // by real segments rather than floating.
   const segments: Seg[] = [
     { a: Ap, b: Bp },
     { a: Bp, b: Cp },
+    { a: Cp, b: Ap },
     { a: Cp, b: Dp }
   ];
 
@@ -844,9 +939,12 @@ function genPolygon(rng: Rng): GenResult {
 
   const center: Pt = { x: 230, y: 195 };
   const R = 135;
+  // Random starting rotation so the (simplified, not-to-scale) n-gon isn't
+  // always drawn in the same orientation.
+  const rot = rng.int(0, 359);
   const verts: Pt[] = [];
   for (let i = 0; i < n; i++) {
-    const theta = 90 + i * (360 / n);
+    const theta = rot + i * (360 / n);
     verts.push(dirPoint(center, theta, R));
   }
 
@@ -953,6 +1051,13 @@ function genIsoscelesExterior(rng: Rng): GenResult {
     angleMarkFromVertex(Ap, Bp, Cp, apex, "?", true, false, 30)
   ];
 
+  const pointLabels: PointLabel[] = [
+    labelAwayFromEdges(Ap, [Bp, Cp], 18, "A"),
+    labelAwayFromEdges(Bp, [Ap, Cp, Ep], 20, "B"),
+    labelAwayFromEdges(Cp, [Ap, Bp], 18, "C"),
+    labelAwayFromEdges(Ep, [Bp], 16, "E")
+  ];
+
   const selfCheck =
     beta * 2 + apex === 180 &&
     ext === 180 - beta &&
@@ -962,7 +1067,7 @@ function genIsoscelesExterior(rng: Rng): GenResult {
   return {
     promptText:
       'Triangle ABC is isosceles with AB = AC. Side AB is extended beyond B to point E, forming an exterior angle at B. Find the measure of the triangle\'s angle marked "?" (the apex angle at A).',
-    diagram: { width: 460, height: 345, segments, angleMarks },
+    diagram: { width: 460, height: 360, segments, angleMarks, pointLabels },
     answer: apex,
     targetLabel: "the apex angle",
     chain,
@@ -1065,6 +1170,13 @@ function genCevianTwoTriangles(rng: Rng): GenResult {
     angleMarkFromVertex(Cp, Ap, Bp, angleC, "?", true, false, 30)
   ];
 
+  const pointLabels: PointLabel[] = [
+    labelAwayFromEdges(Ap, [Bp, Cp, Dp], 18, "A"),
+    labelAwayFromEdges(Bp, [Ap, Cp], 18, "B"),
+    labelAwayFromEdges(Cp, [Ap, Bp], 18, "C"),
+    labelAwayFromEdges(Dp, [Bp, Cp, Ap], 18, "D")
+  ];
+
   const selfCheck =
     angleB + 2 * half + angleC === 180 &&
     angleADB === 180 - angleB - half &&
@@ -1077,7 +1189,7 @@ function genCevianTwoTriangles(rng: Rng): GenResult {
   return {
     promptText:
       'In triangle ABC, segment AD bisects angle A, with D on side BC. Find the measure of the angle marked "?" (angle ACB).',
-    diagram: { width: 460, height: 320, segments, angleMarks },
+    diagram: { width: 460, height: 320, segments, angleMarks, pointLabels },
     answer: angleC,
     targetLabel: "angle ACB",
     chain,
@@ -1212,6 +1324,12 @@ function genIsoscelesAlgebraic(rng: Rng): GenResult {
 
   const angleMarks: AngleMark[] = [markB, markC, ...apexMarks];
 
+  const pointLabels: PointLabel[] = [
+    labelAwayFromEdges(Ap, [Bp, Cp], 18, "A"),
+    labelAwayFromEdges(Bp, [Ap, Cp], 18, "B"),
+    labelAwayFromEdges(Cp, [Ap, Bp], 18, "C")
+  ];
+
   const selfCheck =
     k1 * x + c1 === beta &&
     k2 * x + c2 === beta &&
@@ -1221,7 +1339,7 @@ function genIsoscelesAlgebraic(rng: Rng): GenResult {
   return {
     promptText:
       "Triangle ABC is isosceles with AB = AC. Its two base angles are given as two different-looking expressions in x. Find x, then find the numeric measure of the highlighted angle.",
-    diagram: { width: 480, height: 300, segments, angleMarks },
+    diagram: { width: 480, height: 300, segments, angleMarks, pointLabels },
     answer,
     targetLabel: "the highlighted angle",
     chain,
@@ -1264,7 +1382,7 @@ function genTriangleOnParallel(rng: Rng): GenResult {
     apex = 180 - angleB - angleC;
     if (apex < 15 || apex > 130) continue;
     Ap = triangleApex(angleB, angleC, Bp, Cp);
-    if (finitePt(Ap) && Ap.y > 20 && Ap.y < 235 && Ap.x > 20 && Ap.x < 420) {
+    if (finitePt(Ap) && Ap.y > 40 && Ap.y < 235 && Ap.x > 30 && Ap.x < 410) {
       found = true;
       break;
     }
@@ -1304,12 +1422,25 @@ function genTriangleOnParallel(rng: Rng): GenResult {
     angleMarkFromVertex(Ap, Bp, Cp, apex, "?", true, false, 44)
   ];
 
+  // A sits on the upper parallel line; B and C sit on the lower one. Include
+  // the horizontal lines' directions so each letter is pushed clear of both
+  // the line it lies on and the triangle's sides.
+  const topLeft: Pt = { x: 40, y: Ap.y };
+  const topRight: Pt = { x: 400, y: Ap.y };
+  const botLeft: Pt = { x: 40, y: 260 };
+  const botRight: Pt = { x: 400, y: 260 };
+  const pointLabels: PointLabel[] = [
+    labelAwayFromEdges(Ap, [Bp, Cp, topLeft, topRight], 20, "A"),
+    labelAwayFromEdges(Bp, [Ap, botLeft, botRight], 18, "B"),
+    labelAwayFromEdges(Cp, [Ap, botLeft, botRight], 18, "C")
+  ];
+
   const selfCheck = angleB + angleC + apex === 180 && finitePt(Ap);
 
   return {
     promptText:
       'Triangle ABC sits with its base BC on one line; a second line through A is parallel to it. Find the measure of the triangle\'s angle marked "?" (angle A).',
-    diagram: { width: 440, height: 320, segments, angleMarks },
+    diagram: { width: 440, height: 320, segments, angleMarks, pointLabels },
     answer: apex,
     targetLabel: "angle A",
     chain,
