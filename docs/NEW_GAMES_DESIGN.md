@@ -572,7 +572,42 @@ the actual proof reasoning rather than just revealing the number.
    direct direction/coordinate computation during development, not just
    by the generator's own self-check).
 
+### Per-tier Variety
 
+Each tier's two templates already vary their given-angle values, which angle
+is the target, the theorem path (e.g. vertical vs. linear-pair, which
+parallel-line hop sequence), and — for the fan/polygon templates — the number
+of rays/sides, so a full 12-puzzle set at any single difficulty comes back
+12/12 distinct (the server de-dupes a set by `JSON.stringify(candidate.data)`
+and re-rolls on a collision). To avoid every diagram of a given template
+looking identically posed, the single-vertex "fan" figures (angles on a line,
+angles around a point, two crossing lines) and the polygon are drawn at a
+**random overall rotation**: the region/interior values are computed in
+orientation-independent space and only the drawn ray directions are rotated,
+so the answer and the deduction chain are unaffected while the figure's
+orientation varies freely from puzzle to puzzle. Triangle-based templates
+already vary orientation naturally through their apex position. Triangle apex
+positions are clamped to the drawable area (with a retry-then-fallback loop)
+so no vertex, arc, or label ever leaves the SVG viewBox.
+
+### Point / Vertex Labels
+
+Whenever a prompt refers to a point or vertex **by name** — "point V",
+"triangle ABC", "AB = AC", "the apex angle at A", "extended … to point E",
+"segment AD bisects angle A" — the diagram carries a `pointLabels: [{x, y,
+label}]` array so the player can map the words onto the figure. The vertex-fan
+templates label the shared point `V`; the tier 7-8 composites label every named
+vertex (`A`, `B`, `C`, plus `D` for the cevian foot and `E` for the isosceles
+exterior extension). Letters are positioned by pushing outward from the
+vertex, opposite the average direction of the edges leaving it (into the widest
+open wedge, where no interior-angle arc is drawn), or, for a single-vertex fan,
+into the widest gap between rays. Purely visual prompts ("the angle marked
+?") carry no point labels. The renderer draws the letters last, in an italic
+serif face with a dark halo (`paint-order: stroke`) so they stay legible over
+segments and arcs. Because the exterior-angle figure's marked angle sits in the
+wedge between the extended side and side `CA`, that generator now draws the
+**full** triangle (side `CA` included) rather than an open A-B-C path, so both
+the exterior angle and interior angle `A` are bounded by real segments.
 
 ### Answer Format
 A single number of degrees, e.g. `70` or `70°` (the grader strips `°`,

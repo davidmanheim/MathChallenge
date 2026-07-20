@@ -1352,6 +1352,17 @@ label[for="difficulty"] {
   font-size: 17px;
 }
 
+.acs-point-label {
+  fill: #f1f5f9;
+  font-size: 15px;
+  font-weight: 700;
+  font-style: italic;
+  font-family: "Cambria Math", "Times New Roman", Georgia, serif;
+  paint-order: stroke;
+  stroke: rgba(15, 23, 42, 0.85);
+  stroke-width: 3px;
+}
+
 .acs-legend {
   display: flex;
   gap: 18px;

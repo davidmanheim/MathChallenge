@@ -2054,6 +2054,19 @@ function renderAngleChase(puzzle) {
     dot.setAttribute("class", "acs-vertex-dot");
     svg.appendChild(dot);
   }
+
+  // Point/vertex letters (A, B, C, D, E, V, ...) that the prompt refers to by
+  // name. Drawn last so they sit on top of segments and arcs.
+  for (const pl of diagram.pointLabels || []) {
+    const text = document.createElementNS(ns, "text");
+    text.setAttribute("x", Number(pl.x).toFixed(1));
+    text.setAttribute("y", Number(pl.y).toFixed(1));
+    text.setAttribute("text-anchor", "middle");
+    text.setAttribute("dominant-baseline", "middle");
+    text.setAttribute("class", "acs-point-label");
+    text.textContent = pl.label;
+    svg.appendChild(text);
+  }
 }
 
 // ===== End Angle Chase Studio =====
@@ -2469,6 +2482,19 @@ function pbDrawAngleDiagram(svg, diagram) {
     dot.setAttribute("r", 3);
     dot.setAttribute("class", "acs-vertex-dot");
     svg.appendChild(dot);
+  }
+
+  // Named point/vertex letters, if the diagram supplies them (shared with
+  // Angle Chase Studio's diagram model).
+  for (const pl of diagram.pointLabels || []) {
+    const text = document.createElementNS(ns, "text");
+    text.setAttribute("x", Number(pl.x).toFixed(1));
+    text.setAttribute("y", Number(pl.y).toFixed(1));
+    text.setAttribute("text-anchor", "middle");
+    text.setAttribute("dominant-baseline", "middle");
+    text.setAttribute("class", "acs-point-label");
+    text.textContent = pl.label;
+    svg.appendChild(text);
   }
 }
 
