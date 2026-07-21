@@ -82,9 +82,10 @@ function generateEquation(rng: Rng, difficulty: number): Equation {
   }
 
   if (st === "one_step_mul") {
-    // a*x = c
-    const x = rng.int(1, 12);
-    const a = rng.int(2, 8);
+    // a*x = c  (widened factor/answer ranges so the distinct pool clears 40
+    // while staying a single-step multiplication at the same magnitude)
+    const x = rng.int(1, 20);
+    const a = rng.int(2, 12);
     const c = a * x;
     return {
       subType: st,

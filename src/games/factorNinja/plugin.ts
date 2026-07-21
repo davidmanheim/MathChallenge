@@ -34,9 +34,37 @@ function lcm(a: number, b: number): number {
 }
 
 // --- seeded number generation ---
+//
+// A well-mixed PRNG. The previous implementation drew every value as
+// `min + |seed| % span`, which had two variety-killing problems:
+//   1. consecutive seeds (as the validation gate uses) produced
+//      near-consecutive values, and
+//   2. when both operands of a pair were derived from the same seed they
+//      became functions of `seed % span`, so a whole tier could only ever
+//      produce ~span distinct pairs (this is what collapsed the GCF/LCM
+//      pools). Drawing each operand from an independent, avalanche-mixed
+//      stream fixes both and lets the pools span their full parameter space.
 
-function seededInt(seed: number, min: number, max: number): number {
-  return min + (Math.abs(seed) % (max - min + 1));
+function mix32(x: number): number {
+  x |= 0;
+  x = Math.imul(x ^ (x >>> 16), 0x45d9f3b);
+  x = Math.imul(x ^ (x >>> 16), 0x45d9f3b);
+  x = (x ^ (x >>> 16)) >>> 0;
+  return x;
+}
+
+class Rng {
+  private s: number;
+  constructor(seed: number) {
+    this.s = (mix32(seed >>> 0) ^ 0x9e3779b9) >>> 0;
+  }
+  private next(): number {
+    this.s = mix32((this.s + 0x9e3779b9) >>> 0);
+    return this.s;
+  }
+  int(min: number, max: number): number {
+    return min + (this.next() % (max - min + 1));
+  }
 }
 
 // Puzzle sub-types by difficulty:
@@ -94,9 +122,21 @@ function primeChoicesFor(target: number): number[] {
 }
 
 function generatePrimeFactors(seed: number, difficulty: number) {
-  // difficulty 1: number 12-50, difficulty 2: 50-200
-  const [lo, hi] = difficulty <= 1 ? [12, 50] : [50, 200];
-  const target = seededInt(seed, lo, hi);
+  // difficulty 1: number 8-96, difficulty 2: 50-200
+  // (d1 widened from 12-50 so the composite-with-small-primes pool clears 40)
+  const [lo, hi] = difficulty <= 1 ? [8, 96] : [50, 200];
+  const rng = new Rng(seed);
+  // Reroll until we land on an interesting composite (>=2 prime factors) whose
+  // largest prime is small enough for the tier. Fallback `lo` is a valid
+  // composite for both tiers (8 = 2·2·2, 50 = 2·5·5).
+  let target = lo;
+  for (let i = 0; i < 80; i += 1) {
+    const t = rng.int(lo, hi);
+    if (primeFactors(t).length >= 2 && hasSmallPrimeFactors(t, difficulty)) {
+      target = t;
+      break;
+    }
+  }
   const factors = primeFactors(target);
   const answer = factors.join(" × ");
   return {
@@ -114,27 +154,33 @@ function generatePrimeFactors(seed: number, difficulty: number) {
 function generateGcf(seed: number, difficulty: number) {
   // difficulty 3: numbers 12-100, difficulty 4: 50-300
   const [lo, hi] = difficulty <= 3 ? [12, 100] : [50, 300];
-  let a = seededInt(seed, lo, hi);
-  let bAdjusted = a;
+  const rng = new Rng(seed);
 
-  // Reroll deterministically until we get a pair with rich shared factors.
-  for (let i = 0; i < 40; i += 1) {
-    const s = seed + i * 101;
-    a = seededInt(s, lo, hi);
-    const b = seededInt(s * 7 + 13, lo, hi);
-    bAdjusted = b === a ? a + seededInt(s * 3, 1, 10) : b;
-    if (hasMultipleCommonFactors(a, bAdjusted)) break;
+  // Draw the two operands from INDEPENDENT streams and reroll until they share
+  // rich common factors (gcf >= 4 and composite). Operands are canonicalised
+  // a < b so mirror pairs aren't counted as separate puzzles.
+  let a = lo;
+  let b = lo === hi ? lo + 1 : hi;
+  for (let i = 0; i < 80; i += 1) {
+    const x = rng.int(lo, hi);
+    const y = rng.int(lo, hi);
+    if (x === y) continue;
+    if (hasMultipleCommonFactors(x, y)) {
+      a = Math.min(x, y);
+      b = Math.max(x, y);
+      break;
+    }
   }
 
-  const answer = gcd(a, bAdjusted);
+  const answer = gcd(a, b);
   return {
-    promptText: `Find the Greatest Common Factor (GCF) of ${a} and ${bAdjusted}.`,
+    promptText: `Find the Greatest Common Factor (GCF) of ${a} and ${b}.`,
     data: {
       a,
-      b: bAdjusted,
+      b,
       subType: "gcf" as SubType,
       factorsA: primeFactors(a),
-      factorsB: primeFactors(bAdjusted)
+      factorsB: primeFactors(b)
     },
     answer: String(answer),
     skillTags: ["gcf", "divisibility", "number_theory"]
@@ -144,18 +190,33 @@ function generateGcf(seed: number, difficulty: number) {
 function generateLcm(seed: number, difficulty: number) {
   // difficulty 5: numbers 4-30, difficulty 6+: 10-60
   const [lo, hi] = difficulty <= 5 ? [4, 30] : [10, 60];
-  const a = seededInt(seed, lo, hi);
-  const b = seededInt(seed * 11 + 7, lo, hi);
-  const bAdjusted = b === a ? a + seededInt(seed * 3, 1, 5) : b;
-  const answer = lcm(a, bAdjusted);
+  const rng = new Rng(seed);
+
+  // Independent streams, canonicalised a < b, and reroll to keep the pair
+  // non-trivial: coprime operands make the "LCM" just the product (boring),
+  // so require a shared factor (gcd > 1).
+  let a = lo;
+  let b = lo === hi ? lo + 1 : hi;
+  for (let i = 0; i < 80; i += 1) {
+    const x = rng.int(lo, hi);
+    const y = rng.int(lo, hi);
+    if (x === y) continue;
+    if (gcd(x, y) > 1) {
+      a = Math.min(x, y);
+      b = Math.max(x, y);
+      break;
+    }
+  }
+
+  const answer = lcm(a, b);
   return {
-    promptText: `Find the Least Common Multiple (LCM) of ${a} and ${bAdjusted}.`,
+    promptText: `Find the Least Common Multiple (LCM) of ${a} and ${b}.`,
     data: {
       a,
-      b: bAdjusted,
+      b,
       subType: "lcm" as SubType,
       factorsA: primeFactors(a),
-      factorsB: primeFactors(bAdjusted)
+      factorsB: primeFactors(b)
     },
     answer: String(answer),
     skillTags: ["lcm", "multiples", "number_theory"]
@@ -307,6 +368,17 @@ export const factorNinjaPlugin: GameTypePlugin = {
         issues.push({
           code: "thin_common_factors",
           message: "Medium GCF puzzles should include multiple common factors."
+        });
+      }
+      if (
+        st === "lcm" &&
+        Number.isInteger(a) &&
+        Number.isInteger(b) &&
+        gcd(a, b) === 1
+      ) {
+        issues.push({
+          code: "trivial_lcm",
+          message: "LCM of coprime numbers is just their product — not interesting."
         });
       }
     }
