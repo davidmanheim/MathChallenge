@@ -104,23 +104,40 @@ Each game type includes:
       canonical string. Hint ladder teaches proof strategy: what to prove,
       which statement follows from the givens first, then the first correct step.
 
+14. **Potion Panic** (Grades 4-6) — `potion-panic`
+    - Pour jugs of unit-ish fractional sizes (1/2, 1/3, 1/4, 1/6, 1/8, 1/12, ...)
+      into a cauldron until it holds exactly a target fraction of its capacity,
+      discovering fraction addition and equivalence with unlike denominators by
+      watching the fill rise rather than computing on paper first.
+    - Jugs are reusable (a jug can be poured any number of times); overflow
+      past the target blocks further pours until a poured jug is tapped in the
+      pour log to ladle it back out. Reaching the target exactly auto-submits.
+    - Graded structurally, not against one canonical string: since multiple
+      pour-sets are usually correct (e.g. both 1/2+1/3 and 1/3+1/3+1/6 reach
+      5/6), the grader accepts any multiset of the puzzle's available jugs
+      whose exact rational sum equals the target, computed with integer
+      numerator/denominator arithmetic (never floating point).
+    - Hint ladder is chain-derived: which jugs share a common denominator with
+      the target, how much remains after a first real pour, then one full
+      valid pour-set revealed in order.
+
 ## Games In Development
 
 See `NEW_GAMES_DESIGN.md` for full specifications.
 
-14. **Sum Blobs** (Grades 1-4)
+15. **Sum Blobs** (Grades 1-4)
    - Draw contiguous blobs on a number grid, each summing to a target.
 
-15. **Honeycomb Paths** (Grades 1-4)
+16. **Honeycomb Paths** (Grades 1-4)
     - Trace a path through a hex grid to hit a target sum or sequence.
 
-16. **Subtractiles** (Grades 2-5)
+17. **Subtractiles** (Grades 2-5)
     - Place number tiles so adjacent-cell differences match edge constraints.
 
-17. **Measure Mazes** (Grades 2-5)
+18. **Measure Mazes** (Grades 2-5)
     - Connect dots at exact distances across a grid.
 
-18. **Equation Paths** (Grades 3-7)
+19. **Equation Paths** (Grades 3-7)
     - Trace a path through a number/operator grid to build an expression hitting a target.
 
 ## Potential Games Backlog (By Grade Band)

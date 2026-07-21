@@ -1597,6 +1597,101 @@ family and deduction chain rather than being hand-written per puzzle:
 
 ---
 
+## 14. Potion Panic
+
+**Status:** Implemented (`src/games/potionPanic/plugin.ts`, gameTypeId `potion-panic`).
+
+**Source inspiration:** Fraction addition and equivalence with unlike
+denominators is one of the highest-leverage grades 4-6 skills and had no
+dedicated hands-on puzzle in the catalog. Structurally it's a build-and-submit
+interaction like Number Paths/Counting Lab, but the manipulative is a pouring
+metaphor: the player physically discovers that, say, 1/2 + 1/3 = 5/6 by
+watching a cauldron fill, rather than by adding fractions on paper first and
+checking a number afterward.
+
+### Concept
+A named potion recipe must fill a cauldron (capacity = 1 whole) to an exact
+target fraction (e.g. "fill to 5/6"). The player has a bench of distinct,
+**reusable** jug sizes — unit-ish fractions such as 1/2, 1/3, 1/4, 1/6, 1/8,
+1/12 — and pours them in one at a time by tapping a jug (a jug can be poured
+any number of times, like a refillable ladle of that size, so "1/6, 1/6, 1/6"
+is a legitimate pour-set). Liquid rises in the cauldron with each pour and a
+gold target line marks the goal. Pouring exactly to the target auto-submits;
+pouring past it overflows (the fill turns red and further pours are blocked)
+and the player must ladle a pour back out — tapping any jug in the pour log
+below the cauldron removes that specific pour — before continuing.
+
+### Rules
+1. The cauldron always represents ONE WHOLE; the target and every jug size are
+   proper fractions (or, rarely, a jug combination that fills it exactly to 1).
+2. Jugs are a small themed bench (4-7 distinct sizes per puzzle): some are
+   needed for at least one valid solution, the rest are plausible-but-unused
+   distractors, so guessing without adding fractions doesn't reliably work.
+3. **Multiple pour-sets are usually correct** (e.g. both 1/2+1/3 and
+   1/3+1/3+1/6 reach 5/6), so this puzzle is graded structurally:
+   `expectUniqueSolution` is always `false`, and `gradeAnswer` accepts ANY
+   multiset of the puzzle's available jug sizes whose EXACT rational sum
+   equals the target — never a single canonical string, and never floating
+   point.
+4. **Answer format:** a comma-separated multiset of `"numerator/denominator"`
+   tokens, one per pour, order-independent, repeats allowed (e.g. `"1/2,1/3"`
+   or `"1/6,1/6,1/6"`). The frontend builds this string automatically from the
+   player's taps; whitespace around tokens/commas is ignored server-side.
+5. All fraction arithmetic (`generate`, `validatePuzzle`, `gradeAnswer`,
+   `solve`) uses exact integer numerator/denominator math with `gcd`-based
+   reduction — never floating point — so equivalence checks (e.g. confirming
+   1/2+1/3 reduces to exactly 5/6) can't drift.
+
+### Difficulty Scaling
+Denominator variety and pour count both grow with difficulty; the hardest
+tiers bias generation toward a near-full target so a careless pour is likely
+to overflow, making the "how much room is left?" estimate matter:
+
+| Difficulty | Solution jug denominators | Pours | Jug bench size | Near-full bias |
+|---|---|---|---|---|
+| 1 | halves, quarters {2,4} | 2 | 3-4 | none |
+| 2 | + thirds, sixths {2,3,4,6} | 2 | 4-5 | none |
+| 3 | + eighths {2,3,4,6,8} | 2-3 | 4-5 | target >= 1/2 |
+| 4 | thirds-twelfths {3,4,6,8,12} | 3 | 5-6 | target >= 2/3 |
+| 5 | full set {2,3,4,6,8,12} | 3-4 | 5-6 | target >= 3/4 |
+| 6 | full set {2,3,4,6,8,12} | 3-4 | 6-7 | target >= 5/6 |
+
+Generation picks pours by seeded RNG with a bounded overflow-avoiding retry
+loop (never restarting from the raw seed via `seed % span`; uses an
+xorshift32 avalanche-mixed generator, matching Number Paths/Angle Chase
+Studio), then adds distinct distractor jug sizes from a wider pool up to the
+tier's bench size. A wide spread of potion names (14 themed flavors) and the
+combinatorics of distractor selection give each tier well over 40 distinct
+generated puzzles in practice (measured 429-499 distinct puzzles per
+difficulty over 500 seeds; a 12-puzzle set is always 12/12 distinct).
+
+### Interaction
+- Tap a jug to pour it; the cauldron fill bar and a live "Total poured: n/d"
+  readout update immediately.
+- A gold line + label mark the target fraction on the cauldron.
+- Reaching the target exactly turns the banner green and auto-submits after a
+  brief pause.
+- Overflowing past the target turns the fill red, disables further pours, and
+  prompts the player to ladle a pour back out; tapping any chip in the pour
+  log removes that specific pour (not only the most recent one).
+- "Clear All Pours" resets the cauldron without leaving the puzzle.
+
+### Hints (chain-derived, nudge -> strategy -> near-solution)
+Hints are generated from the puzzle's recorded solution chain rather than
+hand-written per puzzle, mirroring Counting Lab/Angle Chase Studio:
+1. **Nudge** — names the target and the jug bench, and asks which jugs share a
+   common denominator that adds to it.
+2. **Strategy** — suggests pouring the first jug of a real solution, then
+   states exactly how much remains (computed by exact fraction subtraction)
+   and asks which jug matches that remainder.
+3. **Near-solution** — reveals one complete valid pour-set in order.
+
+### Skill tags
+`fractions`, `fraction_addition`, `unlike_denominators`,
+`equivalent_fractions`, `common_denominators`
+
+---
+
 ## Implementation Priority
 
 Recommended implementation order based on complexity and impact:
