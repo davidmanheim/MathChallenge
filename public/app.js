@@ -14,7 +14,8 @@ const state = {
   slg: null,
   pb: null,
   pp: null,
-  cs: null
+  cs: null,
+  ll: null
 };
 
 const gameModules = {};
@@ -143,7 +144,14 @@ const el = {
   csReadout: document.getElementById("csReadout"),
   csResetBtn: document.getElementById("csResetBtn"),
   csCheckBtn: document.getElementById("csCheckBtn"),
-  csBanner: document.getElementById("csBanner")
+  csBanner: document.getElementById("csBanner"),
+  // Lily Leap
+  llZone: document.getElementById("lilyLeapZone"),
+  llStatus: document.getElementById("llStatus"),
+  llLine: document.getElementById("llLine"),
+  llTray: document.getElementById("llTray"),
+  llUndoBtn: document.getElementById("llUndoBtn"),
+  llPath: document.getElementById("llPath")
 };
 
 function difficultyLabel(n) {
@@ -3110,6 +3118,210 @@ async function csCheckAnswer() {
 
 // ===== End Chocolate Snap =====
 
+// ===== Lily Leap Interactive UI =====
+//
+// Fraction number-line jump game: the frog crosses a pond from 0 to a
+// fraction/mixed-number target, choosing jumps from a tray that must land
+// exactly on a lily pad each time. All fraction math here is exact-rational
+// (integer numerator/denominator, gcd-reduced) — no floats are used for any
+// correctness-relevant comparison, only for the purely-visual % position.
+
+function hideLilyLeap() {
+  if (!el.llZone) return;
+  el.llZone.style.display = "none";
+  el.llZone.classList.remove("ll-solved", "ll-splashed");
+  if (el.llTray) el.llTray.innerHTML = "";
+  if (el.llLine) el.llLine.innerHTML = "";
+  if (el.llStatus) el.llStatus.textContent = "";
+  if (el.llPath) el.llPath.textContent = "";
+  state.ll = null;
+}
+
+function llGcd(a, b) {
+  a = Math.abs(a);
+  b = Math.abs(b);
+  while (b) {
+    [a, b] = [b, a % b];
+  }
+  return a || 1;
+}
+
+function llReduce(n, d) {
+  if (d < 0) {
+    n = -n;
+    d = -d;
+  }
+  const g = llGcd(n, d) || 1;
+  return { n: n / g, d: d / g };
+}
+
+function llAdd(a, b) {
+  return llReduce(a.n * b.d + b.n * a.d, a.d * b.d);
+}
+
+function llCmp(a, b) {
+  return a.n * b.d - b.n * a.d;
+}
+
+function llLabel(f) {
+  if (f.n === 0) return "0";
+  const whole = Math.floor(f.n / f.d);
+  const rem = f.n - whole * f.d;
+  if (rem === 0) return String(whole);
+  if (whole === 0) return `${rem}/${f.d}`;
+  return `${whole} ${rem}/${f.d}`;
+}
+
+function llPct(f, target) {
+  const tv = target.n / target.d;
+  if (tv <= 0) return 0;
+  const fv = f.n / f.d;
+  return Math.max(0, Math.min(100, (fv / tv) * 100));
+}
+
+function llSerialize(path) {
+  return path.map((f) => `${f.n}/${f.d}`).join(";");
+}
+
+function renderLilyLeap(puzzle) {
+  if (!el.llZone) return;
+  hideLilyLeap();
+  el.llZone.style.display = "";
+  hideGenericInput();
+
+  const target = puzzle.data.target;
+  const pads = Array.isArray(puzzle.data.pads) ? puzzle.data.pads : [];
+  const jumps = Array.isArray(puzzle.data.jumps) ? puzzle.data.jumps : [];
+  if (!target || pads.length === 0 || jumps.length === 0) return;
+
+  state.ll = {
+    target,
+    pads,
+    jumps,
+    path: [],
+    pos: { n: 0, d: 1 },
+    splashed: false,
+    submitted: false
+  };
+
+  llDrawLine();
+  llDrawTray();
+  if (el.llUndoBtn) el.llUndoBtn.onclick = llUndo;
+  llRefreshStatus();
+}
+
+function llDrawLine() {
+  if (!el.llLine || !state.ll) return;
+  el.llLine.innerHTML = "";
+  const track = document.createElement("div");
+  track.className = "ll-track";
+
+  for (const pad of state.ll.pads) {
+    const marker = document.createElement("div");
+    marker.className = "ll-pad";
+    marker.style.left = `${llPct(pad, state.ll.target)}%`;
+    marker.title = llLabel(pad);
+    const tag = document.createElement("span");
+    tag.className = "ll-pad-label";
+    tag.textContent = llLabel(pad);
+    marker.appendChild(tag);
+    track.appendChild(marker);
+  }
+
+  const startMark = document.createElement("div");
+  startMark.className = "ll-start-mark";
+  startMark.style.left = "0%";
+  track.appendChild(startMark);
+
+  const frog = document.createElement("div");
+  frog.className = "ll-frog";
+  frog.id = "llFrog";
+  frog.textContent = "\u{1F438}";
+  frog.style.left = "0%";
+  track.appendChild(frog);
+
+  el.llLine.appendChild(track);
+}
+
+function llDrawTray() {
+  if (!el.llTray || !state.ll) return;
+  el.llTray.innerHTML = "";
+  for (const jump of state.ll.jumps) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "ll-jump-btn";
+    btn.textContent = llLabel(jump);
+    btn.addEventListener("click", () => llTryJump(jump));
+    el.llTray.appendChild(btn);
+  }
+}
+
+function llRefreshStatus(message) {
+  if (!el.llStatus || !state.ll) return;
+  const posLabel = llLabel(state.ll.pos);
+  const targetLabel = llLabel(state.ll.target);
+  el.llStatus.textContent = message || `Frog at ${posLabel} of ${targetLabel}. Choose a jump!`;
+  if (el.llPath) {
+    el.llPath.textContent =
+      state.ll.path.length > 0 ? `Jumps so far: ${state.ll.path.map((f) => llLabel(f)).join(", ")}` : "";
+  }
+  const frog = document.getElementById("llFrog");
+  if (frog) frog.style.left = `${llPct(state.ll.pos, state.ll.target)}%`;
+  if (el.llUndoBtn) el.llUndoBtn.disabled = state.ll.path.length === 0 || state.ll.submitted;
+}
+
+function llTryJump(jump) {
+  if (!state.ll || state.ll.submitted || state.ll.splashed) return;
+  const newPos = llAdd(state.ll.pos, jump);
+
+  if (llCmp(newPos, state.ll.target) > 0) {
+    state.ll.path.push(jump);
+    state.ll.pos = newPos;
+    state.ll.splashed = true;
+    if (el.llZone) el.llZone.classList.add("ll-splashed");
+    llRefreshStatus(`Splash! ${llLabel(newPos)} is past ${llLabel(state.ll.target)}. Tap Undo to try again.`);
+    return;
+  }
+
+  const onPad = state.ll.pads.some((p) => llCmp(p, newPos) === 0);
+  if (!onPad) {
+    llRefreshStatus(`No lily pad at ${llLabel(newPos)} — try a different jump.`);
+    return;
+  }
+
+  state.ll.path.push(jump);
+  state.ll.pos = newPos;
+
+  if (llCmp(newPos, state.ll.target) === 0) {
+    llRefreshStatus(`You made it to ${llLabel(newPos)}! Nice jumping!`);
+    llTrySubmit();
+    return;
+  }
+
+  llRefreshStatus();
+}
+
+function llUndo() {
+  if (!state.ll || state.ll.submitted || state.ll.path.length === 0) return;
+  state.ll.path.pop();
+  let pos = { n: 0, d: 1 };
+  for (const j of state.ll.path) pos = llAdd(pos, j);
+  state.ll.pos = pos;
+  state.ll.splashed = false;
+  if (el.llZone) el.llZone.classList.remove("ll-splashed");
+  llRefreshStatus("Backed up one jump. Try again!");
+}
+
+function llTrySubmit() {
+  if (!state.ll || state.ll.submitted) return;
+  state.ll.submitted = true;
+  el.answer.value = llSerialize(state.ll.path);
+  if (el.llZone) el.llZone.classList.add("ll-solved");
+  setTimeout(() => submitCurrent(), 1200);
+}
+
+// ===== End Lily Leap =====
+
 async function renderPuzzle() {
   state.puzzle = getCurrentPuzzle();
   state.puzzleStartedAt = state.puzzle ? Date.now() : 0;
@@ -3141,6 +3353,7 @@ async function renderPuzzle() {
   hidePotionPanic();
   hideProofBlocks();
   hideChocolateSnap();
+  hideLilyLeap();
   restoreGenericInput();
 
   if (!state.puzzle) {
@@ -3250,6 +3463,11 @@ async function renderPuzzle() {
   if (state.puzzle.gameTypeId === "chocolate-snap") {
     el.puzzleBox.textContent = state.puzzle.prompt.text;
     renderChocolateSnap(state.puzzle);
+    return;
+  }
+  if (state.puzzle.gameTypeId === "lily-leap") {
+    el.puzzleBox.textContent = state.puzzle.prompt.text;
+    renderLilyLeap(state.puzzle);
     return;
   }
 

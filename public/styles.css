@@ -2371,3 +2371,146 @@ label[for="difficulty"] {
   min-height: 30px;
   text-align: center;
 }
+
+/* ===== Lily Leap ===== */
+.ll-zone {
+  margin: 12px 0;
+  border-radius: 16px;
+  border: 2px solid #0891b2;
+  padding: 14px;
+  background:
+    radial-gradient(circle at 0% 0%, #a5f3fc, transparent 35%),
+    radial-gradient(circle at 100% 100%, #bbf7d0, transparent 40%),
+    linear-gradient(180deg, #ecfeff 0%, #cffafe 100%);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.ll-zone.ll-solved {
+  border-color: #0d9488;
+  box-shadow: 0 0 0 4px rgba(8, 145, 178, 0.2);
+}
+
+.ll-zone.ll-splashed {
+  border-color: #dc2626;
+  box-shadow: 0 0 0 4px rgba(220, 38, 38, 0.18);
+}
+
+.ll-status {
+  font-weight: 700;
+  color: #0e7490;
+  margin-bottom: 12px;
+  min-height: 1.4em;
+}
+
+.ll-zone.ll-splashed .ll-status {
+  color: #b91c1c;
+}
+
+.ll-line {
+  position: relative;
+  margin: 34px 4px 42px;
+}
+
+.ll-track {
+  position: relative;
+  height: 10px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #67e8f9, #0891b2);
+  box-shadow: inset 0 0 0 2px rgba(8, 145, 178, 0.35);
+}
+
+.ll-start-mark {
+  position: absolute;
+  top: -6px;
+  width: 4px;
+  height: 22px;
+  background: #0e7490;
+  border-radius: 2px;
+  transform: translateX(-2px);
+}
+
+.ll-pad {
+  position: absolute;
+  top: -13px;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #86efac, #16a34a);
+  border: 2px solid #15803d;
+  transform: translateX(-15px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ll-pad-label {
+  position: absolute;
+  top: 34px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #14532d;
+  white-space: nowrap;
+  background: #ffffffcc;
+  border-radius: 6px;
+  padding: 1px 5px;
+}
+
+.ll-frog {
+  position: absolute;
+  top: -30px;
+  transform: translateX(-16px);
+  font-size: 1.6rem;
+  line-height: 1;
+  transition: left 0.35s ease;
+  filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.25));
+}
+
+.ll-tray {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.ll-jump-btn {
+  padding: 10px 16px;
+  border-radius: 12px;
+  border: 2px solid #0e7490;
+  background: #ffffff;
+  color: #0e7490;
+  font-size: 1.05rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.ll-jump-btn:hover {
+  background: linear-gradient(180deg, #22d3ee 0%, #06b6d4 100%);
+  color: #ffffff;
+}
+
+.ll-controls {
+  margin-bottom: 8px;
+}
+
+.ll-undo-btn {
+  padding: 8px 14px;
+  border-radius: 10px;
+  border: 2px solid #b45309;
+  background: #fff7ed;
+  color: #9a3412;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.ll-undo-btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.ll-path {
+  font-size: 0.88rem;
+  color: #0e7490;
+  min-height: 1.2em;
+}

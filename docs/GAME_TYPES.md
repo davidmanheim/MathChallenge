@@ -128,24 +128,33 @@ Each game type includes:
       reduced fraction or any exactly-equivalent unreduced form.
     - Difficulty scales by denominator size (halves/thirds up through
       fifths-ninths) and by how often the product needs simplifying.
+16. **Lily Leap** (Grades 3-6) — `lily-leap`
+    - A frog crosses a pond (a number line from 0 to a fraction/mixed-number
+      target) by tapping a sequence of jumps that must each land exactly on a
+      lily pad and sum exactly to the target, with no overshoot.
+    - Tap-to-build-a-path interaction modeled on Number Paths, with a splash
+      + undo flow for overshoot; graded structurally (any valid jump sequence
+      is accepted, using exact-rational fraction comparison so equivalent
+      fractions like `1/2` and `2/4` are treated as identical). Hint ladder
+      is chain-derived from the puzzle's own canonical solution path.
 
 ## Games In Development
 
 See `NEW_GAMES_DESIGN.md` for full specifications.
 
-16. **Sum Blobs** (Grades 1-4)
+17. **Sum Blobs** (Grades 1-4)
    - Draw contiguous blobs on a number grid, each summing to a target.
 
-17. **Honeycomb Paths** (Grades 1-4)
+18. **Honeycomb Paths** (Grades 1-4)
     - Trace a path through a hex grid to hit a target sum or sequence.
 
-18. **Subtractiles** (Grades 2-5)
+19. **Subtractiles** (Grades 2-5)
     - Place number tiles so adjacent-cell differences match edge constraints.
 
-19. **Measure Mazes** (Grades 2-5)
+20. **Measure Mazes** (Grades 2-5)
     - Connect dots at exact distances across a grid.
 
-20. **Equation Paths** (Grades 3-7)
+21. **Equation Paths** (Grades 3-7)
     - Trace a path through a number/operator grid to build an expression hitting a target.
 
 ## Potential Games Backlog (By Grade Band)
