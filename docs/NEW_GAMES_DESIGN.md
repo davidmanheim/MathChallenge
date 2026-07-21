@@ -488,8 +488,11 @@ polygon, at the hardest triangle tiers a composite figure such as an isosceles
 triangle with an exterior angle, two triangles sharing an angle-bisected
 cevian, or a triangle sitting on one of two parallel lines, and — in the
 circle-geometry strand at tiers 9-10 — a circle carrying inscribed/central
-angles, a semicircle, a cyclic quadrilateral, a tangent line, or a
-circle-plus-triangle / square-plus-triangle composite) with some
+angles, two inscribed angles in the same segment, a triangle of two radii, a
+semicircle (Thales) with a radius drawn, a tangent meeting a radius, a cyclic
+quadrilateral or its extended exterior angle, and — at tier 10 — a
+circle-plus-triangle, a tangent-plus-triangle, a square-plus-triangle, or a
+two-circle common-tangent composite) with some
 angles labeled with their degree measure and exactly one angle marked with
 "?". The player enters the numeric degree measure of the marked angle.
 Unlike a pure answer-fetching drill, every puzzle carries an explicit
@@ -524,8 +527,8 @@ the actual proof reasoning rather than just revealing the number.
 | 6          | 8-9   | Parallel lines hardest chain (3 hops); polygon interior angle sum `(n−2)×180°`, n = 5-8 | 2-3 | Longest chains; newest theorem (polygons) |
 | 7          | 8-10  | Isosceles triangle + exterior angle (linear pair → isosceles base angles → triangle sum); triangle sitting on one of two parallel lines (alternate angles → triangle sum) | 2-3 | First composite figures: a new theorem (isosceles base angles) combined with an existing one, and a new figure shape (triangle spanning two parallel lines) that doesn't appear at any earlier tier |
 | 8          | 9-10  | Angle bisector splitting a triangle into two triangles that share a cevian (triangle sum → linear pair → angle-bisector equality → triangle sum); isosceles triangle whose two base angles are given as two *different-looking* algebraic expressions that must be set equal and solved before an optional final triangle-sum hop | 3-4 | Deepest chains: multi-triangle composites and a genuine two-expression equation (not a single substitution) — pitched at strong grades 8-10 kids heading toward AMC/AIME-style angle chasing |
-| 9          | 9-10  | **Circle geometry — direct single theorem** (3 families, chosen at random): inscribed-angle theorem / central = 2 × inscribed (given either, find the other); angle in a semicircle / Thales (angle on a diameter = 90°, optionally + triangle sum for the other acute angle); cyclic-quadrilateral opposite angles sum to 180° | 1-2 | First circle theorems; a circle primitive is drawn behind the figure. Points on the circle are labeled `A`, `B`, `C`, `D`, `P`; the centre is `O` |
-| 10         | 9-10  | **Circle & multi-shape composites** (3 families, chosen at random): triangle inscribed in a circle with two radii drawn — inscribed-angle theorem → triangle sum; tangent–chord (alternate-segment) angle on an inscribed triangle → triangle sum; a square with an isosceles-looking triangle built on one side — triangle sum → square's 90° corner → adjacent-angle addition | 2-3 | Genuine multi-shape interactions: circle + inscribed triangle, tangent line + inscribed triangle, and square + triangle (a real interaction between two different shapes, not just more triangles) |
+| 9          | 9-10  | **Circle geometry — direct single theorem** (7 families, chosen at random): inscribed-angle theorem / central = 2 × inscribed (given either, find the other); **angles in the same segment** (two inscribed angles standing on the same chord from the same arc are equal); **isosceles triangle from two radii** (two radii are equal, so the triangle they bound is isosceles — given the central angle find a base angle, or vice-versa); **tangent ⟂ radius** (a chord splits the 90° between tangent and radius; given the tangent-chord angle find the radius-chord angle, or vice-versa); **Thales-with-radius** (angle in a semicircle = 90° *combined with* the equal-radii isosceles insight — the given radius-chord angle is not one of the triangle's own angles, so the circle is genuinely load-bearing and the answer is *not* a plain triangle-sum); cyclic-quadrilateral opposite angles sum to 180°; **cyclic-quadrilateral exterior angle** (equals the interior angle at the opposite vertex) | 1-3 | First circle theorems; broad single-circle variety (nine distinct sub-variants). Points on the circle are labeled `A`, `B`, `C`, `D`, `P`, `Q`, `X`, `Y`; the centre is `O`; a tangent's marked point is `T` |
+| 10         | 9-10  | **Circle & multi-shape composites** (4 families, chosen at random): triangle inscribed in a circle with two radii drawn — inscribed-angle theorem → triangle sum; tangent–chord (alternate-segment) angle on an inscribed triangle → triangle sum; **two circles sharing a common tangent** — alternate-segment theorem applied in *each* circle → the two tangent-chord angles combine on the shared tangent line to give the angle between the chords; a square with an isosceles-looking triangle built on one side — triangle sum → square's 90° corner → adjacent-angle addition | 2-3 | Genuine multi-shape / multi-figure interactions: circle + inscribed triangle, tangent line + inscribed triangle, a **two-circle** figure (each circle contributes one theorem step), and square + triangle |
 
 ### Generation Algorithm
 1. Pick a template pair for the requested difficulty and flip a coin (via
@@ -583,12 +586,28 @@ the actual proof reasoning rather than just revealing the number.
    (the arc opposite each vertex equals twice that vertex's angle), which makes
    the central angle on a side exactly twice the opposite inscribed angle by
    construction. Inscribed/central figures pin the inscribed angle at `γ/2`
-   (central `γ` chosen even); Thales places the diameter's ends
-   diametrically opposite through `O`; cyclic quads choose four even arc
-   measures summing to 360° so every interior angle is a half-integer-free
-   integer and opposite pairs sum to 180° automatically; the tangent is drawn
-   perpendicular to the radius at the point of contact and its
-   alternate-segment angle read straight off the geometry. Each circle
+   (central `γ` chosen even); the same-segment figure puts two inscribed points
+   on the far arc so both see the chord at the same angle; the two-radii figure
+   draws `OA` and `OB` (equal by construction) so the base angles are exactly
+   `(180−γ)/2`. The **Thales** template is deliberately *not* the old
+   "given one acute angle, find the other" (which collapses to a trivial
+   triangle-sum once 90° is known and leaves the circle decorative): it now
+   draws the radius `OA`, **gives the radius-chord angle `OAB`** — an angle
+   that is not one of triangle `ABC`'s own angles — and asks for `∠ACB`, so the
+   answer can only be reached by invoking the equal-radii isosceles fact
+   (`OA = OB = OC`) alongside Thales. Cyclic quads choose four even arc
+   measures summing to 360° so every interior angle is an integer and opposite
+   pairs sum to 180° automatically; the exterior-angle variant extends side
+   `DA` to `E` so `∠EAB` equals the opposite interior angle `∠BCD`. The tangent
+   is drawn perpendicular to the radius at the point of contact; the tier-9
+   `tangent-radius` variant uses only that 90° (a chord splits it into
+   radius-chord and tangent-chord angles), while the tier-10 `tangent-chord`
+   variant relates the tangent-chord angle to an inscribed angle
+   (alternate segment). The **two-circle** tier-10 figure places two externally
+   tangent circles with a common tangent through the contact point `T`, draws a
+   chord into each, and marks one inscribed angle per circle; alternate segment
+   in each circle turns those into tangent-chord angles that add on the tangent
+   line to give `∠ATB`. Each circle
    generator's `selfCheck` **re-derives every marked angle from the raw
    coordinates** with a generic `angleAt(vertex, p1, p2)` helper (an
    independent path from the theorem arithmetic stored in the chain) and
@@ -618,11 +637,14 @@ already vary orientation naturally through their apex position. Triangle apex
 positions are clamped to the drawable area (with a retry-then-fallback loop)
 so no vertex, arc, or label ever leaves the SVG viewBox. The tier 9-10 circle
 figures vary by a random overall rotation of the whole configuration around the
-centre, the chosen angle values, which point is the target (e.g. inscribed vs.
+centre, the chosen angle values, which of the seven (tier 9) or four (tier 10)
+theorem families is drawn, which point is the target (e.g. inscribed vs.
 central, which opposite vertex of the cyclic quad, which triangle angle), and
-the sub-variant (find inscribed vs. find central; name the right angle vs. the
-other acute angle), so a full 12-puzzle set at difficulty 9 and at 10 each comes
-back 12/12 distinct.
+the sub-variant (find inscribed vs. find central; find the base angle vs. the
+central angle for the two-radii figure; find the radius-chord vs. the
+tangent-chord angle; opposite-angle vs. exterior-angle cyclic quad), so a full
+12-puzzle set at difficulty 9 and at 10 each comes back 12/12 distinct
+(verified 12/12 for both tiers).
 
 ### Point / Vertex Labels
 
@@ -632,7 +654,13 @@ Whenever a prompt refers to a point or vertex **by name** — "point V",
 label}]` array so the player can map the words onto the figure. The vertex-fan
 templates label the shared point `V`; the tier 7-8 composites label every named
 vertex (`A`, `B`, `C`, plus `D` for the cevian foot and `E` for the isosceles
-exterior extension). Letters are positioned by pushing outward from the
+exterior extension); the tier 9-10 circle figures additionally use `O` (centre),
+`P`/`Q`/`X`/`Y` (points on a circle), `T` (a tangent's marked point or the
+tangent point where two circles touch), and `E` (the cyclic-quad exterior
+extension). Circle points are labelled by pushing radially outward from the
+centre so no letter lands on a chord or arc, and the circle generators reject
+any draw whose labels would sit closer than a fixed minimum apart. Letters are
+positioned by pushing outward from the
 vertex, opposite the average direction of the edges leaving it (into the widest
 open wedge, where no interior-angle arc is drawn), or, for a single-vertex fan,
 into the widest gap between rays. Purely visual prompts ("the angle marked
