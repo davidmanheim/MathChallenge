@@ -104,6 +104,16 @@ Each game type includes:
       canonical string. Hint ladder teaches proof strategy: what to prove,
       which statement follows from the givens first, then the first correct step.
 
+14. **Lily Leap** (Grades 3-6) — `lily-leap`
+    - A frog crosses a pond (a number line from 0 to a fraction/mixed-number
+      target) by tapping a sequence of jumps that must each land exactly on a
+      lily pad and sum exactly to the target, with no overshoot.
+    - Tap-to-build-a-path interaction modeled on Number Paths, with a splash
+      + undo flow for overshoot; graded structurally (any valid jump sequence
+      is accepted, using exact-rational fraction comparison so equivalent
+      fractions like `1/2` and `2/4` are treated as identical). Hint ladder
+      is chain-derived from the puzzle's own canonical solution path.
+
 ## Games In Development
 
 See `NEW_GAMES_DESIGN.md` for full specifications.

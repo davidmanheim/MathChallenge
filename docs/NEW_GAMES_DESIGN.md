@@ -1597,6 +1597,87 @@ family and deduction chain rather than being hand-written per puzzle:
 
 ---
 
+## 14. Lily Leap
+
+**Status:** Implemented (`src/games/lilyLeap/plugin.ts`, gameTypeId `lily-leap`).
+
+**Source inspiration:** the framework's fraction-comparison coverage gap — kids
+had a fraction-decimal-percent matcher (Mismo) but no game that practices
+*adding* fractions along a number line while comparing sizes to avoid
+overshoot. Modeled on `numberPaths`' tap-to-build-a-path interaction (a frog
+instead of a number-grid trail), with the chain-fed hint ladder pattern from
+`countingLab`.
+
+### Concept
+A frog crosses a pond represented as a number line from 0 to a fraction (or
+mixed-number) target. Lily pads sit at fraction positions along the line. The
+player taps a sequence of jumps from a tray of available fraction lengths;
+each jump must land exactly on a lily pad, and the final jump must land
+exactly on the target — no overshoot. All math is exact-rational (integer
+numerator/denominator, gcd-reduced); nothing correctness-relevant ever uses
+floats. Fraction equivalence is handled by value, not by string match, so
+`1/2` and `2/4` land on the same pad.
+
+### Rules
+1. `data.target` (a reduced fraction) is the far shore. `data.pads` is a
+   strictly-increasing array of fractions ending in `target` — every legal
+   landing spot, including a few "decoy" pads that aren't on the canonical
+   solution but are still legitimate places to land (multiple valid jump
+   sequences are expected, not a bug). `data.jumps` is the tray of available
+   (reusable, distinct) jump sizes.
+2. A submitted answer is an ordered, semicolon-separated list of jump
+   fractions (`"1/2;1/4;1/4"`). It is graded **structurally**: each jump must
+   be a member of `jumps` (by value); each running partial sum must never
+   exceed `target`; every partial sum (including the final one) must equal
+   some entry in `pads`; and the final partial sum must equal `target`
+   exactly. `expectUniqueSolution` is `false` — `solve()` returns one
+   canonical sequence (the one used to construct the puzzle), which the
+   structural grader is guaranteed to accept.
+3. Overshooting past the target (a jump whose running sum exceeds `target`)
+   is a "splash" in the UI — the frog visibly lands past the shore and the
+   player must tap Undo before continuing; a jump that stays under target but
+   doesn't land on any pad is rejected outright (no state change, no undo
+   needed) since there's no lily pad to land on.
+
+### Difficulty Scaling (1-6)
+Generation works entirely in integer "units" of `1/L` (an internal common
+denominator) so all arithmetic is exact by construction; fractions are
+gcd-reduced for display/storage.
+
+| Difficulty | Denominators (`L`) | Target | Jump tray size | Decoy pads | Notes |
+|------------|--------------------|--------|-----------------|------------|-------|
+| 1 | halves/quarters (`L=4`) | fixed at 1 whole | 2-3 | 0-2 | few pads, short paths (2-3 jumps) |
+| 2 | halves/quarters (`L=4`) | fixed at 1 whole | 2-3 | 1-3 | longer paths (up to 4 jumps), more decoys |
+| 3 | + thirds/sixths (`L=12`) | fixed at 1 whole | 2-4 | 1-3 | introduces thirds/sixths equivalence |
+| 4 | thirds/sixths (`L=12`) | mixed number > 1 (up to 2) | 3-4 | 1-3 | first mixed-number targets |
+| 5 | + eighths (`L=24`) | mixed number (up to 2) | 3-5 | 2-4 | more decoys, finer denominators |
+| 6 | + twelfths (`L=24`) | mixed number (up to ~2.5) | 4-6 | 2-4 | densest pad grid, tightest margins |
+
+A "smart last jump" random search builds each canonical path (freely choosing
+all but the final jump, then closing the exact remaining gap with one matching
+jump), which finds valid sequences far more reliably than blind random
+sampling; a DP-based exact-decomposition fallback (preferring larger jumps, so
+it never degenerates into a long chain of tiny jumps) guarantees a solvable
+puzzle is always produced even in the rare case the random search is unlucky.
+Every tier's jump pool always includes its finest unit, which is guaranteed by
+construction to divide both `L` and the target — this is what makes the DP
+fallback always succeed. A purely cosmetic pond/frog name pair (`data.theme`)
+adds extra generation-surface variety without touching the math, which keeps
+the smaller low-tier fraction pools comfortably above the platform's
+puzzle-variety bar.
+
+### Hints (chain-derived)
+Built from the puzzle's own canonical solution path (not from live player
+state, matching the static per-puzzle hint pattern used elsewhere):
+1. **Nudge** — "You're at 0 and the far shore is at `target`. How far away is
+   that, and which lily pads sit along the way?"
+2. **Strategy** — names the size of the first (and, if there is one, second)
+   jump in the canonical path and the pad it lands on.
+3. **Near-solution** — lists the full canonical jump sequence and the pad
+   positions it lands on, in order.
+
+---
+
 ## Implementation Priority
 
 Recommended implementation order based on complexity and impact:

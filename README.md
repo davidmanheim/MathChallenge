@@ -17,7 +17,7 @@ Web-accessible TypeScript math puzzle platform for kids (grades 1-10), with ligh
   - Plugin-based puzzle engine with generation-time validation gate
   - Name-based profile login + Firestore-persisted progress
   - Set-level deduplication (no repeated puzzles within a set)
-  - Playable games (13 implemented):
+  - Playable games (14 implemented):
     - `Pattern Train` — interactive multiple-choice pattern puzzles
     - `Mismo` — expression-equivalence card matching
     - `X-Outs` — row/column target-sum cross-out logic grid
@@ -35,6 +35,8 @@ Web-accessible TypeScript math puzzle platform for kids (grades 1-10), with ligh
     - `Proof Blocks` — assemble a valid deductive proof by ordering statement
       blocks from givens to goal (algebra, if-then logic, parity, and geometry
       angle proofs), excluding invalid distractor blocks
+    - `Lily Leap` — guide a frog across a pond by choosing fraction jumps that
+      land exactly on lily pads and sum exactly to the target, without overshooting
     - `Number Bonds Sprint` — missing-addend practice (pending removal)
   - 5 additional games designed (not yet implemented): Sum Blobs, Honeycomb Paths,
     Subtractiles, Measure Mazes, Equation Paths

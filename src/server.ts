@@ -19,6 +19,7 @@ import { storyLogicGridsPlugin } from "./games/storyLogicGrids/plugin.ts";
 import { angleChaseStudioPlugin } from "./games/angleChaseStudio/plugin.ts";
 import { countingLabPlugin } from "./games/countingLab/plugin.ts";
 import { proofBlocksPlugin } from "./games/proofBlocks/plugin.ts";
+import { lilyLeapPlugin } from "./games/lilyLeap/plugin.ts";
 import { ProfileStore } from "./services/profile-store.ts";
 import { ProgressStore } from "./services/progress-store.ts";
 
@@ -42,6 +43,7 @@ registry.register(storyLogicGridsPlugin);
 registry.register(angleChaseStudioPlugin);
 registry.register(countingLabPlugin);
 registry.register(proofBlocksPlugin);
+registry.register(lilyLeapPlugin);
 
 const gradeBands: GradeBand[] = ["1-2", "2-3", "3-4", "4-6", "6-8", "8-10"];
 
