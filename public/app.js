@@ -12,7 +12,8 @@ const state = {
   xouts: null,
   np: null,
   slg: null,
-  pb: null
+  pb: null,
+  pp: null
 };
 
 const gameModules = {};
@@ -111,6 +112,16 @@ const el = {
   // Counting Lab
   clZone: document.getElementById("countingLabZone"),
   clDiagram: document.getElementById("clDiagram"),
+  // Potion Panic
+  ppZone: document.getElementById("potionPanicZone"),
+  ppFill: document.getElementById("ppFill"),
+  ppTargetLine: document.getElementById("ppTargetLine"),
+  ppTargetLabel: document.getElementById("ppTargetLabel"),
+  ppTotal: document.getElementById("ppTotal"),
+  ppJugs: document.getElementById("ppJugs"),
+  ppLog: document.getElementById("ppLog"),
+  ppClearBtn: document.getElementById("ppClearBtn"),
+  ppBanner: document.getElementById("ppBanner"),
   // Proof Blocks
   pbZone: document.getElementById("proofBlocksZone"),
   pbGoal: document.getElementById("proofBlocksGoal"),
@@ -2385,6 +2396,198 @@ function renderCountingLab(puzzle) {
 
 // ===== End Counting Lab =====
 
+// ===== Potion Panic (fraction-addition pouring game) =====
+//
+// Exact-fraction helpers (client-side display only; correctness is always
+// re-verified server-side by potionPanicPlugin.gradeAnswer via exact
+// integer fraction arithmetic).
+
+function ppGcd(a, b) {
+  a = Math.abs(a);
+  b = Math.abs(b);
+  while (b !== 0) {
+    const t = b;
+    b = a % b;
+    a = t;
+  }
+  return a || 1;
+}
+
+function ppReduceFrac(f) {
+  const g = ppGcd(f.n, f.d);
+  return { n: f.n / g, d: f.d / g };
+}
+
+function ppAddFrac(a, b) {
+  return ppReduceFrac({ n: a.n * b.d + b.n * a.d, d: a.d * b.d });
+}
+
+function ppFracEqual(a, b) {
+  return a.n * b.d === b.n * a.d;
+}
+
+// a <= b
+function ppFracLte(a, b) {
+  return a.n * b.d <= b.n * a.d;
+}
+
+function ppFracStr(f) {
+  return `${f.n}/${f.d}`;
+}
+
+function ppFracPercent(f) {
+  return (f.n / f.d) * 100;
+}
+
+function hidePotionPanic() {
+  if (!el.ppZone) return;
+  el.ppZone.style.display = "none";
+  if (el.ppJugs) el.ppJugs.innerHTML = "";
+  if (el.ppLog) el.ppLog.innerHTML = "";
+  if (el.ppBanner) {
+    el.ppBanner.textContent = "";
+    el.ppBanner.className = "pp-banner";
+  }
+  if (el.ppFill) {
+    el.ppFill.style.height = "0%";
+    el.ppFill.classList.remove("pp-fill-overflow");
+  }
+  state.pp = null;
+}
+
+function ppComputeTotal() {
+  if (!state.pp) return { n: 0, d: 1 };
+  return state.pp.pours.reduce((acc, f) => ppAddFrac(acc, f), { n: 0, d: 1 });
+}
+
+function ppRefresh() {
+  if (!state.pp || !el.ppFill) return;
+  const target = state.pp.target;
+  const total = ppComputeTotal();
+  const solved = ppFracEqual(total, target);
+  const overflowed = !solved && !ppFracLte(total, target);
+  state.pp.overflowed = overflowed;
+  state.pp.solved = solved;
+
+  const fillPercent = Math.min(100, Math.max(0, ppFracPercent(total)));
+  el.ppFill.style.height = `${fillPercent}%`;
+  el.ppFill.classList.toggle("pp-fill-overflow", overflowed);
+
+  if (el.ppTotal) {
+    el.ppTotal.textContent = `Total poured: ${ppFracStr(total)}`;
+  }
+
+  // Pour log: each chip removes that specific pour (an "un-pour"/ladle-back control).
+  if (el.ppLog) {
+    el.ppLog.innerHTML = "";
+    state.pp.pours.forEach((pour, idx) => {
+      const chip = document.createElement("button");
+      chip.type = "button";
+      chip.className = "pp-log-chip";
+      chip.textContent = ppFracStr(pour);
+      chip.addEventListener("click", () => ppRemovePour(idx));
+      el.ppLog.appendChild(chip);
+    });
+  }
+
+  // Jug buttons are disabled while overflowed (must ladle back first) or once solved.
+  if (el.ppJugs) {
+    for (const btn of el.ppJugs.children) {
+      btn.disabled = overflowed || solved;
+    }
+  }
+
+  if (el.ppBanner) {
+    el.ppBanner.className = "pp-banner";
+    if (solved) {
+      el.ppBanner.classList.add("pp-banner-success");
+      el.ppBanner.textContent = `Perfect! You filled it to exactly ${ppFracStr(target)}.`;
+    } else if (overflowed) {
+      el.ppBanner.classList.add("pp-banner-overflow");
+      el.ppBanner.textContent = "Overflow! Tap a poured jug below to ladle it back out.";
+    } else if (state.pp.pours.length > 0) {
+      el.ppBanner.textContent = "Keep pouring, or ladle a pour back out if you change your mind.";
+    } else {
+      el.ppBanner.textContent = "Tap jugs to pour them into the cauldron.";
+    }
+  }
+
+  if (el.answer) {
+    el.answer.value = state.pp.pours.map(ppFracStr).join(",");
+  }
+
+  if (solved && !state.pp.autoSubmitted) {
+    state.pp.autoSubmitted = true;
+    setTimeout(() => submitCurrent(), 500);
+  }
+}
+
+function ppPourJug(jug) {
+  if (!state.pp || state.pp.overflowed || state.pp.solved) return;
+  state.pp.pours.push(jug);
+  ppRefresh();
+}
+
+function ppRemovePour(idx) {
+  if (!state.pp) return;
+  state.pp.pours.splice(idx, 1);
+  state.pp.autoSubmitted = false;
+  ppRefresh();
+}
+
+function ppClearAll() {
+  if (!state.pp) return;
+  state.pp.pours = [];
+  state.pp.autoSubmitted = false;
+  ppRefresh();
+}
+
+function renderPotionPanic(puzzle) {
+  if (!el.ppZone) return;
+  hidePotionPanic();
+  el.ppZone.style.display = "";
+
+  const target = puzzle.data && puzzle.data.target;
+  const jugs = (puzzle.data && puzzle.data.jugs) || [];
+  if (!target || !Array.isArray(jugs) || jugs.length === 0) return;
+
+  state.pp = {
+    target,
+    jugs,
+    pours: [],
+    overflowed: false,
+    solved: false,
+    autoSubmitted: false
+  };
+
+  if (el.ppTargetLine && el.ppTargetLabel) {
+    const targetPercent = Math.min(100, Math.max(0, ppFracPercent(target)));
+    el.ppTargetLine.style.bottom = `${targetPercent}%`;
+    el.ppTargetLabel.style.bottom = `${targetPercent}%`;
+    el.ppTargetLabel.textContent = puzzle.data.targetStr || ppFracStr(target);
+  }
+
+  if (el.ppJugs) {
+    el.ppJugs.innerHTML = "";
+    jugs.forEach((jug) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "pp-jug";
+      btn.textContent = ppFracStr(jug);
+      btn.addEventListener("click", () => ppPourJug(jug));
+      el.ppJugs.appendChild(btn);
+    });
+  }
+
+  if (el.ppClearBtn) {
+    el.ppClearBtn.onclick = () => ppClearAll();
+  }
+
+  ppRefresh();
+}
+
+// ===== End Potion Panic =====
+
 // ===== Proof Blocks Interactive UI =====
 
 function hideProofBlocks() {
@@ -2740,6 +2943,7 @@ async function renderPuzzle() {
   hideShikaku();
   hideAngleChase();
   hideCountingLab();
+  hidePotionPanic();
   hideProofBlocks();
   restoreGenericInput();
 
@@ -2839,6 +3043,12 @@ async function renderPuzzle() {
   if (state.puzzle.gameTypeId === "proof-blocks") {
     el.puzzleBox.textContent = state.puzzle.prompt.text;
     renderProofBlocks(state.puzzle);
+    return;
+  }
+  if (state.puzzle.gameTypeId === "potion-panic") {
+    el.puzzleBox.textContent = state.puzzle.prompt.text;
+    renderPotionPanic(state.puzzle);
+    updateGenericAnswerControls(state.puzzle);
     return;
   }
 
