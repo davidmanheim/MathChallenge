@@ -1597,6 +1597,127 @@ family and deduction chain rather than being hand-written per puzzle:
 
 ---
 
+## 14. Chocolate Snap
+
+**Status:** Implemented (`src/games/chocolateSnap/plugin.ts`, gameTypeId `chocolate-snap`).
+
+**Source inspiration:** The area-model visualization used in Singapore-style
+fraction instruction — "multiply numerators, multiply denominators" made
+visually obvious by literally overlapping two shaded rectangles, the same
+concrete-before-abstract idea Balance Scale applies to equations and Shikaku
+applies to area/factors.
+
+### Concept
+A rectangular bar of chocolate (one of eight flavors, purely cosmetic)
+represents one whole, drawn as a `rows × cols` grid. The order is "take
+A/B of C/D of the bar" (e.g. "2/3 of 3/4"): C/D of the bar is snapped off
+first along one axis, then A/B of *that piece* is taken along the other
+axis. The player clicks column headers to snap off a piece of the bar and
+row headers to take a fraction of that piece (or vice versa — the axis
+carrying the first fraction is chosen at random per puzzle); the cells
+shaded by *both* clicks light up as the overlap, and that overlap's share
+of the whole grid is the answer. The building expression (e.g. "3/4 → then
+2/3 of that") is shown above the board so the player always knows which two
+counts they're aiming for.
+
+### Rules
+1. Both fractions are given in lowest terms with proper values (`0 < num <
+   den`), so the puzzle always demonstrates a genuine "part of a part."
+2. The grid is sized exactly `denominator × denominator` (one denominator
+   per axis) so every fraction step lands on whole cells — no rounding, no
+   partial cells.
+3. The overlap region's cell count over the total cell count is the exact
+   product of the two fractions; the player may submit either the reduced
+   fraction or any exactly-equivalent unreduced form (e.g. `6/12` or `1/2`
+   for an answer of `1/2`) — grading is exact-rational (cross-multiplication,
+   no floats), never a numeric-tolerance comparison.
+4. Every puzzle has exactly one correct answer (`expectUniqueSolution: true`).
+5. Grading is count-based, not cell-identity-based: because selecting *any*
+   `k` of `n` lines along an axis marks the same fraction of that axis
+   regardless of which `k` lines, the player's achieved overlap
+   (`colsSelected × rowsSelected` cells out of `rows × cols`) is what's
+   graded — any combination of clicks that reaches the puzzle's intended
+   counts (or, as a bonus, any other combination that happens to reach an
+   equivalent fraction) is accepted.
+
+### Difficulty Scaling
+
+| Difficulty | Grade | Denominators | Notes |
+|------------|-------|--------------|-------|
+| 1 | 4 | halves, thirds, quarters (2, 3, 4) | Small grids (up to 4×4); unit-ish fractions |
+| 2 | 4 | + fifths (2-5) | Slightly larger denominator pool |
+| 3 | 4-5 | thirds through sixths (3-6) | Drops halves; grid grows |
+| 4 | 5 | quarters through sevenths (4-7) | Wider spread, more distinct fraction pairs |
+| 5 | 5-6 | quarters through eighths (4-8) | Biased (a few retries) toward products that need simplifying |
+| 6 | 6 | fifths through ninths (5-9) | Largest grids (up to 9×9); biased toward non-trivial simplification |
+
+Both fractions (the "piece" fraction taken first and the "take" fraction
+taken second) are drawn independently from the tier's pool, and the axis
+each one uses (columns-first vs. rows-first) is randomized, so difficulty 1
+alone already has 5 valid fractions × 5 × 2 axis orientations = 50
+mathematically distinct combinations before the 8 cosmetic chocolate
+flavors are even counted.
+
+### Generation Algorithm
+1. Build the tier's fraction pool: every `num/den` with `den` in the tier's
+   denominator set and `gcd(num, den) = 1`.
+2. Draw the "piece" fraction (snapped off first) and the "take" fraction
+   (taken second, of the piece) independently from that pool via a seeded,
+   avalanche-mixed RNG (`Math.imul`-based LCG with the low 8 bits shifted
+   out before reducing — not a `seed % span` pattern). At difficulty 5-6,
+   retry up to 6 draws if the product doesn't require simplifying, to bias
+   (never force) toward non-trivial reductions.
+3. Randomly assign which axis (columns or rows) carries the piece fraction;
+   the grid's `rows`/`cols` follow directly from the two denominators.
+4. Compute the overlap (`pieceNum × takeNum` cells out of `pieceDen ×
+   takeDen` total) and reduce it via Euclidean gcd.
+5. Independently re-derive the same reduced fraction two more ways: a
+   structurally different binary (Stein's) gcd algorithm, and a brute-force
+   cell count over the actual `rows × cols` grid (rather than trusting the
+   `num × num` shortcut). All three must agree, or the candidate fails its
+   own `selfCheck` and the validation gate retries with a new seed.
+6. `validatePuzzle()` repeats every one of those independent checks itself
+   (proper-fraction bounds, lowest-terms inputs, grid-dimension consistency,
+   the binary-gcd reduction, and the brute-force cell count) rather than
+   only trusting the generator's `selfCheck` flag.
+
+### Answer Format
+A fraction string `"num/den"`. The reduced form and any exactly-equivalent
+unreduced form are both accepted (verified by cross-multiplication);
+decimals and any other format are rejected.
+
+### Interactive UI
+- **Theme:** A warm cocoa-brown "candy bar" palette (dark chocolate
+  background, gold/amber highlights) distinct from every other game's theme.
+- **Board:** Column-header buttons across the top, row-header buttons down
+  the left side, and a grid of cells styled like chocolate-bar segments
+  (a subtle diagonal stripe pattern) in between — a CSS-grid layout, no
+  canvas needed. Clicking a header toggles that column/row's shading.
+- **Live feedback:** Cells shaded by the column selection only, the row
+  selection only, and both (the overlap, highlighted gold) render in three
+  distinct colors, and a readout line tracks "Columns shaded: X of N · Rows
+  shaded: Y of M · Overlap: X×Y of N×M cells" as the player clicks, with each
+  axis's readout labeled "Step 1 (snap off)" / "Step 2 (take)" matching
+  whichever fraction that axis carries for this puzzle.
+- **Submission:** A "Check Answer" button submits the achieved overlap
+  fraction (`colsSelected × rowsSelected / (rows × cols)`) through the
+  standard `/api/attempts` flow, the same pattern Shikaku's canvas UI uses.
+  A "Reset" button clears both selections.
+
+### Skill Tags
+`fractions`, `fraction_multiplication`, `area_model`, `gcd_simplification`
+
+### Hints
+1. **Nudge** — "Does 'of' here mean add or multiply? When you take a
+   fraction of a fraction, you multiply them."
+2. **Strategy** — names the exact counts to shade on each axis in this
+   puzzle's own numbers ("shade 3/4 of the columns, then 2/3 of the rows
+   within that piece") and tells the player to count only the overlap.
+3. **Near-solution** — states the overlap cell count over the total and the
+   reduced fraction explicitly.
+
+---
+
 ## Implementation Priority
 
 Recommended implementation order based on complexity and impact:

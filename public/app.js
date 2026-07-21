@@ -12,7 +12,8 @@ const state = {
   xouts: null,
   np: null,
   slg: null,
-  pb: null
+  pb: null,
+  cs: null
 };
 
 const gameModules = {};
@@ -120,7 +121,18 @@ const el = {
   pbProof: document.getElementById("proofBlocksProof"),
   pbCheckBtn: document.getElementById("proofBlocksCheckBtn"),
   pbClearBtn: document.getElementById("proofBlocksClearBtn"),
-  pbBanner: document.getElementById("proofBlocksBanner")
+  pbBanner: document.getElementById("proofBlocksBanner"),
+  // Chocolate Snap
+  csZone: document.getElementById("chocolateSnapZone"),
+  csExpression: document.getElementById("csExpression"),
+  csBoard: document.getElementById("csBoard"),
+  csColHeaders: document.getElementById("csColHeaders"),
+  csRowHeaders: document.getElementById("csRowHeaders"),
+  csGrid: document.getElementById("csGrid"),
+  csReadout: document.getElementById("csReadout"),
+  csResetBtn: document.getElementById("csResetBtn"),
+  csCheckBtn: document.getElementById("csCheckBtn"),
+  csBanner: document.getElementById("csBanner")
 };
 
 function difficultyLabel(n) {
@@ -2712,6 +2724,189 @@ async function pbSubmit() {
 
 // ===== End Proof Blocks =====
 
+// ===== Chocolate Snap Interactive UI =====
+// Self-contained zone/state (all under the `cs` prefix) implementing the
+// fraction-multiplication area model: click column headers to "snap off" a
+// piece of the bar, click row headers to "take" a fraction of that piece.
+// The overlap (cells shaded by BOTH) is the answer; grading is count-based
+// (colsSelected.size * rowsSelected.size / (rows*cols)) so any combination of
+// clicked lines that reaches the right counts is accepted, matching the
+// server-side exact-rational grader.
+
+function hideChocolateSnap() {
+  if (!el.csZone) return;
+  el.csZone.style.display = "none";
+  if (el.csColHeaders) el.csColHeaders.innerHTML = "";
+  if (el.csRowHeaders) el.csRowHeaders.innerHTML = "";
+  if (el.csGrid) el.csGrid.innerHTML = "";
+  if (el.csBanner) el.csBanner.textContent = "";
+  if (el.csReadout) el.csReadout.innerHTML = "";
+}
+
+function renderChocolateSnap(puzzle) {
+  if (!el.csZone) return;
+  hideChocolateSnap();
+  el.csZone.style.display = "";
+  hideGenericInput();
+
+  const data = puzzle.data;
+  const rows = Number(data.rows);
+  const cols = Number(data.cols);
+  const axisForP = data.axisForP;
+
+  state.cs = {
+    rows,
+    cols,
+    axisForP,
+    colSelected: new Set(),
+    rowSelected: new Set()
+  };
+
+  el.csExpression.textContent =
+    `Building: ${data.buildingExpression}, on a bar of ${data.flavor} (${rows}×${cols} grid = 1 whole bar)`;
+
+  el.csColHeaders.innerHTML = "";
+  el.csColHeaders.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+  el.csColHeaders.title = axisForP === "cols" ? "Step 1: snap off columns" : "Step 2: take columns";
+  for (let c = 0; c < cols; c++) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "cs-header-btn cs-col-btn";
+    btn.textContent = String(c + 1);
+    btn.onclick = () => {
+      if (state.cs.colSelected.has(c)) state.cs.colSelected.delete(c);
+      else state.cs.colSelected.add(c);
+      csRedraw();
+    };
+    el.csColHeaders.appendChild(btn);
+  }
+
+  el.csRowHeaders.innerHTML = "";
+  el.csRowHeaders.style.gridTemplateRows = `repeat(${rows}, 1fr)`;
+  el.csRowHeaders.title = axisForP === "cols" ? "Step 2: take rows" : "Step 1: snap off rows";
+  for (let r = 0; r < rows; r++) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "cs-header-btn cs-row-btn";
+    btn.textContent = String(r + 1);
+    btn.onclick = () => {
+      if (state.cs.rowSelected.has(r)) state.cs.rowSelected.delete(r);
+      else state.cs.rowSelected.add(r);
+      csRedraw();
+    };
+    el.csRowHeaders.appendChild(btn);
+  }
+
+  el.csGrid.innerHTML = "";
+  el.csGrid.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+  el.csGrid.style.gridTemplateRows = `repeat(${rows}, 1fr)`;
+  const maxBoardPx = Math.min(360, (el.csZone.clientWidth || 380) - 60);
+  const cellPx = Math.max(18, Math.floor(maxBoardPx / Math.max(rows, cols)));
+  el.csGrid.style.width = `${cellPx * cols}px`;
+  el.csGrid.style.height = `${cellPx * rows}px`;
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      const cell = document.createElement("div");
+      cell.className = "cs-cell";
+      cell.dataset.r = String(r);
+      cell.dataset.c = String(c);
+      el.csGrid.appendChild(cell);
+    }
+  }
+
+  el.csResetBtn.onclick = () => {
+    state.cs.colSelected.clear();
+    state.cs.rowSelected.clear();
+    csRedraw();
+  };
+  el.csCheckBtn.onclick = csCheckAnswer;
+
+  csRedraw();
+}
+
+function csRedraw() {
+  if (!state.cs) return;
+  const { rows, cols, colSelected, rowSelected, axisForP } = state.cs;
+
+  Array.from(el.csColHeaders.children).forEach((btn, idx) => {
+    btn.classList.toggle("active", colSelected.has(idx));
+  });
+  Array.from(el.csRowHeaders.children).forEach((btn, idx) => {
+    btn.classList.toggle("active", rowSelected.has(idx));
+  });
+
+  Array.from(el.csGrid.children).forEach((cell) => {
+    const r = Number(cell.dataset.r);
+    const c = Number(cell.dataset.c);
+    const colOn = colSelected.has(c);
+    const rowOn = rowSelected.has(r);
+    cell.classList.toggle("cs-cell-overlap", colOn && rowOn);
+    cell.classList.toggle("cs-cell-col", colOn && !rowOn);
+    cell.classList.toggle("cs-cell-row", rowOn && !colOn);
+    cell.classList.toggle("cs-cell-plain", !colOn && !rowOn);
+  });
+
+  const overlap = colSelected.size * rowSelected.size;
+  const total = rows * cols;
+  const colStepLabel = axisForP === "cols" ? "Step 1 snap" : "Step 2 take";
+  const rowStepLabel = axisForP === "cols" ? "Step 2 take" : "Step 1 snap";
+
+  el.csReadout.innerHTML =
+    `Columns shaded (${colStepLabel}): <strong>${colSelected.size}</strong> of ${cols} &nbsp;&middot;&nbsp; ` +
+    `Rows shaded (${rowStepLabel}): <strong>${rowSelected.size}</strong> of ${rows} &nbsp;&middot;&nbsp; ` +
+    `Overlap: <strong>${overlap}</strong> of ${total} cells` +
+    (colSelected.size && rowSelected.size ? ` = ${overlap}/${total}` : "");
+}
+
+async function csCheckAnswer() {
+  if (!state.cs) return;
+  const { colSelected, rowSelected, cols, rows } = state.cs;
+
+  if (colSelected.size === 0 || rowSelected.size === 0) {
+    el.csBanner.textContent = "Shade at least one column AND one row first!";
+    return;
+  }
+
+  const overlap = colSelected.size * rowSelected.size;
+  const total = cols * rows;
+  const answer = `${overlap}/${total}`;
+  el.answer.value = answer;
+
+  const puzzle = getCurrentPuzzle();
+  const response = await api("/api/attempts", {
+    method: "POST",
+    body: JSON.stringify({
+      profileId: state.profile.id,
+      puzzle,
+      answer,
+      hintsUsed: state.hintIndex,
+      timeMs: currentAttemptTimeMs()
+    })
+  });
+
+  if (response.result.isCorrect) {
+    el.csBanner.textContent = "Sweet! That's correct!";
+    const justFinished = state.currentIndex + 1 === state.activeSet.length;
+    setTimeout(() => {
+      if (justFinished) {
+        applyReinforcementMessage(response, "Correct! Set complete. Start another set.");
+        state.activeSet = [];
+        state.currentIndex = 0;
+      } else {
+        applyReinforcementMessage(response, "Correct! Moving to next question.");
+        state.currentIndex += 1;
+      }
+      renderPuzzle();
+    }, 1200);
+  } else {
+    el.csBanner.textContent = `Not quite — you shaded ${overlap}/${total}. Check your column and row counts against the instructions.`;
+    setTimeout(() => { el.csBanner.textContent = ""; }, 2600);
+  }
+  await refreshProgress();
+}
+
+// ===== End Chocolate Snap =====
+
 async function renderPuzzle() {
   state.puzzle = getCurrentPuzzle();
   state.puzzleStartedAt = state.puzzle ? Date.now() : 0;
@@ -2741,6 +2936,7 @@ async function renderPuzzle() {
   hideAngleChase();
   hideCountingLab();
   hideProofBlocks();
+  hideChocolateSnap();
   restoreGenericInput();
 
   if (!state.puzzle) {
@@ -2839,6 +3035,11 @@ async function renderPuzzle() {
   if (state.puzzle.gameTypeId === "proof-blocks") {
     el.puzzleBox.textContent = state.puzzle.prompt.text;
     renderProofBlocks(state.puzzle);
+    return;
+  }
+  if (state.puzzle.gameTypeId === "chocolate-snap") {
+    el.puzzleBox.textContent = state.puzzle.prompt.text;
+    renderChocolateSnap(state.puzzle);
     return;
   }
 

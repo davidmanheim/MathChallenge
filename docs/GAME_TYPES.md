@@ -104,6 +104,15 @@ Each game type includes:
       canonical string. Hint ladder teaches proof strategy: what to prove,
       which statement follows from the givens first, then the first correct step.
 
+14. **Chocolate Snap** (Grades 4-6) — `chocolate-snap`
+    - Multiply fractions with the area model: snap off a fraction of a
+      chocolate-bar grid along one axis, then take a fraction of that piece
+      along the other axis; the overlap that lights up is the answer.
+    - Click column/row headers to shade; count-based grading accepts the
+      reduced fraction or any exactly-equivalent unreduced form.
+    - Difficulty scales by denominator size (halves/thirds up through
+      fifths-ninths) and by how often the product needs simplifying.
+
 ## Games In Development
 
 See `NEW_GAMES_DESIGN.md` for full specifications.
