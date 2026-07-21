@@ -2221,3 +2221,153 @@ label[for="difficulty"] {
   font-size: 0.9rem;
   color: var(--ink);
 }
+
+/* ===== Chocolate Snap Theme ===== */
+.cs-zone {
+  background: linear-gradient(135deg, #3b2313 0%, #1c1108 100%);
+  border-radius: 16px;
+  padding: 20px;
+  margin: 12px 0;
+  color: #f5e3c8;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+}
+
+.cs-expression {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #ffd27a;
+  text-align: center;
+}
+
+.cs-board {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-rows: auto 1fr;
+  gap: 4px;
+  max-width: 100%;
+}
+
+.cs-corner {
+  grid-column: 1;
+  grid-row: 1;
+}
+
+.cs-col-headers {
+  grid-column: 2;
+  grid-row: 1;
+  display: grid;
+  gap: 2px;
+}
+
+.cs-row-headers {
+  grid-column: 1;
+  grid-row: 2;
+  display: grid;
+  gap: 2px;
+}
+
+.cs-grid {
+  grid-column: 2;
+  grid-row: 2;
+  display: grid;
+  gap: 2px;
+  background: #170d06;
+  border: 3px solid #8a5a2b;
+  border-radius: 6px;
+  padding: 3px;
+}
+
+.cs-header-btn {
+  min-width: 28px;
+  min-height: 28px;
+  padding: 4px 6px;
+  border-radius: 6px;
+  border: 2px solid rgba(255, 210, 122, 0.35);
+  background: #2a1608;
+  color: #f5e3c8;
+  font-weight: 700;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.cs-header-btn:hover {
+  border-color: #ffd27a;
+}
+
+.cs-header-btn.active {
+  background: #8a5a2b;
+  border-color: #ffd27a;
+  color: #1c1108;
+}
+
+.cs-cell {
+  min-width: 24px;
+  min-height: 24px;
+  width: 100%;
+  height: 100%;
+  border-radius: 3px;
+  transition: background 0.15s;
+}
+
+.cs-cell-plain {
+  background: repeating-linear-gradient(45deg, #4a2c14 0, #4a2c14 6px, #3b2313 6px, #3b2313 12px);
+  border: 1px solid #241407;
+}
+
+.cs-cell-col {
+  background: #6b4322;
+  border: 1px solid #8a5a2b;
+}
+
+.cs-cell-row {
+  background: #a9702f;
+  border: 1px solid #c4863d;
+}
+
+.cs-cell-overlap {
+  background: #ffd27a;
+  border: 1px solid #fff2cf;
+  box-shadow: inset 0 0 0 2px rgba(28, 17, 8, 0.35);
+}
+
+.cs-readout {
+  font-size: 0.95rem;
+  text-align: center;
+  color: #f5e3c8;
+}
+
+.cs-controls {
+  display: flex;
+  gap: 10px;
+}
+
+.cs-controls button {
+  padding: 8px 18px;
+  border-radius: 8px;
+  border: 2px solid rgba(255, 210, 122, 0.4);
+  background: #3b2313;
+  color: #f5e3c8;
+  font-weight: 700;
+  cursor: pointer;
+  font-size: 0.95rem;
+  transition: background 0.15s;
+}
+
+.cs-controls button:hover {
+  background: #8a5a2b;
+  border-color: #ffd27a;
+}
+
+.cs-check-btn { background: #b8722f !important; color: #1c1108 !important; }
+
+.cs-banner {
+  font-size: 1.4rem;
+  font-weight: 900;
+  color: #ffd27a;
+  min-height: 30px;
+  text-align: center;
+}

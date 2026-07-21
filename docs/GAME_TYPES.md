@@ -120,24 +120,32 @@ Each game type includes:
     - Hint ladder is chain-derived: which jugs share a common denominator with
       the target, how much remains after a first real pour, then one full
       valid pour-set revealed in order.
+15. **Chocolate Snap** (Grades 4-6) — `chocolate-snap`
+    - Multiply fractions with the area model: snap off a fraction of a
+      chocolate-bar grid along one axis, then take a fraction of that piece
+      along the other axis; the overlap that lights up is the answer.
+    - Click column/row headers to shade; count-based grading accepts the
+      reduced fraction or any exactly-equivalent unreduced form.
+    - Difficulty scales by denominator size (halves/thirds up through
+      fifths-ninths) and by how often the product needs simplifying.
 
 ## Games In Development
 
 See `NEW_GAMES_DESIGN.md` for full specifications.
 
-15. **Sum Blobs** (Grades 1-4)
+16. **Sum Blobs** (Grades 1-4)
    - Draw contiguous blobs on a number grid, each summing to a target.
 
-16. **Honeycomb Paths** (Grades 1-4)
+17. **Honeycomb Paths** (Grades 1-4)
     - Trace a path through a hex grid to hit a target sum or sequence.
 
-17. **Subtractiles** (Grades 2-5)
+18. **Subtractiles** (Grades 2-5)
     - Place number tiles so adjacent-cell differences match edge constraints.
 
-18. **Measure Mazes** (Grades 2-5)
+19. **Measure Mazes** (Grades 2-5)
     - Connect dots at exact distances across a grid.
 
-19. **Equation Paths** (Grades 3-7)
+20. **Equation Paths** (Grades 3-7)
     - Trace a path through a number/operator grid to build an expression hitting a target.
 
 ## Potential Games Backlog (By Grade Band)

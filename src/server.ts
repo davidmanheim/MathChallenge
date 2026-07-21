@@ -20,6 +20,7 @@ import { angleChaseStudioPlugin } from "./games/angleChaseStudio/plugin.ts";
 import { countingLabPlugin } from "./games/countingLab/plugin.ts";
 import { proofBlocksPlugin } from "./games/proofBlocks/plugin.ts";
 import { potionPanicPlugin } from "./games/potionPanic/plugin.ts";
+import { chocolateSnapPlugin } from "./games/chocolateSnap/plugin.ts";
 import { ProfileStore } from "./services/profile-store.ts";
 import { ProgressStore } from "./services/progress-store.ts";
 
@@ -44,6 +45,7 @@ registry.register(angleChaseStudioPlugin);
 registry.register(countingLabPlugin);
 registry.register(proofBlocksPlugin);
 registry.register(potionPanicPlugin);
+registry.register(chocolateSnapPlugin);
 
 const gradeBands: GradeBand[] = ["1-2", "2-3", "3-4", "4-6", "6-8", "8-10"];
 
