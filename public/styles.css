@@ -2,11 +2,48 @@
   --bg: #fff8e8;
   --card: #fffdf7;
   --ink: #253238;
+  --ink-soft: #5b6b70;
   --accent: #0f766e;
   --accent-2: #ff8a00;
   --bubble: #d7f1ff;
   --line: #6b7280;
+  --border: #f0d7a5;
   --btn-shadow: 0 3px 0 rgba(16, 24, 40, 0.2);
+  --surface-shadow: 0 8px 18px rgba(38, 30, 16, 0.12);
+
+  /* Shelf/strand accent colors — one per themed "land" on the hub map. */
+  --strand-harbor: #0f766e;
+  --strand-falls: #1c7ed6;
+  --strand-forest: #2f9e44;
+  --strand-lagoon: #7c5cbf;
+  --strand-summit: #c2542c;
+  --strand-peak: #4338ca;
+
+  --font-display: "Baloo 2", "Trebuchet MS", "Segoe UI", sans-serif;
+  --font-body: "Atkinson Hyperlegible", "Segoe UI", "Trebuchet MS", sans-serif;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #12181a;
+    --card: #1c2528;
+    --ink: #eef4f3;
+    --ink-soft: #a9bcbb;
+    --accent: #34d1c0;
+    --accent-2: #ffb15c;
+    --bubble: #16343a;
+    --line: #7c8f8e;
+    --border: #2d3a3e;
+    --btn-shadow: 0 3px 0 rgba(0, 0, 0, 0.4);
+    --surface-shadow: 0 8px 20px rgba(0, 0, 0, 0.45);
+
+    --strand-harbor: #34d1c0;
+    --strand-falls: #5aa9f0;
+    --strand-forest: #6fce78;
+    --strand-lagoon: #b09ae8;
+    --strand-summit: #e2905f;
+    --strand-peak: #8b83f5;
+  }
 }
 
 * {
@@ -15,12 +52,50 @@
 
 body {
   margin: 0;
-  font-family: "Comic Sans MS", "Trebuchet MS", "Segoe UI", sans-serif;
+  font-family: var(--font-body);
   color: var(--ink);
   background:
     radial-gradient(circle at 10% 10%, #ffd8a8, transparent 35%),
     radial-gradient(circle at 90% 5%, #b7ebff, transparent 35%),
     linear-gradient(180deg, #fff8e8 0%, #ffecc7 100%);
+}
+
+@media (prefers-color-scheme: dark) {
+  body {
+    background:
+      radial-gradient(circle at 10% 10%, rgba(52, 209, 192, 0.12), transparent 35%),
+      radial-gradient(circle at 90% 5%, rgba(90, 169, 240, 0.12), transparent 35%),
+      linear-gradient(180deg, #12181a 0%, #0d1113 100%);
+  }
+}
+
+h1, h2, h3 {
+  font-family: var(--font-display);
+  letter-spacing: 0.01em;
+}
+
+.muted {
+  color: var(--ink-soft);
+}
+
+.screen[hidden] {
+  display: none;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.engine-controls-hidden {
+  /* The native engine controls (#gameType, #difficulty, #newPuzzleBtn, ...)
+     stay fully functional in the DOM — the hub + difficulty picker set their
+     values and .click() them programmatically — just not shown to the player. */
+  display: none;
 }
 
 .app {
@@ -2513,4 +2588,636 @@ label[for="difficulty"] {
   font-size: 0.88rem;
   color: #0e7490;
   min-height: 1.2em;
+}
+
+/* =====================================================================
+   SHELL: login / hub (Made-for-You Shelves) / player wrapper / parent door
+   None of the rules below touch the per-game zone classes above (fn-, kk-,
+   bs-, sk-, acs-, cl-, pp-, mismo-, xouts-, np-, slg-, pb-, cs-, ll-) -- the
+   puzzle player keeps its existing look untouched.
+   ===================================================================== */
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+.app {
+  max-width: 1080px;
+}
+
+.btn-primary,
+.btn-ghost {
+  font-family: var(--font-body);
+}
+
+.btn-primary {
+  background: var(--accent-2);
+  color: #2a1400;
+  border: none;
+  border-radius: 999px;
+  font-weight: 800;
+  padding: 12px 22px;
+  box-shadow: var(--btn-shadow);
+}
+
+@media (prefers-color-scheme: dark) {
+  .btn-primary {
+    color: #211200;
+  }
+}
+
+.btn-large {
+  font-size: 1.1rem;
+  padding: 14px 26px;
+  width: 100%;
+}
+
+.btn-ghost {
+  background: transparent;
+  color: var(--accent);
+  border: 2px solid var(--border);
+  box-shadow: none;
+  font-weight: 700;
+}
+
+.btn-ghost:hover {
+  background: var(--bubble);
+  color: var(--accent);
+  transform: translateY(-1px);
+  box-shadow: none;
+}
+
+.section-eyebrow {
+  font-family: var(--font-display);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.85rem;
+  color: var(--ink-soft);
+  margin: 0 0 10px;
+}
+
+.small-label {
+  margin: 12px 0 6px;
+  font-size: 0.92rem;
+}
+
+/* ----- Login screen ----- */
+.atlas-hero {
+  position: relative;
+  text-align: center;
+  padding: 28px 20px 24px;
+}
+
+.atlas-compass {
+  font-size: 2.4rem;
+  display: inline-block;
+  margin-bottom: 6px;
+  animation: compass-sway 6s ease-in-out infinite;
+}
+
+@keyframes compass-sway {
+  0%, 100% { transform: rotate(-6deg); }
+  50% { transform: rotate(6deg); }
+}
+
+.atlas-hero h1 {
+  margin: 4px 0 6px;
+  font-size: 2rem;
+}
+
+.atlas-hero p {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 1.05rem;
+}
+
+.login-card {
+  padding: 20px;
+}
+
+.profile-tiles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-bottom: 8px;
+}
+
+.profile-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  width: 108px;
+  padding: 14px 8px;
+  border-radius: 18px;
+  border: 2px solid var(--border);
+  background: var(--card);
+  box-shadow: var(--surface-shadow);
+  color: var(--ink);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.profile-tile-avatar {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: #fff;
+  background: linear-gradient(160deg, var(--accent) 0%, var(--strand-lagoon) 100%);
+}
+
+.profile-tile-add .profile-tile-avatar {
+  background: transparent;
+  border: 2px dashed var(--line);
+  color: var(--ink-soft);
+}
+
+.profile-tile-add {
+  border-style: dashed;
+  background: transparent;
+  box-shadow: none;
+}
+
+.profile-tile-name {
+  font-size: 0.92rem;
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.new-profile-form {
+  display: none;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 2px dashed var(--border);
+}
+
+.new-profile-form.open {
+  display: flex;
+}
+
+.new-profile-form #name {
+  flex: 1;
+  min-width: 0;
+}
+
+.grade-band-picker {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.grade-band-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 2px solid var(--border);
+  background: var(--card);
+  color: var(--ink);
+  box-shadow: none;
+  cursor: pointer;
+  text-align: left;
+}
+
+.grade-band-btn:hover {
+  background: var(--bubble);
+  color: var(--ink);
+  transform: none;
+}
+
+.grade-band-btn.active {
+  border-color: var(--accent);
+  background: var(--bubble);
+}
+
+.gb-title {
+  font-weight: 800;
+  font-size: 0.98rem;
+}
+
+.gb-sub {
+  font-size: 0.8rem;
+  color: var(--ink-soft);
+}
+
+/* ----- Hub screen ----- */
+.screen-hub {
+  display: grid;
+  gap: 16px;
+}
+
+.hub-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.hub-greeting {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.hub-avatar {
+  width: 54px;
+  height: 54px;
+  min-width: 54px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: #fff;
+  background: linear-gradient(160deg, var(--accent) 0%, var(--strand-lagoon) 100%);
+}
+
+.hub-greeting h1 {
+  margin: 0;
+  font-size: 1.5rem;
+}
+
+.hub-greeting p {
+  margin: 2px 0 0;
+}
+
+.hub-header-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.kid-progress-card {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+  padding: 14px 18px;
+}
+
+.kid-progress-card p {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.todays-pick-card {
+  border-radius: 20px;
+  padding: 18px 20px;
+  background:
+    radial-gradient(circle at 100% 0%, rgba(255, 138, 0, 0.16), transparent 55%),
+    var(--card);
+  border: 2px solid var(--accent-2);
+  box-shadow: var(--surface-shadow);
+}
+
+.todays-pick-label {
+  display: inline-block;
+  font-family: var(--font-display);
+  font-weight: 700;
+  color: var(--accent-2);
+  margin-bottom: 8px;
+}
+
+.todays-pick-body {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.todays-pick-emoji {
+  font-size: 2.6rem;
+  line-height: 1;
+}
+
+.todays-pick-text {
+  flex: 1;
+  min-width: 160px;
+}
+
+.todays-pick-text h2 {
+  margin: 0 0 2px;
+  font-size: 1.3rem;
+}
+
+.todays-pick-text p {
+  margin: 0;
+}
+
+.strand-chips {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  scrollbar-width: thin;
+}
+
+.strand-chip {
+  flex: 0 0 auto;
+  padding: 8px 16px;
+  border-radius: 999px;
+  border: 2px solid var(--border);
+  background: var(--card);
+  color: var(--ink);
+  font-weight: 700;
+  font-size: 0.92rem;
+  box-shadow: none;
+  white-space: nowrap;
+}
+
+.strand-chip:hover {
+  background: var(--bubble);
+  color: var(--ink);
+  transform: none;
+}
+
+.strand-chip.active {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #fff;
+}
+
+/* The shelves sit on a dotted "expedition trail" spine -- the one signature
+   flourish that turns generic streaming rows into a map you walk through. */
+.shelves {
+  position: relative;
+  display: grid;
+  gap: 22px;
+  padding-left: 26px;
+}
+
+.shelves::before {
+  content: "";
+  position: absolute;
+  left: 9px;
+  top: 6px;
+  bottom: 6px;
+  width: 0;
+  border-left: 3px dotted var(--line);
+  opacity: 0.45;
+}
+
+.shelf {
+  position: relative;
+}
+
+.shelf-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.shelf-waypoint {
+  position: absolute;
+  left: -26px;
+  top: 2px;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  background: var(--card);
+  border: 2px solid var(--line);
+}
+
+.shelf-header h2 {
+  margin: 0;
+  font-size: 1.2rem;
+}
+
+.shelf-header p {
+  margin: 2px 0 0;
+  font-size: 0.9rem;
+}
+
+.shelf-track {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  padding: 4px 4px 10px;
+  scroll-snap-type: x proximity;
+}
+
+.game-card {
+  scroll-snap-align: start;
+  flex: 0 0 148px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 16px 10px;
+  border-radius: 18px;
+  border: 2px solid var(--border);
+  background: var(--card);
+  color: var(--ink);
+  box-shadow: var(--surface-shadow);
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.game-card:hover {
+  background: var(--card);
+  color: var(--ink);
+  transform: translateY(-3px);
+  box-shadow: 0 12px 22px rgba(38, 30, 16, 0.18);
+}
+
+.game-card:active {
+  transform: translateY(0);
+}
+
+.game-card-emoji {
+  font-size: 2.1rem;
+  line-height: 1;
+}
+
+.game-card-name {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 0.98rem;
+  text-align: center;
+}
+
+.game-card-grades {
+  font-size: 0.78rem;
+  color: var(--ink-soft);
+}
+
+/* ----- Player screen ----- */
+.screen-player {
+  display: grid;
+  gap: 14px;
+}
+
+.player-topbar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  padding: 12px 16px;
+}
+
+.player-game-title {
+  flex: 1;
+  margin: 0;
+  font-size: 1.15rem;
+  min-width: 120px;
+}
+
+.difficulty-picker {
+  display: flex;
+  gap: 6px;
+  background: var(--bg);
+  border-radius: 999px;
+  padding: 4px;
+  border: 2px solid var(--border);
+}
+
+.difficulty-picker button {
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ink);
+  box-shadow: none;
+  font-size: 0.88rem;
+  padding: 8px 12px;
+  font-weight: 700;
+}
+
+.difficulty-picker button:hover {
+  background: var(--bubble);
+  color: var(--ink);
+  transform: none;
+  box-shadow: none;
+}
+
+.difficulty-picker button.active {
+  background: var(--accent);
+  color: #fff;
+}
+
+.player-footer {
+  display: flex;
+  justify-content: center;
+  margin-top: 6px;
+}
+
+/* ----- Parent (grown-ups) door ----- */
+.parent-modal {
+  border: none;
+  border-radius: 20px;
+  padding: 0;
+  max-width: min(560px, 92vw);
+  width: 100%;
+  box-shadow: 0 20px 45px rgba(0, 0, 0, 0.28);
+}
+
+.parent-modal::backdrop {
+  background: rgba(20, 24, 26, 0.45);
+}
+
+.parent-modal-inner {
+  position: relative;
+  background: var(--card);
+  color: var(--ink);
+  border-radius: 20px;
+  padding: 24px;
+  font-family: var(--font-body);
+}
+
+.modal-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--ink-soft);
+  box-shadow: none;
+  font-size: 1.3rem;
+  line-height: 1;
+  padding: 0;
+}
+
+.modal-close:hover {
+  background: var(--bubble);
+  color: var(--ink);
+  transform: none;
+  box-shadow: none;
+}
+
+.parent-summary p {
+  margin: 0 0 10px;
+  line-height: 1.5;
+}
+
+.parent-detail-toggle {
+  margin-top: 14px;
+  border-top: 2px dashed var(--border);
+  padding-top: 10px;
+}
+
+.parent-detail-toggle summary {
+  cursor: pointer;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+/* ----- Small-screen tweaks for the shell ----- */
+@media (max-width: 640px) {
+  .profile-tile {
+    width: 92px;
+  }
+
+  .game-card {
+    flex: 0 0 130px;
+  }
+
+  .shelves {
+    padding-left: 20px;
+  }
+
+  .shelf-waypoint {
+    left: -20px;
+    width: 22px;
+    height: 22px;
+    font-size: 0.85rem;
+  }
+
+  .hub-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .player-topbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .difficulty-picker {
+    justify-content: space-between;
+  }
 }

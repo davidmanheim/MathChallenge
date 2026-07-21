@@ -3,260 +3,331 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>MathChallenge Alpha</title>
+    <title>MathChallenge Clubhouse</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=Atkinson+Hyperlegible:wght@400;700&display=swap"
+      rel="stylesheet"
+    />
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body>
     <main class="app">
-      <section class="card hero">
-        <h1>MathChallenge Clubhouse</h1>
-        <p>Play puzzle sets, collect streaks, and level up your math brain.</p>
-      </section>
-
-      <section class="card">
-        <h2>1) Login</h2>
-        <div class="row">
-          <input id="name" placeholder="Kid name" />
-          <select id="gradeBand">
-            <option value="1-2">Grades 1-2</option>
-            <option value="2-3">Grades 2-3</option>
-            <option value="3-4">Grades 3-4</option>
-            <option value="4-6">Grades 4-6</option>
-            <option value="6-8">Grades 6-8</option>
-            <option value="8-10">Grades 8-10</option>
-          </select>
-          <button id="loginBtn">Login</button>
+      <!-- ============ SCREEN 1: LOGIN (profile-tile picker) ============ -->
+      <section id="screenLogin" class="screen screen-login">
+        <div class="card hero atlas-hero">
+          <span class="atlas-compass" aria-hidden="true">🧭</span>
+          <h1>MathChallenge Clubhouse</h1>
+          <p>Pick your explorer, then set sail for today's puzzles.</p>
         </div>
-        <p id="profileStatus" class="muted"></p>
-      </section>
 
-      <section class="card">
-        <h2>2) Puzzle Run</h2>
-        <div class="row" id="puzzleControlsRow">
-          <select id="gameType"></select>
-          <label for="difficulty">Difficulty</label>
-          <div class="difficulty-stepper">
-            <button id="difficultyDown" type="button" aria-label="Decrease difficulty">-</button>
-            <input id="difficulty" type="number" min="1" max="10" value="1" />
-            <button id="difficultyUp" type="button" aria-label="Increase difficulty">+</button>
-          </div>
-          <span id="difficultyLabel" class="pill">Easy</span>
-          <label id="setSizeLabel" for="setSize">Set Size</label>
-          <input id="setSize" type="number" min="1" max="12" value="5" />
-          <button id="newPuzzleBtn">Start Set</button>
-        </div>
-        <p id="setProgress" class="muted"></p>
-        <div id="puzzleBox" class="puzzle"></div>
-        <div id="choiceButtons" class="choice-grid"></div>
-        <div id="numberLine" class="number-line"></div>
+        <div class="card login-card">
+          <h2 class="section-eyebrow">Who's playing?</h2>
+          <div id="profileTiles" class="profile-tiles"></div>
 
-        <div id="factorNinjaZone" class="fn-zone" style="display:none">
-          <div class="fn-header">
-            <span class="fn-streak" id="fnStreak"></span>
-            <span class="fn-sub-label" id="fnSubLabel"></span>
-            <button id="fnHintBtn" class="fn-hint-btn" type="button">Hint</button>
-          </div>
-          <div class="fn-arena" id="fnArena">
-            <!-- Prime Factors mode -->
-            <div class="fn-orb-area" id="fnOrbArea">
-              <div class="fn-orb" id="fnOrb"></div>
+          <div id="newProfileForm" class="new-profile-form">
+            <h3 class="section-eyebrow">A new explorer</h3>
+            <div class="row">
+              <input id="name" placeholder="What's your name?" autocomplete="off" maxlength="40" />
             </div>
-            <div class="fn-tray" id="fnTray"></div>
-            <div class="fn-primes" id="fnPrimes"></div>
-            <!-- GCF / LCM mode -->
-            <div class="fn-cards" id="fnCards"></div>
-            <div class="fn-keypad" id="fnKeypad"></div>
-            <div class="fn-hint-area" id="fnHintArea"></div>
+            <p class="muted small-label">How far along are you in school?</p>
+            <div id="gradeBandPicker" class="grade-band-picker"></div>
+            <!-- Kept for the existing login logic; visually replaced by the picker above. -->
+            <select id="gradeBand" class="visually-hidden" aria-hidden="true">
+              <option value="1-2">Grades 1-2</option>
+              <option value="2-3">Grades 2-3</option>
+              <option value="3-4">Grades 3-4</option>
+              <option value="4-6">Grades 4-6</option>
+              <option value="6-8">Grades 6-8</option>
+              <option value="8-10">Grades 8-10</option>
+            </select>
+            <button id="loginBtn" class="btn-primary btn-large">Let's go! 🚀</button>
+            <p id="profileStatus" class="muted" role="status"></p>
           </div>
-          <div class="fn-banner" id="fnBanner"></div>
-          <div class="fn-particles" id="fnParticles"></div>
         </div>
+      </section>
 
-        <!-- KenKen Zone -->
-        <div id="kenkenZone" class="kk-zone" style="display:none">
-          <div class="kk-grid" id="kkGrid"></div>
-          <div class="kk-controls">
-            <div class="kk-numpad" id="kkNumpad"></div>
-            <button class="kk-check-btn" id="kkCheckBtn">Check Solution</button>
+      <!-- ============ SCREEN 2: HUB (Made-for-You Shelves) ============ -->
+      <section id="screenHub" class="screen screen-hub" hidden>
+        <header class="hub-header card">
+          <div class="hub-greeting">
+            <span id="hubAvatar" class="hub-avatar" aria-hidden="true">?</span>
+            <div>
+              <h1 id="hubGreeting">Hi there!</h1>
+              <p id="hubSubGreeting" class="muted"></p>
+            </div>
           </div>
-          <div class="kk-banner" id="kkBanner"></div>
-        </div>
+          <div class="hub-header-actions">
+            <button id="parentDoorBtn" type="button" class="btn-ghost">🔑 Grown-ups</button>
+            <button id="switchProfileBtn" type="button" class="btn-ghost">Switch player</button>
+          </div>
+        </header>
 
-        <!-- Balance Scale Zone -->
-        <div id="balanceZone" class="bs-zone" style="display:none">
-          <div class="bs-scale" id="bsScale">
-            <div class="bs-pan bs-left" id="bsLeft"></div>
-            <div class="bs-fulcrum"></div>
-            <div class="bs-pan bs-right" id="bsRight"></div>
-          </div>
-          <div class="bs-equation" id="bsEquation"></div>
-          <div class="bs-input-area">
-            <span class="bs-label">x =</span>
-            <div class="bs-keypad" id="bsKeypad"></div>
-          </div>
-          <div class="bs-banner" id="bsBanner"></div>
-        </div>
+        <div id="kidProgressSummary" class="kid-progress-card card"></div>
 
-        <!-- Shikaku Zone -->
-        <div id="shikakuZone" class="sk-zone" style="display:none">
-          <div class="sk-grid-wrap" id="skGridWrap">
-            <canvas id="skCanvas"></canvas>
-          </div>
-          <div class="sk-controls">
-            <button class="sk-undo-btn" id="skUndoBtn">Undo</button>
-            <button class="sk-clear-btn" id="skClearBtn">Clear All</button>
-            <button class="sk-check-btn" id="skCheckBtn">Check Solution</button>
-          </div>
-          <div class="sk-banner" id="skBanner"></div>
-        </div>
+        <div id="todaysPick" class="todays-pick"></div>
 
-        <!-- Angle Chase Studio Zone -->
-        <div id="angleChaseZone" class="acs-zone" style="display:none">
-          <div class="acs-svg-wrap">
-            <svg id="acsSvg" class="acs-svg" viewBox="0 0 440 340"></svg>
-          </div>
-          <div class="acs-legend">
-            <span><span class="acs-swatch acs-swatch-given"></span> given angle</span>
-            <span><span class="acs-swatch acs-swatch-target"></span> find this one</span>
+        <nav id="strandChips" class="strand-chips" aria-label="Filter by shelf"></nav>
+
+        <div id="shelves" class="shelves"></div>
+      </section>
+
+      <!-- ============ SCREEN 3: PLAYER (existing puzzle engine, untouched) ============ -->
+      <section id="screenPlayer" class="screen screen-player" hidden>
+        <div class="player-topbar card">
+          <button id="backToHubBtn" type="button" class="btn-ghost">← Shelves</button>
+          <h2 id="playerGameTitle" class="player-game-title"></h2>
+          <div id="difficultyPicker" class="difficulty-picker" role="group" aria-label="Choose difficulty">
+            <button type="button" data-preset="easier">😌 Easier</button>
+            <button type="button" data-preset="justRight">🙂 Just right</button>
+            <button type="button" data-preset="tougher">💪 Tougher</button>
           </div>
         </div>
 
-        <!-- Counting Lab Zone -->
-        <div id="countingLabZone" class="cl-zone" style="display:none">
-          <div class="cl-diagram" id="clDiagram"></div>
-          <div class="cl-legend">
-            Build the count: pick an option in each slot (or fill the bins) and watch the running total grow. When you finish, your total drops into the answer box below — then press Submit.
+        <section class="card">
+          <!-- Native engine controls: kept fully functional, hidden visually. The
+               hub + difficulty picker above drive these programmatically and then
+               reuse the existing start-set flow untouched. -->
+          <div class="row engine-controls-hidden" id="puzzleControlsRow">
+            <select id="gameType"></select>
+            <label for="difficulty">Difficulty</label>
+            <div class="difficulty-stepper">
+              <button id="difficultyDown" type="button" aria-label="Decrease difficulty">-</button>
+              <input id="difficulty" type="number" min="1" max="10" value="1" />
+              <button id="difficultyUp" type="button" aria-label="Increase difficulty">+</button>
+            </div>
+            <span id="difficultyLabel" class="pill">Easy</span>
+            <label id="setSizeLabel" for="setSize">Set Size</label>
+            <input id="setSize" type="number" min="1" max="12" value="5" />
+            <button id="newPuzzleBtn">Start Set</button>
           </div>
-        </div>
 
-        <!-- Potion Panic Zone -->
-        <div id="potionPanicZone" class="pp-zone" style="display:none">
-          <div class="pp-cauldron-area">
-            <div class="pp-cauldron-wrap">
-              <div class="pp-target-line" id="ppTargetLine"></div>
-              <div class="pp-target-label" id="ppTargetLabel"></div>
-              <div class="pp-cauldron">
-                <div class="pp-fill" id="ppFill"></div>
+          <p id="setProgress" class="muted"></p>
+          <div id="puzzleBox" class="puzzle"></div>
+          <div id="choiceButtons" class="choice-grid"></div>
+          <div id="numberLine" class="number-line"></div>
+
+          <div id="factorNinjaZone" class="fn-zone" style="display:none">
+            <div class="fn-header">
+              <span class="fn-streak" id="fnStreak"></span>
+              <span class="fn-sub-label" id="fnSubLabel"></span>
+              <button id="fnHintBtn" class="fn-hint-btn" type="button">Hint</button>
+            </div>
+            <div class="fn-arena" id="fnArena">
+              <!-- Prime Factors mode -->
+              <div class="fn-orb-area" id="fnOrbArea">
+                <div class="fn-orb" id="fnOrb"></div>
+              </div>
+              <div class="fn-tray" id="fnTray"></div>
+              <div class="fn-primes" id="fnPrimes"></div>
+              <!-- GCF / LCM mode -->
+              <div class="fn-cards" id="fnCards"></div>
+              <div class="fn-keypad" id="fnKeypad"></div>
+              <div class="fn-hint-area" id="fnHintArea"></div>
+            </div>
+            <div class="fn-banner" id="fnBanner"></div>
+            <div class="fn-particles" id="fnParticles"></div>
+          </div>
+
+          <!-- KenKen Zone -->
+          <div id="kenkenZone" class="kk-zone" style="display:none">
+            <div class="kk-grid" id="kkGrid"></div>
+            <div class="kk-controls">
+              <div class="kk-numpad" id="kkNumpad"></div>
+              <button class="kk-check-btn" id="kkCheckBtn">Check Solution</button>
+            </div>
+            <div class="kk-banner" id="kkBanner"></div>
+          </div>
+
+          <!-- Balance Scale Zone -->
+          <div id="balanceZone" class="bs-zone" style="display:none">
+            <div class="bs-scale" id="bsScale">
+              <div class="bs-pan bs-left" id="bsLeft"></div>
+              <div class="bs-fulcrum"></div>
+              <div class="bs-pan bs-right" id="bsRight"></div>
+            </div>
+            <div class="bs-equation" id="bsEquation"></div>
+            <div class="bs-input-area">
+              <span class="bs-label">x =</span>
+              <div class="bs-keypad" id="bsKeypad"></div>
+            </div>
+            <div class="bs-banner" id="bsBanner"></div>
+          </div>
+
+          <!-- Shikaku Zone -->
+          <div id="shikakuZone" class="sk-zone" style="display:none">
+            <div class="sk-grid-wrap" id="skGridWrap">
+              <canvas id="skCanvas"></canvas>
+            </div>
+            <div class="sk-controls">
+              <button class="sk-undo-btn" id="skUndoBtn">Undo</button>
+              <button class="sk-clear-btn" id="skClearBtn">Clear All</button>
+              <button class="sk-check-btn" id="skCheckBtn">Check Solution</button>
+            </div>
+            <div class="sk-banner" id="skBanner"></div>
+          </div>
+
+          <!-- Angle Chase Studio Zone -->
+          <div id="angleChaseZone" class="acs-zone" style="display:none">
+            <div class="acs-svg-wrap">
+              <svg id="acsSvg" class="acs-svg" viewBox="0 0 440 340"></svg>
+            </div>
+            <div class="acs-legend">
+              <span><span class="acs-swatch acs-swatch-given"></span> given angle</span>
+              <span><span class="acs-swatch acs-swatch-target"></span> find this one</span>
+            </div>
+          </div>
+
+          <!-- Counting Lab Zone -->
+          <div id="countingLabZone" class="cl-zone" style="display:none">
+            <div class="cl-diagram" id="clDiagram"></div>
+            <div class="cl-legend">
+              Build the count: pick an option in each slot (or fill the bins) and watch the running total grow. When you finish, your total drops into the answer box below — then press Submit.
+            </div>
+          </div>
+
+          <!-- Potion Panic Zone -->
+          <div id="potionPanicZone" class="pp-zone" style="display:none">
+            <div class="pp-cauldron-area">
+              <div class="pp-cauldron-wrap">
+                <div class="pp-target-line" id="ppTargetLine"></div>
+                <div class="pp-target-label" id="ppTargetLabel"></div>
+                <div class="pp-cauldron">
+                  <div class="pp-fill" id="ppFill"></div>
+                </div>
+              </div>
+              <div class="pp-total" id="ppTotal">Total poured: 0</div>
+            </div>
+            <div class="pp-jugs" id="ppJugs"></div>
+            <div class="pp-log-wrap">
+              <div class="pp-log-label">Pours so far (tap one to ladle it back out):</div>
+              <div class="pp-log" id="ppLog"></div>
+            </div>
+            <div class="pp-controls">
+              <button class="pp-clear-btn" id="ppClearBtn" type="button">Clear All Pours</button>
+            </div>
+            <div class="pp-banner" id="ppBanner"></div>
+          </div>
+
+          <div class="row" id="answerRow">
+            <input id="answer" placeholder="Your answer" />
+            <button id="submitBtn">Submit</button>
+            <button id="hintBtn">Hint</button>
+          </div>
+          <div id="mismoZone" class="mismo-zone" style="display:none">
+            <div class="mismo-head">
+              <span id="mismoProgress"></span>
+            </div>
+            <div id="mismoBoard" class="mismo-board"></div>
+          </div>
+          <div id="xOutsZone" class="xouts-zone" style="display:none">
+            <div id="xOutsStatus" class="xouts-status"></div>
+            <div id="xOutsBoard" class="xouts-board"></div>
+          </div>
+          <div id="numberPathsZone" class="np-zone" style="display:none">
+            <div id="numberPathsStatus" class="np-status"></div>
+            <div id="numberPathsBoard" class="np-board"></div>
+          </div>
+          <div id="storyLogicZone" class="slg-zone" style="display:none">
+            <div id="storyLogicIntro" class="slg-intro"></div>
+            <div id="storyLogicClues" class="slg-clues"></div>
+            <div id="storyLogicGrid" class="slg-grid"></div>
+            <div class="slg-controls">
+              <button id="storyLogicCheckBtn" type="button">Check Solution</button>
+            </div>
+            <div id="storyLogicBanner" class="slg-banner"></div>
+          </div>
+          <div id="proofBlocksZone" class="pb-zone" style="display:none">
+            <div id="proofBlocksGoal" class="pb-goal"></div>
+            <div id="proofBlocksDiagram" class="pb-diagram" style="display:none">
+              <div class="pb-diagram-wrap">
+                <svg id="proofBlocksSvg" class="pb-svg" viewBox="0 0 440 300"></svg>
+              </div>
+              <div class="pb-diagram-legend">
+                <span><span class="pb-swatch pb-swatch-given"></span> given angle</span>
+                <span><span class="pb-swatch pb-swatch-target"></span> angle to prove</span>
               </div>
             </div>
-            <div class="pp-total" id="ppTotal">Total poured: 0</div>
+            <div class="pb-columns">
+              <div class="pb-col">
+                <div class="pb-col-title">Available blocks — tap to add</div>
+                <div id="proofBlocksBank" class="pb-bank"></div>
+              </div>
+              <div class="pb-col">
+                <div class="pb-col-title">Your proof (givens → goal)</div>
+                <div id="proofBlocksProof" class="pb-proof"></div>
+              </div>
+            </div>
+            <div class="pb-controls">
+              <button id="proofBlocksCheckBtn" type="button">Check Proof</button>
+              <button id="proofBlocksClearBtn" type="button">Clear</button>
+            </div>
+            <div id="proofBlocksBanner" class="pb-banner"></div>
           </div>
-          <div class="pp-jugs" id="ppJugs"></div>
-          <div class="pp-log-wrap">
-            <div class="pp-log-label">Pours so far (tap one to ladle it back out):</div>
-            <div class="pp-log" id="ppLog"></div>
+          <!-- Chocolate Snap Zone -->
+          <div id="chocolateSnapZone" class="cs-zone" style="display:none">
+            <div class="cs-expression" id="csExpression"></div>
+            <div class="cs-board" id="csBoard">
+              <div class="cs-corner"></div>
+              <div class="cs-col-headers" id="csColHeaders"></div>
+              <div class="cs-row-headers" id="csRowHeaders"></div>
+              <div class="cs-grid" id="csGrid"></div>
+            </div>
+            <div class="cs-readout" id="csReadout"></div>
+            <div class="cs-controls">
+              <button class="cs-reset-btn" id="csResetBtn" type="button">Reset</button>
+              <button class="cs-check-btn" id="csCheckBtn" type="button">Check Answer</button>
+            </div>
+            <div class="cs-banner" id="csBanner"></div>
           </div>
-          <div class="pp-controls">
-            <button class="pp-clear-btn" id="ppClearBtn" type="button">Clear All Pours</button>
+          <!-- Lily Leap Zone -->
+          <div id="lilyLeapZone" class="ll-zone" style="display:none">
+            <div id="llStatus" class="ll-status"></div>
+            <div id="llLine" class="ll-line"></div>
+            <div id="llTray" class="ll-tray"></div>
+            <div class="ll-controls">
+              <button id="llUndoBtn" class="ll-undo-btn" type="button">Undo</button>
+            </div>
+            <div id="llPath" class="ll-path"></div>
           </div>
-          <div class="pp-banner" id="ppBanner"></div>
-        </div>
+          <details id="reasoningPanel" class="reasoning-panel" style="display:none">
+            <summary class="reasoning-summary">✍️ Explain your thinking (optional)</summary>
+            <div class="reasoning-body">
+              <label class="reasoning-field" id="reasoningExplanationField">
+                <span class="reasoning-label" id="reasoningExplanationPrompt">Explain how you solved it.</span>
+                <textarea id="reasoningExplanation" class="reasoning-textarea" rows="3"
+                  placeholder="Type your reasoning here… (this is just for you — it won't change your score)"></textarea>
+              </label>
+              <label class="reasoning-field" id="reasoningSecondMethodField">
+                <span class="reasoning-label" id="reasoningSecondMethodPrompt">Show a second method.</span>
+                <textarea id="reasoningSecondMethod" class="reasoning-textarea" rows="3"
+                  placeholder="Optional: describe another way to solve it…"></textarea>
+              </label>
+              <p class="reasoning-note muted">Totally optional — you can just submit your answer.</p>
+            </div>
+          </details>
+          <div id="explanationFeedback" class="explanation-feedback" hidden></div>
+          <p id="result"></p>
 
-        <div class="row" id="answerRow">
-          <input id="answer" placeholder="Your answer" />
-          <button id="submitBtn">Submit</button>
-          <button id="hintBtn">Hint</button>
-        </div>
-        <div id="mismoZone" class="mismo-zone" style="display:none">
-          <div class="mismo-head">
-            <span id="mismoProgress"></span>
+          <div class="player-footer">
+            <button id="endSetBtn" type="button" class="btn-ghost">Done for now — back to shelves</button>
           </div>
-          <div id="mismoBoard" class="mismo-board"></div>
-        </div>
-        <div id="xOutsZone" class="xouts-zone" style="display:none">
-          <div id="xOutsStatus" class="xouts-status"></div>
-          <div id="xOutsBoard" class="xouts-board"></div>
-        </div>
-        <div id="numberPathsZone" class="np-zone" style="display:none">
-          <div id="numberPathsStatus" class="np-status"></div>
-          <div id="numberPathsBoard" class="np-board"></div>
-        </div>
-        <div id="storyLogicZone" class="slg-zone" style="display:none">
-          <div id="storyLogicIntro" class="slg-intro"></div>
-          <div id="storyLogicClues" class="slg-clues"></div>
-          <div id="storyLogicGrid" class="slg-grid"></div>
-          <div class="slg-controls">
-            <button id="storyLogicCheckBtn" type="button">Check Solution</button>
-          </div>
-          <div id="storyLogicBanner" class="slg-banner"></div>
-        </div>
-        <div id="proofBlocksZone" class="pb-zone" style="display:none">
-          <div id="proofBlocksGoal" class="pb-goal"></div>
-          <div id="proofBlocksDiagram" class="pb-diagram" style="display:none">
-            <div class="pb-diagram-wrap">
-              <svg id="proofBlocksSvg" class="pb-svg" viewBox="0 0 440 300"></svg>
-            </div>
-            <div class="pb-diagram-legend">
-              <span><span class="pb-swatch pb-swatch-given"></span> given angle</span>
-              <span><span class="pb-swatch pb-swatch-target"></span> angle to prove</span>
-            </div>
-          </div>
-          <div class="pb-columns">
-            <div class="pb-col">
-              <div class="pb-col-title">Available blocks — tap to add</div>
-              <div id="proofBlocksBank" class="pb-bank"></div>
-            </div>
-            <div class="pb-col">
-              <div class="pb-col-title">Your proof (givens → goal)</div>
-              <div id="proofBlocksProof" class="pb-proof"></div>
-            </div>
-          </div>
-          <div class="pb-controls">
-            <button id="proofBlocksCheckBtn" type="button">Check Proof</button>
-            <button id="proofBlocksClearBtn" type="button">Clear</button>
-          </div>
-          <div id="proofBlocksBanner" class="pb-banner"></div>
-        </div>
-        <!-- Chocolate Snap Zone -->
-        <div id="chocolateSnapZone" class="cs-zone" style="display:none">
-          <div class="cs-expression" id="csExpression"></div>
-          <div class="cs-board" id="csBoard">
-            <div class="cs-corner"></div>
-            <div class="cs-col-headers" id="csColHeaders"></div>
-            <div class="cs-row-headers" id="csRowHeaders"></div>
-            <div class="cs-grid" id="csGrid"></div>
-          </div>
-          <div class="cs-readout" id="csReadout"></div>
-          <div class="cs-controls">
-            <button class="cs-reset-btn" id="csResetBtn" type="button">Reset</button>
-            <button class="cs-check-btn" id="csCheckBtn" type="button">Check Answer</button>
-          </div>
-          <div class="cs-banner" id="csBanner"></div>
-        </div>
-        <!-- Lily Leap Zone -->
-        <div id="lilyLeapZone" class="ll-zone" style="display:none">
-          <div id="llStatus" class="ll-status"></div>
-          <div id="llLine" class="ll-line"></div>
-          <div id="llTray" class="ll-tray"></div>
-          <div class="ll-controls">
-            <button id="llUndoBtn" class="ll-undo-btn" type="button">Undo</button>
-          </div>
-          <div id="llPath" class="ll-path"></div>
-        </div>
-        <details id="reasoningPanel" class="reasoning-panel" style="display:none">
-          <summary class="reasoning-summary">✍️ Explain your thinking (optional)</summary>
-          <div class="reasoning-body">
-            <label class="reasoning-field" id="reasoningExplanationField">
-              <span class="reasoning-label" id="reasoningExplanationPrompt">Explain how you solved it.</span>
-              <textarea id="reasoningExplanation" class="reasoning-textarea" rows="3"
-                placeholder="Type your reasoning here… (this is just for you — it won't change your score)"></textarea>
-            </label>
-            <label class="reasoning-field" id="reasoningSecondMethodField">
-              <span class="reasoning-label" id="reasoningSecondMethodPrompt">Show a second method.</span>
-              <textarea id="reasoningSecondMethod" class="reasoning-textarea" rows="3"
-                placeholder="Optional: describe another way to solve it…"></textarea>
-            </label>
-            <p class="reasoning-note muted">Totally optional — you can just submit your answer.</p>
-          </div>
-        </details>
-        <div id="explanationFeedback" class="explanation-feedback" hidden></div>
-        <p id="result"></p>
+        </section>
       </section>
 
-      <section class="card">
-        <h2>3) Progress</h2>
-        <pre id="progress"></pre>
-      </section>
+      <!-- ============ Grown-ups (parent) door ============ -->
+      <dialog id="parentModal" class="parent-modal">
+        <div class="parent-modal-inner">
+          <button id="parentModalClose" type="button" class="modal-close" aria-label="Close">×</button>
+          <h2 class="section-eyebrow">For grown-ups</h2>
+          <div id="parentSummary" class="parent-summary"></div>
+          <details class="parent-detail-toggle">
+            <summary>Show detailed stats</summary>
+            <pre id="progress"></pre>
+          </details>
+        </div>
+      </dialog>
     </main>
     <script type="module" src="/app.js"></script>
   </body>

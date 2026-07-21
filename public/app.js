@@ -15,7 +15,12 @@ const state = {
   pb: null,
   pp: null,
   cs: null,
-  ll: null
+  ll: null,
+  // ---- Shell state (hub screens, unrelated to the puzzle engine above) ----
+  allGames: [],
+  gamesLoaded: null,
+  difficultyPreset: "justRight",
+  strandFilter: null
 };
 
 const gameModules = {};
@@ -151,7 +156,30 @@ const el = {
   llLine: document.getElementById("llLine"),
   llTray: document.getElementById("llTray"),
   llUndoBtn: document.getElementById("llUndoBtn"),
-  llPath: document.getElementById("llPath")
+  llPath: document.getElementById("llPath"),
+  // ---- Shell elements (login/hub/player screens + parent door) ----
+  screenLogin: document.getElementById("screenLogin"),
+  screenHub: document.getElementById("screenHub"),
+  screenPlayer: document.getElementById("screenPlayer"),
+  profileTiles: document.getElementById("profileTiles"),
+  newProfileForm: document.getElementById("newProfileForm"),
+  gradeBandPicker: document.getElementById("gradeBandPicker"),
+  hubAvatar: document.getElementById("hubAvatar"),
+  hubGreeting: document.getElementById("hubGreeting"),
+  hubSubGreeting: document.getElementById("hubSubGreeting"),
+  parentDoorBtn: document.getElementById("parentDoorBtn"),
+  switchProfileBtn: document.getElementById("switchProfileBtn"),
+  kidProgressSummary: document.getElementById("kidProgressSummary"),
+  todaysPick: document.getElementById("todaysPick"),
+  strandChips: document.getElementById("strandChips"),
+  shelves: document.getElementById("shelves"),
+  backToHubBtn: document.getElementById("backToHubBtn"),
+  endSetBtn: document.getElementById("endSetBtn"),
+  playerGameTitle: document.getElementById("playerGameTitle"),
+  difficultyPicker: document.getElementById("difficultyPicker"),
+  parentModal: document.getElementById("parentModal"),
+  parentModalClose: document.getElementById("parentModalClose"),
+  parentSummary: document.getElementById("parentSummary")
 };
 
 function difficultyLabel(n) {
@@ -3479,6 +3507,7 @@ async function renderPuzzle() {
 
 async function loadGames() {
   const data = await api("/api/games");
+  state.allGames = data; // cached for the hub's shelves/grade-band filtering
   el.gameType.innerHTML = "";
   for (const g of data) {
     const option = document.createElement("option");
@@ -3553,6 +3582,10 @@ async function refreshProgress() {
   const summary = await api(`/api/progress?profileId=${state.profile.id}`);
   state.lastProgress = summary;
   renderProgressSummary(summary);
+  // Friendlier presentations of the same summary data (hub card + parent door).
+  renderKidProgressSummary(summary);
+  renderParentSummary(summary);
+  updateTodaysPick(summary);
 }
 
 async function submitCurrent() {
@@ -3637,6 +3670,7 @@ el.loginBtn.addEventListener("click", async () => {
     state.profile = profileData.profile;
     el.profileStatus.textContent = `Playing as ${state.profile.displayName} (${state.profile.gradeBand})`;
     await refreshProgress();
+    await onLoginSuccess(); // NEW: remember profile locally + open the hub
   } catch (e) {
     el.profileStatus.textContent = e.message;
   }
@@ -3679,5 +3713,464 @@ if (el.difficultyUp) {
 }
 
 updateDifficultyUi();
-loadGames();
+state.gamesLoaded = loadGames();
 renderPuzzle();
+
+// =====================================================================
+// ===== SHELL: profile-tile login, Made-for-You Shelves hub, and =====
+// ===== the friendly progress views. Everything above this line is  =====
+// ===== the original puzzle engine and is left untouched — this      =====
+// ===== section only *drives* it (sets el.gameType/el.difficulty and  =====
+// ===== clicks el.loginBtn / el.newPuzzleBtn, the existing controls). =====
+// =====================================================================
+
+// ----- Strand map: which shelf each game belongs to, plus its icon -----
+// (Static client-side map per the redesign brief — the server has no
+// strand/category field, and this is lower-risk than adding one.)
+const STRANDS = [
+  { id: "harbor", name: "Number Harbor", emoji: "⚓", blurb: "Warm-up arithmetic adventures." },
+  { id: "falls", name: "Fraction Falls", emoji: "🌊", blurb: "Splash into fractions." },
+  { id: "forest", name: "Factor Forest", emoji: "🌲", blurb: "Number theory & algebra trails." },
+  { id: "lagoon", name: "Logic Lagoon", emoji: "🏝️", blurb: "Puzzles that make you think." },
+  { id: "summit", name: "Shape Summit", emoji: "🗻", blurb: "Angles, area, and shapes." },
+  { id: "peak", name: "Explorer's Peak", emoji: "🧭", blurb: "Advanced counting & proofs." }
+];
+
+const GAME_META = {
+  "number-bonds-sprint": { strand: "harbor", emoji: "🔢" },
+  "pattern-train": { strand: "harbor", emoji: "🚂" },
+  "number-paths": { strand: "harbor", emoji: "🧵" },
+  "mismo": { strand: "harbor", emoji: "🃏" },
+  "potion-panic": { strand: "falls", emoji: "🧪" },
+  "chocolate-snap": { strand: "falls", emoji: "🍫" },
+  "lily-leap": { strand: "falls", emoji: "🐸" },
+  "factor-ninja": { strand: "forest", emoji: "🥷" },
+  "balance-scale": { strand: "forest", emoji: "⚖️" },
+  "story-logic-grids": { strand: "lagoon", emoji: "🕵️" },
+  "kenken": { strand: "lagoon", emoji: "🧮" },
+  "x-outs": { strand: "lagoon", emoji: "❌" },
+  "shikaku": { strand: "summit", emoji: "📐" },
+  "angle-chase-studio": { strand: "summit", emoji: "📏" },
+  "counting-lab": { strand: "peak", emoji: "🔬" },
+  "proof-blocks": { strand: "peak", emoji: "🏗️" }
+};
+
+function strandFor(gameId) {
+  return STRANDS.find((s) => s.id === (GAME_META[gameId] || {}).strand) || null;
+}
+
+// ----- Grade-band <-> difficulty preset mapping -----
+// "Just right" derives from the profile's grade band; easier/tougher step
+// away from that baseline. This replaces the raw 1-10 stepper in the UI
+// while still driving the exact same #difficulty input underneath.
+const BAND_BASELINE_DIFFICULTY = { "1-2": 1, "2-3": 2, "3-4": 3, "4-6": 4, "6-8": 6, "8-10": 8 };
+const PRESET_OFFSET = { easier: -2, justRight: 0, tougher: 2 };
+
+function presetDifficultyValue(preset, gradeBand) {
+  const baseline = BAND_BASELINE_DIFFICULTY[gradeBand] ?? 3;
+  const min = Number(el.difficulty.min || "1");
+  const max = Number(el.difficulty.max || "10");
+  const raw = baseline + (PRESET_OFFSET[preset] ?? 0);
+  return Math.max(min, Math.min(max, raw));
+}
+
+function applyDifficultyPreset(preset) {
+  const gradeBand = state.profile?.gradeBand || el.gradeBand.value;
+  el.difficulty.value = String(presetDifficultyValue(preset, gradeBand));
+  updateDifficultyUi(); // existing helper — keeps the pill label in sync
+  state.difficultyPreset = preset;
+  if (el.difficultyPicker) {
+    el.difficultyPicker.querySelectorAll("button[data-preset]").forEach((btn) => {
+      btn.classList.toggle("active", btn.dataset.preset === preset);
+    });
+  }
+}
+
+if (el.difficultyPicker) {
+  el.difficultyPicker.querySelectorAll("button[data-preset]").forEach((btn) => {
+    btn.addEventListener("click", () => applyDifficultyPreset(btn.dataset.preset));
+  });
+}
+
+// ----- Grade-band helpers (overlap test against a game's min/maxGrade) -----
+function parseGradeBand(band) {
+  const [lo, hi] = String(band || "1-2").split("-").map(Number);
+  return { lo: Number.isFinite(lo) ? lo : 1, hi: Number.isFinite(hi) ? hi : 2 };
+}
+
+function isGameInBand(game, band) {
+  const { lo, hi } = parseGradeBand(band);
+  return game.minGrade <= hi && game.maxGrade >= lo;
+}
+
+function gamesForBand(gradeBand) {
+  return (state.allGames || []).filter((g) => isGameInBand(g, gradeBand));
+}
+
+// ----- Screen switching -----
+function showScreen(name) {
+  if (el.screenLogin) el.screenLogin.hidden = name !== "login";
+  if (el.screenHub) el.screenHub.hidden = name !== "hub";
+  if (el.screenPlayer) el.screenPlayer.hidden = name !== "player";
+}
+
+// ----- Local "remembered players on this device" (no server profile list) -----
+// GET /api/profiles was intentionally removed server-side for privacy, so the
+// profile-tile picker is a lightweight per-device convenience, not a source
+// of truth: tapping a tile just re-runs the same login as typing the name.
+const RECENT_PROFILES_KEY = "mc_recent_profiles";
+
+function loadRecentProfiles() {
+  try {
+    const list = JSON.parse(localStorage.getItem(RECENT_PROFILES_KEY) || "[]");
+    return Array.isArray(list) ? list : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveRecentProfile(profile) {
+  const list = loadRecentProfiles().filter((p) => p.id !== profile.id);
+  list.unshift({ id: profile.id, name: profile.displayName, gradeBand: profile.gradeBand });
+  localStorage.setItem(RECENT_PROFILES_KEY, JSON.stringify(list.slice(0, 6)));
+}
+
+function quickLogin(name, gradeBand) {
+  el.name.value = name;
+  el.gradeBand.value = gradeBand;
+  el.loginBtn.click(); // reuses the existing, untouched login handler
+}
+
+function renderProfileTiles() {
+  if (!el.profileTiles) return;
+  const list = loadRecentProfiles();
+  el.profileTiles.innerHTML = "";
+
+  for (const p of list) {
+    const tile = document.createElement("button");
+    tile.type = "button";
+    tile.className = "profile-tile";
+    const initial = (p.name || "?").trim().charAt(0).toUpperCase() || "?";
+    tile.innerHTML = `<span class="profile-tile-avatar">${initial}</span><span class="profile-tile-name"></span>`;
+    tile.querySelector(".profile-tile-name").textContent = p.name;
+    tile.addEventListener("click", () => quickLogin(p.name, p.gradeBand));
+    el.profileTiles.appendChild(tile);
+  }
+
+  const addTile = document.createElement("button");
+  addTile.type = "button";
+  addTile.className = "profile-tile profile-tile-add";
+  addTile.innerHTML = `<span class="profile-tile-avatar">+</span><span class="profile-tile-name">I'm new</span>`;
+  addTile.addEventListener("click", () => {
+    el.newProfileForm.classList.add("open");
+    el.name.focus();
+  });
+  el.profileTiles.appendChild(addTile);
+
+  // If nobody has played on this device yet, skip straight to the new-explorer form.
+  el.newProfileForm.classList.toggle("open", list.length === 0);
+}
+
+// ----- Friendly grade-band picker (mirrors the hidden #gradeBand <select>) -----
+const GRADE_BAND_LABELS = {
+  "1-2": { title: "Grades 1-2", sub: "Just starting out" },
+  "2-3": { title: "Grades 2-3", sub: "Building basics" },
+  "3-4": { title: "Grades 3-4", sub: "Getting confident" },
+  "4-6": { title: "Grades 4-6", sub: "Leveling up" },
+  "6-8": { title: "Grades 6-8", sub: "Middle school" },
+  "8-10": { title: "Grades 8-10", sub: "High school" }
+};
+
+function renderGradeBandPicker() {
+  if (!el.gradeBandPicker) return;
+  el.gradeBandPicker.innerHTML = "";
+  for (const opt of Array.from(el.gradeBand.options)) {
+    const label = GRADE_BAND_LABELS[opt.value] || { title: opt.textContent, sub: "" };
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "grade-band-btn";
+    btn.dataset.value = opt.value;
+    btn.innerHTML = `<span class="gb-title"></span><span class="gb-sub"></span>`;
+    btn.querySelector(".gb-title").textContent = label.title;
+    btn.querySelector(".gb-sub").textContent = label.sub;
+    if (opt.value === el.gradeBand.value) btn.classList.add("active");
+    btn.addEventListener("click", () => {
+      el.gradeBand.value = opt.value;
+      el.gradeBandPicker.querySelectorAll(".grade-band-btn").forEach((b) => {
+        b.classList.toggle("active", b === btn);
+      });
+    });
+    el.gradeBandPicker.appendChild(btn);
+  }
+}
+
+// ----- Hub: strand filter chips -----
+function makeChip(label, strandId, active) {
+  const chip = document.createElement("button");
+  chip.type = "button";
+  chip.className = "strand-chip" + (active ? " active" : "");
+  chip.textContent = label;
+  chip.addEventListener("click", () => {
+    state.strandFilter = strandId;
+    el.strandChips.querySelectorAll(".strand-chip").forEach((c) => c.classList.remove("active"));
+    chip.classList.add("active");
+    renderShelves();
+  });
+  return chip;
+}
+
+function renderStrandChips() {
+  if (!el.strandChips) return;
+  const gradeBand = state.profile?.gradeBand || "1-2";
+  const visible = gamesForBand(gradeBand);
+  const present = new Set(visible.map((g) => (GAME_META[g.id] || {}).strand));
+  el.strandChips.innerHTML = "";
+  el.strandChips.appendChild(makeChip("All shelves", null, state.strandFilter == null));
+  for (const strand of STRANDS) {
+    if (!present.has(strand.id)) continue;
+    el.strandChips.appendChild(
+      makeChip(`${strand.emoji} ${strand.name}`, strand.id, state.strandFilter === strand.id)
+    );
+  }
+}
+
+// ----- Hub: shelves of game cards -----
+function buildGameCard(game, emoji) {
+  const card = document.createElement("button");
+  card.type = "button";
+  card.className = "game-card";
+  card.innerHTML = `
+    <span class="game-card-emoji"></span>
+    <span class="game-card-name"></span>
+    <span class="game-card-grades"></span>
+  `;
+  card.querySelector(".game-card-emoji").textContent = emoji;
+  card.querySelector(".game-card-name").textContent = game.name;
+  card.querySelector(".game-card-grades").textContent = `Grades ${game.minGrade}-${game.maxGrade}`;
+  card.title = game.description || game.name;
+  card.addEventListener("click", () => launchGame(game.id, game.name));
+  return card;
+}
+
+function renderShelves() {
+  if (!el.shelves) return;
+  const gradeBand = state.profile?.gradeBand || "1-2";
+  const visible = gamesForBand(gradeBand);
+  const byStrand = {};
+  for (const g of visible) {
+    const meta = GAME_META[g.id] || { strand: "harbor", emoji: "🎲" };
+    (byStrand[meta.strand] ||= []).push({ game: g, emoji: meta.emoji });
+  }
+
+  el.shelves.innerHTML = "";
+  let shownAny = false;
+  for (const strand of STRANDS) {
+    if (state.strandFilter && state.strandFilter !== strand.id) continue;
+    const entries = byStrand[strand.id] || [];
+    if (entries.length === 0) continue;
+    shownAny = true;
+
+    const section = document.createElement("section");
+    section.className = "shelf";
+    const header = document.createElement("div");
+    header.className = "shelf-header";
+    header.innerHTML = `
+      <span class="shelf-waypoint" aria-hidden="true">${strand.emoji}</span>
+      <div>
+        <h2></h2>
+        <p class="muted"></p>
+      </div>`;
+    header.querySelector("h2").textContent = strand.name;
+    header.querySelector("p").textContent = strand.blurb;
+    section.appendChild(header);
+
+    const track = document.createElement("div");
+    track.className = "shelf-track";
+    for (const { game, emoji } of entries) track.appendChild(buildGameCard(game, emoji));
+    section.appendChild(track);
+
+    el.shelves.appendChild(section);
+  }
+
+  if (!shownAny) {
+    el.shelves.innerHTML = `<p class="muted">No games on this shelf yet — try "All shelves".</p>`;
+  }
+}
+
+// ----- Hub: "Today's Pick" hero -----
+const STARTER_BY_BAND = {
+  "1-2": "number-bonds-sprint",
+  "2-3": "pattern-train",
+  "3-4": "lily-leap",
+  "4-6": "potion-panic",
+  "6-8": "factor-ninja",
+  "8-10": "proof-blocks"
+};
+
+function pickTodaysGame(summary) {
+  const gradeBand = state.profile?.gradeBand || "1-2";
+  const visible = gamesForBand(gradeBand);
+  const visibleIds = new Set(visible.map((g) => g.id));
+  if (visible.length === 0) return null;
+
+  const lastPlayed = state.profile && localStorage.getItem(`mc_last_${state.profile.id}`);
+  if (lastPlayed && visibleIds.has(lastPlayed)) return lastPlayed;
+
+  const focusSkills = summary?.recommendations?.focusSkills || [];
+  for (const skill of focusSkills) {
+    const words = String(skill).toLowerCase().split(/[^a-z]+/).filter((w) => w.length > 2);
+    const match = visible.find((g) =>
+      words.some((w) => g.id.includes(w) || g.name.toLowerCase().includes(w))
+    );
+    if (match) return match.id;
+  }
+
+  const starter = STARTER_BY_BAND[gradeBand];
+  if (starter && visibleIds.has(starter)) return starter;
+  return visible[0].id;
+}
+
+function updateTodaysPick(summary) {
+  if (!el.todaysPick) return;
+  const gameId = pickTodaysGame(summary);
+  const game = (state.allGames || []).find((g) => g.id === gameId);
+  if (!game) {
+    el.todaysPick.innerHTML = "";
+    return;
+  }
+  const meta = GAME_META[game.id] || { emoji: "🎲" };
+  el.todaysPick.innerHTML = `
+    <div class="todays-pick-card">
+      <span class="todays-pick-label">✨ Today's pick for you</span>
+      <div class="todays-pick-body">
+        <span class="todays-pick-emoji"></span>
+        <div class="todays-pick-text">
+          <h2></h2>
+          <p class="muted"></p>
+        </div>
+        <button type="button" class="btn-primary" id="todaysPickBtn">Play now</button>
+      </div>
+    </div>`;
+  el.todaysPick.querySelector(".todays-pick-emoji").textContent = meta.emoji;
+  el.todaysPick.querySelector("h2").textContent = game.name;
+  el.todaysPick.querySelector("p").textContent = game.description || "";
+  el.todaysPick
+    .querySelector("#todaysPickBtn")
+    .addEventListener("click", () => launchGame(game.id, game.name));
+}
+
+// ----- Launching a game: sets the existing controls, then reuses the -----
+// ----- existing, untouched "start a new puzzle set" flow. -----
+function launchGame(gameId, gameName) {
+  el.gameType.value = gameId;
+  updateSetSizeUi(); // existing helper
+  applyDifficultyPreset(state.difficultyPreset || "justRight");
+  if (state.profile) localStorage.setItem(`mc_last_${state.profile.id}`, gameId);
+  if (el.playerGameTitle) el.playerGameTitle.textContent = gameName || "";
+  showScreen("player");
+  el.newPuzzleBtn.click(); // existing, untouched handler -> renderPuzzle()
+}
+
+// ----- Kid-facing encouraging progress card (replaces the raw <pre> on the hub) -----
+function renderKidProgressSummary(summary) {
+  if (!el.kidProgressSummary) return;
+  const o = summary?.overview;
+  if (!o || !o.totalAttempts) {
+    el.kidProgressSummary.innerHTML = `<p>🗺️ Play your first puzzle set to start your journey!</p>`;
+    return;
+  }
+  const accuracy = Math.round((o.accuracy || 0) * 100);
+  const streak = o.bestStreak || 0;
+  const parts = [
+    `<p>🌟 You've solved <strong>${o.correctAttempts}</strong> puzzles so far!</p>`,
+    `<p>🎯 You're getting about <strong>${accuracy}%</strong> right — keep it up!</p>`
+  ];
+  if (streak > 1) parts.push(`<p>🔥 Best streak: <strong>${streak}</strong> in a row!</p>`);
+  el.kidProgressSummary.innerHTML = parts.join("");
+}
+
+// ----- Plain-language parent summary (the raw <pre> dump now lives behind -----
+// ----- a "Show detailed stats" disclosure inside the grown-ups door). -----
+function humanizeSkill(tag) {
+  return String(tag)
+    .replace(/[-_]/g, " ")
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function renderParentSummary(summary) {
+  if (!el.parentSummary) return;
+  const name = state.profile?.displayName || "Your player";
+  const o = summary?.overview;
+  const lines = [];
+
+  if (!o || !o.totalAttempts) {
+    lines.push(`${name} hasn't played a puzzle set yet — the first one will start filling in this page.`);
+  } else {
+    const accuracy = Math.round((o.accuracy || 0) * 100);
+    lines.push(`${name} has attempted ${o.totalAttempts} puzzles, getting about ${accuracy}% correct.`);
+
+    const bySkill = summary.bySkill || {};
+    const topSkill = Object.entries(bySkill).sort((a, b) => (b[1].mastery || 0) - (a[1].mastery || 0))[0];
+    if (topSkill) lines.push(`${name} is strongest at ${humanizeSkill(topSkill[0])}.`);
+
+    const highlights = summary.skillHighlights || {};
+    if ((highlights.needsWork || []).length > 0) {
+      lines.push(`${humanizeSkill(highlights.needsWork[0])} is still new — a little more practice there would help.`);
+    }
+    if ((highlights.readyToLevel || []).length > 0) {
+      lines.push(`${name} looks ready to level up in ${highlights.readyToLevel.map(humanizeSkill).join(", ")}.`);
+    }
+    if (summary.recommendations?.message) {
+      lines.push(summary.recommendations.message);
+    }
+  }
+
+  el.parentSummary.innerHTML = lines.map((l) => `<p></p>`).join("");
+  el.parentSummary.querySelectorAll("p").forEach((p, i) => {
+    p.textContent = lines[i];
+  });
+}
+
+// ----- Login success: remember the profile locally, then open the hub -----
+async function onLoginSuccess() {
+  if (!state.profile) return;
+  saveRecentProfile(state.profile);
+  await state.gamesLoaded; // make sure /api/games has resolved before filtering shelves
+
+  if (el.hubGreeting) el.hubGreeting.textContent = `Hi, ${state.profile.displayName}!`;
+  if (el.hubSubGreeting) el.hubSubGreeting.textContent = `Grade band ${state.profile.gradeBand}`;
+  if (el.hubAvatar) el.hubAvatar.textContent = (state.profile.displayName || "?").trim().charAt(0).toUpperCase() || "?";
+
+  state.strandFilter = null;
+  renderStrandChips();
+  renderShelves();
+  showScreen("hub");
+}
+
+// ----- Wire up the rest of the shell chrome -----
+if (el.switchProfileBtn) {
+  el.switchProfileBtn.addEventListener("click", () => {
+    state.profile = null;
+    el.profileStatus.textContent = "";
+    renderProfileTiles();
+    showScreen("login");
+  });
+}
+
+if (el.backToHubBtn) el.backToHubBtn.addEventListener("click", () => showScreen("hub"));
+if (el.endSetBtn) el.endSetBtn.addEventListener("click", () => showScreen("hub"));
+
+if (el.parentDoorBtn && el.parentModal) {
+  el.parentDoorBtn.addEventListener("click", () => {
+    if (typeof el.parentModal.showModal === "function") el.parentModal.showModal();
+    else el.parentModal.setAttribute("open", "");
+  });
+}
+if (el.parentModalClose && el.parentModal) {
+  el.parentModalClose.addEventListener("click", () => el.parentModal.close());
+}
+
+// ----- Initial paint: profile tiles + friendly grade-band picker, login screen -----
+renderGradeBandPicker();
+renderProfileTiles();
+showScreen("login");
