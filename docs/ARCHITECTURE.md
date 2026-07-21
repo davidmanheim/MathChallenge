@@ -13,9 +13,25 @@ Current alpha runtime endpoint: `http://localhost:5678` (fixed port).
 ## Project Structure
 ```
 public/
-  index.html         Single-page app shell
-  app.js             All client-side logic (game renderers, API calls, state)
-  styles.css         All styles including per-game themes
+  index.html         Single-page app shell: login screen (profile tiles) ->
+                     hub screen (grade-filtered, strand-grouped game shelves)
+                     -> player screen (existing per-game puzzle engine,
+                     reused unmodified). All per-game zone markup lives
+                     inside the player screen.
+  app.js             All client-side logic: the puzzle engine (state,
+                     renderPuzzle(), per-game renderers, API calls) plus a
+                     shell layer appended at the end of the file (profile
+                     tiles, grade-band picker, shelves/strand filtering,
+                     difficulty presets, Today's Pick, plain-language
+                     progress views). The shell only *drives* the engine —
+                     it sets #gameType/#difficulty and calls
+                     #newPuzzleBtn.click()/#loginBtn.click() rather than
+                     duplicating that logic. A static `gameId -> strand`
+                     map (`GAME_META`) groups the 16 games into six themed
+                     shelves; there is no server-side category field.
+  styles.css         All styles including per-game themes and the shell
+                     (login/hub/player/parent-door). Supports light + dark
+                     via `prefers-color-scheme`.
 src/
   server.ts          HTTP server, API routes, static file serving
   core/

@@ -17,6 +17,16 @@ Web-accessible TypeScript math puzzle platform for kids (grades 1-10), with ligh
   - Plugin-based puzzle engine with generation-time validation gate
   - Name-based profile login + Firestore-persisted progress
   - Set-level deduplication (no repeated puzzles within a set)
+  - Front-end shell ("Made-for-You Shelves"): profile-tile login (+ friendly
+    grade-band picker) → a hub of grade-filtered game shelves grouped into six
+    themed strands (Number Harbor, Fraction Falls, Factor Forest, Logic
+    Lagoon, Shape Summit, Explorer's Peak) with a "Today's Pick" hero and
+    strand filter chips → the existing puzzle player, reused untouched. A
+    3-way "easier / just right / tougher" control replaces the old 1-10
+    stepper, and progress is shown as a plain-language summary with a
+    separate "grown-ups" door for the detailed stats. See
+    `public/app.js` (client-side `gameId -> strand` map) and
+    `docs/ARCHITECTURE.md`.
   - Playable games (16 implemented):
     - `Pattern Train` — interactive multiple-choice pattern puzzles
     - `Mismo` — expression-equivalence card matching
