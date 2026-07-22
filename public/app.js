@@ -16,6 +16,7 @@ const state = {
   pp: null,
   cs: null,
   ll: null,
+  pt: null,
   // ---- Shell state (hub screens, unrelated to the puzzle engine above) ----
   allGames: [],
   gamesLoaded: null,
@@ -157,6 +158,11 @@ const el = {
   llTray: document.getElementById("llTray"),
   llUndoBtn: document.getElementById("llUndoBtn"),
   llPath: document.getElementById("llPath"),
+  // Pattern Train
+  ptZone: document.getElementById("patternTrainZone"),
+  ptStatus: document.getElementById("patternTrainStatus"),
+  ptTrack: document.getElementById("patternTrainTrack"),
+  ptChoices: document.getElementById("patternTrainChoices"),
   // ---- Shell elements (login/hub/player screens + parent door) ----
   screenLogin: document.getElementById("screenLogin"),
   screenHub: document.getElementById("screenHub"),
@@ -1070,7 +1076,14 @@ function npDrawBoard() {
       const btn = document.createElement("button");
       btn.className = "np-cell";
       btn.dataset.key = npKey(r, c);
-      btn.textContent = String(state.np.grid[r][c]);
+      const value = Number(state.np.grid[r][c]);
+      btn.textContent = String(value);
+      // Anchor badges mark the stones that already show the printed start/
+      // target numbers from the prompt (e.g. "Path: 3 -> 15") -- these values
+      // are unique in the grid by construction, so this reveals nothing the
+      // player couldn't already read off the numbers themselves.
+      if (value === state.np.start) btn.classList.add("np-anchor-start");
+      if (value === state.np.target) btn.classList.add("np-anchor-goal");
       btn.addEventListener("click", () => npToggle(r, c));
       td.appendChild(btn);
       tr.appendChild(td);
@@ -1078,9 +1091,60 @@ function npDrawBoard() {
     tbody.appendChild(tr);
   }
   table.appendChild(tbody);
+
+  // .np-stones-layer has no padding of its own, so it sizes exactly to the
+  // table -- the connector <svg> overlay (inset:0 within this layer) then
+  // maps 1:1 onto stone positions measured live via getBoundingClientRect.
+  const layer = document.createElement("div");
+  layer.className = "np-stones-layer";
+  layer.appendChild(table);
+
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("class", "np-connectors");
+  layer.appendChild(svg);
+
+  const pond = document.createElement("div");
+  pond.className = "np-pond";
+  pond.appendChild(layer);
+
   el.npBoard.innerHTML = "";
-  el.npBoard.appendChild(table);
+  el.npBoard.appendChild(pond);
   npRefreshMarks();
+}
+
+// Draws a rope/trail line connecting each consecutive pair of stepping
+// stones already in the path, purely decorative -- measured live from the
+// rendered stone buttons so it stays correct regardless of board size.
+// No-ops harmlessly if the board isn't actually laid out (e.g. hidden, or a
+// non-browser test harness with no real layout engine).
+function npDrawConnectors() {
+  if (!state.np) return;
+  const layer = el.npBoard.querySelector(".np-stones-layer");
+  const svg = el.npBoard.querySelector(".np-connectors");
+  if (!layer || !svg) return;
+  const layerRect = layer.getBoundingClientRect();
+  if (!layerRect.width || !layerRect.height) return;
+
+  svg.setAttribute("viewBox", `0 0 ${layerRect.width} ${layerRect.height}`);
+  svg.innerHTML = "";
+  const ns = "http://www.w3.org/2000/svg";
+  const path = state.np.path;
+  for (let i = 1; i < path.length; i += 1) {
+    const a = path[i - 1];
+    const b = path[i];
+    const btnA = layer.querySelector(`[data-key="${npKey(a.r, a.c)}"]`);
+    const btnB = layer.querySelector(`[data-key="${npKey(b.r, b.c)}"]`);
+    if (!btnA || !btnB) continue;
+    const ra = btnA.getBoundingClientRect();
+    const rb = btnB.getBoundingClientRect();
+    const line = document.createElementNS(ns, "line");
+    line.setAttribute("x1", String(ra.left + ra.width / 2 - layerRect.left));
+    line.setAttribute("y1", String(ra.top + ra.height / 2 - layerRect.top));
+    line.setAttribute("x2", String(rb.left + rb.width / 2 - layerRect.left));
+    line.setAttribute("y2", String(rb.top + rb.height / 2 - layerRect.top));
+    line.setAttribute("class", "np-rope-line");
+    svg.appendChild(line);
+  }
 }
 
 function npRefreshMarks() {
@@ -1100,6 +1164,7 @@ function npRefreshMarks() {
       if (idx === state.np.path.length - 1) cell.classList.add("np-end");
     }
   }
+  npDrawConnectors();
 }
 
 function npToggle(r, c) {
@@ -3350,6 +3415,109 @@ function llTrySubmit() {
 
 // ===== End Lily Leap =====
 
+// ===== Pattern Train Interactive UI =====
+// The engine + track are pure decoration built from the puzzle's masked
+// sequence; the three choice "cars" reuse the exact answer/submit contract
+// the generic #choiceButtons flow uses (renderChoices, above): tapping a
+// choice sets el.answer.value to the same String(choice) and calls the same
+// submitCurrent(), so grading is byte-identical to the old generic path.
+
+function hidePatternTrain() {
+  if (!el.ptZone) return;
+  el.ptZone.style.display = "none";
+  el.ptZone.classList.remove("pt-solved");
+  if (el.ptTrack) el.ptTrack.innerHTML = "";
+  if (el.ptChoices) el.ptChoices.innerHTML = "";
+  if (el.ptStatus) el.ptStatus.textContent = "";
+  state.pt = null;
+}
+
+function ptCarLabel(value) {
+  return value === -1 ? "?" : String(value);
+}
+
+function renderPatternTrain(puzzle) {
+  if (!el.ptZone) return;
+  hidePatternTrain();
+  el.ptZone.style.display = "";
+  hideGenericInput();
+
+  const seq = Array.isArray(puzzle.data?.sequenceMasked) ? puzzle.data.sequenceMasked : [];
+  const choices = Array.isArray(puzzle.data?.choices) ? puzzle.data.choices : [];
+  const missingIndex = Number(puzzle.data?.missingIndex);
+  if (seq.length === 0 || choices.length === 0) return;
+
+  state.pt = { missingIndex };
+
+  if (el.ptStatus) {
+    el.ptStatus.textContent = "Tap the car that fills the gap in the train!";
+  }
+
+  if (el.ptTrack) {
+    el.ptTrack.innerHTML = "";
+
+    const engine = document.createElement("div");
+    engine.className = "pt-engine";
+    engine.innerHTML = '<span class="pt-engine-stack"></span><span class="pt-engine-cab"></span>';
+    el.ptTrack.appendChild(engine);
+
+    seq.forEach((value, idx) => {
+      const car = document.createElement("div");
+      car.className = "pt-car";
+      const isMissing = idx === missingIndex;
+      if (isMissing) car.classList.add("pt-car-missing");
+
+      const window_ = document.createElement("span");
+      window_.className = "pt-window";
+      if (isMissing) window_.id = "ptMissingWindow";
+      window_.textContent = ptCarLabel(value);
+      car.appendChild(window_);
+      el.ptTrack.appendChild(car);
+    });
+  }
+
+  if (el.ptChoices) {
+    el.ptChoices.innerHTML = "";
+    for (const choice of choices) {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "pt-choice-car";
+      btn.textContent = String(choice);
+      btn.addEventListener("click", () => ptChooseCar(choice, btn));
+      el.ptChoices.appendChild(btn);
+    }
+  }
+}
+
+// Tapping a choice "couples" it into the missing car for a moment of visual
+// feedback, then submits through the identical generic answer flow
+// (el.answer.value + submitCurrent()) that #choiceButtons used before this
+// zone existed. On a wrong answer, submitCurrent() leaves the same puzzle
+// active (matching generic behavior), so we simply let the player tap
+// another car -- same retry semantics as the original choice buttons.
+function ptChooseCar(choice, btnEl) {
+  if (!state.pt) return;
+
+  if (el.ptChoices) {
+    for (const btn of el.ptChoices.children) btn.classList.remove("pt-choice-picked");
+  }
+  if (btnEl) btnEl.classList.add("pt-choice-picked");
+
+  const missingWindow = document.getElementById("ptMissingWindow");
+  if (missingWindow) {
+    missingWindow.textContent = String(choice);
+    missingWindow.classList.add("pt-window-filled");
+    const missingCar = missingWindow.closest(".pt-car");
+    if (missingCar) missingCar.classList.add("pt-car-coupled");
+  }
+  if (el.ptStatus) el.ptStatus.textContent = "Coupling the car...";
+
+  el.answer.value = String(choice);
+  submitCurrent();
+}
+
+// ===== End Pattern Train =====
+
 async function renderPuzzle() {
   state.puzzle = getCurrentPuzzle();
   state.puzzleStartedAt = state.puzzle ? Date.now() : 0;
@@ -3382,6 +3550,7 @@ async function renderPuzzle() {
   hideProofBlocks();
   hideChocolateSnap();
   hideLilyLeap();
+  hidePatternTrain();
   restoreGenericInput();
 
   if (!state.puzzle) {
@@ -3496,6 +3665,11 @@ async function renderPuzzle() {
   if (state.puzzle.gameTypeId === "lily-leap") {
     el.puzzleBox.textContent = state.puzzle.prompt.text;
     renderLilyLeap(state.puzzle);
+    return;
+  }
+  if (state.puzzle.gameTypeId === "pattern-train") {
+    el.puzzleBox.textContent = state.puzzle.prompt.text;
+    renderPatternTrain(state.puzzle);
     return;
   }
 
