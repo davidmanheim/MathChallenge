@@ -12,7 +12,11 @@ Each game type includes:
 
 1. **Pattern Train** (Grades 1-3) — `pattern-train`
    - Complete number patterns with increasing rule depth (additive, multiplicative).
-   - Multiple-choice with plausible distractors in randomized positions.
+   - Renders as a train: an engine plus one numbered car per sequence value, with
+     the missing value shown as a dashed "?" car. The multiple-choice distractors
+     render as small tappable cars below the track; tapping one couples it into
+     the gap and submits through the same answer contract the old generic
+     multiple-choice buttons used.
 
 2. **Mismo** (Grades 1-6) — `mismo`
    - Match pairs of expressions that evaluate to the same value.
@@ -44,7 +48,10 @@ Each game type includes:
 
 9. **Number Paths** (Grades 1-2) — `number-paths`
    - Trace an adjacent path through counting sequences to reach a goal.
-   - Interactive tap-path board with immediate path validation.
+   - Renders as stepping stones across a pond: round stones with an anchor
+     badge on the start value and a flag badge on the goal value, a rope line
+     traced live between tapped stones. Interactive tap-path board with
+     immediate path validation (unchanged).
 
 10. **Story Logic Grids** (Grades 1-10) — `story-logic-grids`
    - Story-based one-to-one matching logic puzzles generated from templates in
